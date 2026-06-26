@@ -383,18 +383,81 @@ async function refreshAdmin() {
     ['Reservas confirmadas', data.stats.confirmed],
     ['Margem total', money(data.stats.margin)]
   ].map(([k, v]) => `<div class="kpi"><span>${k}</span><strong>${v}</strong></div>`).join('');
-  $('#adminReservations').innerHTML = data.latest.reservations.map(r => `
-    <div class="mini-item">
-      <b>${r.id}</b> - ${statusLabel(r.status)}<br>
-      ${r.offer?.hotel || ''}<br>
-      ${money(r.offer?.finalPrice)} - ${r.operator || ''}
-      ${['IN_VALIDATION', 'HUMAN_REVIEW'].includes(r.status) ? `<br><button class="ghost mini-action" onclick="approveReservation('${r.id}')">Aprovar no operador</button>` : ''}
-    </div>`).join('') || '<div class="mini-item">Sem reservas.</div>';
+  reservationStatuses = data.statuses;
+  if (!$('#reservationsStatusFilter').dataset.filled) {
+    $('#reservationsStatusFilter').innerHTML = '<option value="">Todos os estados</option>' + reservationStatuses.map(s => `<option value="${s.value}">${s.label}</option>`).join('');
+    $('#reservationsStatusFilter').dataset.filled = '1';
+  }
+  loadAdminReservations();
   $('#adminLeads').innerHTML = data.latest.leads.map(l => `<div class="mini-item"><b>${l.search.destination}</b> - ${statusLabel(l.status)}<br>${l.search.adults} adultos - orcamento ${money(l.search.budget)}</div>`).join('') || '<div class="mini-item">Sem leads.</div>';
   $('#adminMargins').innerHTML = data.margins.map(m => `<div class="mini-item"><b>${m.name}</b><br>${m.percent}% - minimo ${money(m.min)} - match: ${m.match}</div>`).join('');
   $('#adminEmails').innerHTML = data.latest.emails.map(e => `<div class="mini-item"><b>${e.subject}</b><br>Para: ${e.to}<br>${e.status}</div>`).join('') || '<div class="mini-item">Sem emails.</div>';
   $('#operatorLog').textContent = JSON.stringify({ operadores: data.operators, chamadas: data.latest.logs, auditoria: data.latest.audit }, null, 2);
 }
+
+let allReservations = [];
+let reservationStatuses = [];
+
+function reservationMatchesFilter(r, query, status) {
+  if (status && r.status !== status) return false;
+  if (!query) return true;
+  const haystack = `${r.id} ${r.customer?.name || ''} ${r.customer?.email || ''} ${r.offer?.hotel || ''} ${r.offer?.destination || ''}`.toLowerCase();
+  return haystack.includes(query.toLowerCase());
+}
+
+function renderReservationsTable() {
+  const query = $('#reservationsSearch').value.trim();
+  const status = $('#reservationsStatusFilter').value;
+  const filtered = allReservations.filter(r => reservationMatchesFilter(r, query, status));
+  $('#reservationsTable').innerHTML = filtered.map(r => `
+    <div class="reservation-row">
+      <div class="reservation-main">
+        <b>${r.id}</b> - ${r.customer?.name || ''} (${r.customer?.email || ''})<br>
+        ${r.offer?.hotel || ''} - ${r.offer?.destination || ''} - ${money(r.offer?.finalPrice)}
+        <div class="muted">Criado em ${new Date(r.createdAt).toLocaleString('pt-PT')}</div>
+      </div>
+      <div class="reservation-actions">
+        <span class="pill">${statusLabel(r.status)}</span>
+        <select class="reservation-status-select" data-reservation="${r.id}">
+          ${reservationStatuses.map(s => `<option value="${s.value}" ${s.value === r.status ? 'selected' : ''}>${s.label}</option>`).join('')}
+        </select>
+        <button class="ghost mini-action reservation-save" data-reservation="${r.id}">Guardar</button>
+        ${r.status !== 'CANCELLED' ? `<button class="ghost mini-action reservation-cancel" data-reservation="${r.id}">Cancelar</button>` : ''}
+        ${['IN_VALIDATION', 'HUMAN_REVIEW'].includes(r.status) ? `<button class="ghost mini-action" onclick="approveReservation('${r.id}')">Aprovar no operador</button>` : ''}
+      </div>
+    </div>`).join('') || '<div class="mini-item">Sem reservas.</div>';
+
+  $('#reservationsTable').querySelectorAll('.reservation-save').forEach(btn => {
+    btn.onclick = () => updateReservationStatus(btn.dataset.reservation);
+  });
+  $('#reservationsTable').querySelectorAll('.reservation-cancel').forEach(btn => {
+    btn.onclick = () => { if (confirm('Cancelar esta reserva?')) updateReservationStatus(btn.dataset.reservation, 'CANCELLED'); };
+  });
+}
+
+async function updateReservationStatus(reservationId, forceStatus) {
+  const select = document.querySelector(`.reservation-status-select[data-reservation="${reservationId}"]`);
+  const status = forceStatus || select.value;
+  try {
+    await api('/api/admin/reservations/update', { method: 'POST', body: JSON.stringify({ reservationId, status }) });
+    await loadAdminReservations();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function loadAdminReservations() {
+  try {
+    const data = await api('/api/admin/reservations');
+    allReservations = data.reservations;
+    renderReservationsTable();
+  } catch (err) {
+    $('#reservationsTable').innerHTML = `<p class="error">${err.message}</p>`;
+  }
+}
+
+$('#reservationsSearch').addEventListener('input', renderReservationsTable);
+$('#reservationsStatusFilter').addEventListener('change', renderReservationsTable);
 
 $('#adminLogin').addEventListener('submit', async e => {
   e.preventDefault();

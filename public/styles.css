@@ -618,6 +618,49 @@ textarea:focus {
 .kpi span { color: var(--muted); font-weight: 900; }
 .kpi strong { display: block; margin-top: 4px; font-size: 30px; }
 
+.reservations-toolbar {
+  display: grid;
+  grid-template-columns: 1fr 220px;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.reservations-table {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.reservation-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px;
+  background: #f8fbfd;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.reservation-main { flex: 1 1 280px; }
+
+.reservation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.reservation-actions select {
+  width: auto;
+  padding: 7px 8px;
+  font-size: 12px;
+}
+
 .admin-login[hidden] { display: none; }
 
 .admin-login {
@@ -790,7 +833,8 @@ footer {
   .cards,
   .deals-grid,
   .inspire-grid,
-  .footer-grid { grid-template-columns: 1fr; }
+  .footer-grid,
+  .reservations-toolbar { grid-template-columns: 1fr; }
   .showcase,
   .panel { width: calc(100% - 28px); margin: 34px auto; }
   .deal-card { grid-template-columns: 130px 1fr; }

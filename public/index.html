@@ -240,8 +240,15 @@
       </form>
       <div id="adminContent" hidden>
         <div class="kpis" id="kpis"></div>
+
+        <h3>Reservas</h3>
+        <div class="reservations-toolbar">
+          <input id="reservationsSearch" type="search" placeholder="Pesquisar por id, hotel, destino, cliente..." />
+          <select id="reservationsStatusFilter"></select>
+        </div>
+        <div id="reservationsTable" class="reservations-table"></div>
+
         <div class="admin-grid">
-          <div><h3>Ultimas reservas</h3><div id="adminReservations" class="mini-list"></div></div>
           <div><h3>Ultimos leads</h3><div id="adminLeads" class="mini-list"></div></div>
           <div><h3>Margens</h3><div id="adminMargins" class="mini-list"></div></div>
           <div><h3>Emails gerados</h3><div id="adminEmails" class="mini-list"></div></div>

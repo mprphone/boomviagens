@@ -21,6 +21,7 @@ const CUSTOMER_SESSION_COOKIE = 'bdv_customer_session';
 const CUSTOMER_CODE_TTL_MS = 10 * 60 * 1000;
 const customerSessions = new Map();
 const customerLoginCodes = new Map();
+const RESERVATION_STATUSES = ['NEW_LEAD', 'PROPOSAL_SENT', 'PENDING_PAYMENT', 'PAYMENT_RECEIVED', 'IN_VALIDATION', 'HUMAN_REVIEW', 'CONFIRMED', 'CANCELLED', 'OPERATOR_ERROR'];
 
 function id(prefix) {
   return `${prefix}-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
@@ -268,7 +269,7 @@ async function handleApi(req, res) {
         latest: { leads: db.leads.slice(0, 10), reservations: db.reservations.slice(0, 10), payments: db.payments.slice(0, 10), emails: db.emails.slice(0, 10), logs: db.operatorLogs.slice(0, 10), audit: db.auditLogs.slice(0, 10) },
         margins: db.margins,
         operators: operators.list(),
-        statuses: ['NEW_LEAD', 'PROPOSAL_SENT', 'PENDING_PAYMENT', 'PAYMENT_RECEIVED', 'IN_VALIDATION', 'HUMAN_REVIEW', 'CONFIRMED', 'CANCELLED', 'OPERATOR_ERROR'].map(value => ({ value, label: statusLabel(value) }))
+        statuses: RESERVATION_STATUSES.map(value => ({ value, label: statusLabel(value) }))
       });
     }
 
@@ -561,6 +562,38 @@ async function handleApi(req, res) {
         addOperatorLog(d, 'CONFIRM', confirmation);
         audit(d, sessionUser(req), 'RESERVATION_APPROVED', { reservationId: r.id, operatorLocator: r.operatorLocator });
         resultPayload = { reservation: r, payment: p, confirmation };
+      });
+      return json(res, 200, { ok: true, ...resultPayload });
+    }
+
+    if (method === 'GET' && url.pathname === '/api/admin/reservations') {
+      const db = ensureCollections(await readDb());
+      return json(res, 200, { ok: true, reservations: db.reservations });
+    }
+
+    if (method === 'POST' && url.pathname === '/api/admin/reservations/update') {
+      const body = await parseBody(req);
+      const reservationId = cleanText(body.reservationId, 120);
+      const status = cleanText(body.status, 40);
+      if (!RESERVATION_STATUSES.includes(status)) return json(res, 400, { ok: false, error: 'Estado invalido' });
+      const db = ensureCollections(await readDb());
+      const reservation = db.reservations.find(r => r.id === reservationId);
+      if (!reservation) return json(res, 404, { ok: false, error: 'Reserva nao encontrada' });
+      let resultPayload = null;
+
+      await updateDb(d => {
+        ensureCollections(d);
+        const r = d.reservations.find(x => x.id === reservationId);
+        const previousStatus = r.status;
+        r.status = status;
+        r.updatedAt = now();
+        if (body.notes !== undefined) r.notes = cleanText(body.notes, 1000);
+        if (status === 'CONFIRMED' && !r.confirmedAt) r.confirmedAt = now();
+        const p = d.payments.find(x => x.reservationId === r.id);
+        const email = reservationEmail({ reservation: r, payment: p });
+        d.emails.unshift({ id: id('email'), createdAt: now(), to: r.customer?.email || 'cliente@exemplo.pt', status: 'GERADO_DEMO', ...email });
+        audit(d, sessionUser(req), 'RESERVATION_STATUS_UPDATED', { reservationId: r.id, from: previousStatus, to: status });
+        resultPayload = { reservation: r };
       });
       return json(res, 200, { ok: true, ...resultPayload });
     }
