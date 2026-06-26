@@ -46,23 +46,84 @@ function closeResultsModal() {
   $('#resultsModal').hidden = true;
 }
 
+const destinationContent = {
+  'Punta Cana': 'Praias de areia branca e mar turquesa nas Caraibas. Tudo incluido pensado para relaxar sem preocupacoes, com voos diretos disponiveis.',
+  'Riviera Maya': 'Costa do Mexico entre recifes de coral, cenotes e cultura maia. Ideal para quem quer praia e aventura no mesmo destino.',
+  'Sal': 'Ilha de Cabo Verde com vento constante, praias quase desertas e ligacao cultural a Portugal. Otima opcao tudo incluido mais perto de casa.',
+  'Maldivas': 'Vilas sobre a agua e snorkeling a porta do quarto. O destino de lua-de-mel e longo curso por excelencia.',
+  'Disneyland Paris': 'A magia Disney a poucas horas de aviao, ideal para familias com criancas pequenas e fas de sempre.',
+  'Madeira': 'Natureza atlantica, levadas e gastronomia portuguesa sem saida de euros nem de fronteiras.'
+};
+
+function recommendationBullets(r) {
+  const bullets = [];
+  bullets.push(r.freeCancellation ? 'Cancelamento flexivel disponivel' : 'Tarifa com preco mais baixo, sem reembolso');
+  bullets.push(r.operatorReliability >= 9 ? 'Operador com historico de fiabilidade muito elevado' : r.operatorReliability >= 7 ? 'Operador com boa fiabilidade' : 'Operador parceiro Boom das Viagens');
+  if (r.rating) bullets.push(`Hospedes avaliam este hotel em ${r.rating}/5`);
+  bullets.push(r.label === 'Recomendado Boom' ? 'Escolha da equipa Boom para este pedido' : r.finalPrice <= (r.budget || Infinity) ? 'Dentro do orcamento indicado' : 'Acima do orcamento indicado, mas com excelente relacao qualidade/preco');
+  return bullets;
+}
+
 function renderResults(data) {
   $('#resultCount').textContent = `${data.results.length} opcoes`;
   $('#parsedBox').innerHTML = `<b>Pedido interpretado:</b> ${data.parsed.destination}, ${data.parsed.nights} noites, ${data.parsed.adults} adultos, ${data.parsed.children} criancas, saida ${data.parsed.origin}, orcamento ${money(data.parsed.budget)}.`;
-  $('#results').innerHTML = data.results.map((r, i) => `
+  $('#results').innerHTML = data.results.map((r, i) => {
+    const story = destinationContent[r.destination];
+    const videoQuery = encodeURIComponent(`${r.destination} ${r.hotel} video`);
+    return `
     <article class="card ${i === 0 ? 'recommended' : ''}">
       <div class="meta"><span class="pill">${r.label}</span><span class="pill">Score ${r.score}/100</span><span class="pill">${r.operator}</span></div>
       <h3>${r.hotel}</h3>
       <div>${r.destination}, ${r.country}</div>
       <div class="price">${money(r.finalPrice)}</div>
       <div class="meta"><span class="pill">${r.board}</span><span class="pill">${r.nights} noites</span><span class="pill">${r.freeCancellation ? 'cancelamento flexivel' : 'tarifa restrita'}</span></div>
-      <div class="trace">${r.trace}</div>
+      ${story ? `<p class="muted">${story}</p>` : ''}
+      <ul class="recommend-list">${recommendationBullets(r).map(b => `<li>${b}</li>`).join('')}</ul>
+      <a class="ghost video-link" target="_blank" rel="noopener" href="https://www.youtube.com/results?search_query=${videoQuery}">Ver videos deste destino</a>
       <button class="btn" onclick='selectOffer(${JSON.stringify(r).replaceAll("'", "&apos;")})'>Reservar esta opcao</button>
-    </article>`).join('');
+    </article>`;
+  }).join('');
 }
 
 function dealToPrompt(deal) {
   return `Quero ${deal.nights} noites em ${deal.title}, ${deal.board}, para 2 adultos, ate ${Math.ceil(deal.price * 2.2)} euros, saida de ${deal.origin}.`;
+}
+
+let heroDeals = [];
+let heroIndex = 0;
+let heroTimer = null;
+
+function renderHero(i) {
+  const deal = heroDeals[i];
+  if (!deal) return;
+  document.querySelector('.hero').style.setProperty('--hero-bg', `url("${deal.image}")`);
+  $('#heroCopy h1').textContent = deal.title;
+  $('#heroCopy .hero-subtitle').textContent = deal.subtitle;
+  $('#heroCopy .hero-facts').innerHTML = `<span>${deal.nights} noites</span><span>${deal.board}</span><span>Saida de ${deal.origin}</span>`;
+  $('#heroCopy .hero-price').innerHTML = `desde <strong>${money(deal.price)}</strong> <small>por pessoa</small>`;
+  $('#heroDots').innerHTML = heroDeals.map((_, idx) => `<button type="button" aria-label="Destaque ${idx + 1}" class="${idx === i ? 'active' : ''}"></button>`).join('');
+  $('#heroDots').querySelectorAll('button').forEach((btn, idx) => {
+    btn.onclick = () => { heroIndex = idx; renderHero(heroIndex); restartHeroTimer(); };
+  });
+}
+
+function restartHeroTimer() {
+  clearInterval(heroTimer);
+  if (heroDeals.length < 2) return;
+  heroTimer = setInterval(() => {
+    heroIndex = (heroIndex + 1) % heroDeals.length;
+    renderHero(heroIndex);
+  }, 6000);
+}
+
+function initHero(deals) {
+  heroDeals = deals.slice(0, 5);
+  if (!heroDeals.length) return;
+  renderHero(0);
+  restartHeroTimer();
+  const hero = document.querySelector('.hero');
+  hero.addEventListener('mouseenter', () => clearInterval(heroTimer));
+  hero.addEventListener('mouseleave', restartHeroTimer);
 }
 
 async function loadDeals() {
@@ -71,6 +132,7 @@ async function loadDeals() {
   target.innerHTML = '<p class="muted">A carregar novidades...</p>';
   try {
     const data = await api('/api/deals');
+    initHero(data.deals);
     target.innerHTML = data.deals.slice(0, 6).map(deal => `
       <article class="deal-card">
         <img src="${deal.image}" alt="${deal.title}" loading="lazy" />
@@ -94,6 +156,31 @@ async function loadDeals() {
     target.innerHTML = `<p class="error">${err.message}</p>`;
   }
 }
+
+document.querySelectorAll('a[data-destino], a[data-soon]').forEach(link => {
+  link.addEventListener('click', e => {
+    if (link.dataset.soon) {
+      e.preventDefault();
+      alert(`${link.dataset.soon}: em breve no Boom das Viagens. Contacte-nos enquanto isso para tratarmos do pedido a sua medida.`);
+      return;
+    }
+    if (!link.dataset.destino) return;
+    e.preventDefault();
+    const form = $('#searchForm');
+    form.destination.value = link.dataset.destino;
+    form.prompt.value = link.dataset.prompt || link.dataset.destino;
+    location.hash = '#pesquisa';
+    form.requestSubmit();
+  });
+});
+
+window.inspireSearch = function(destino) {
+  const form = $('#searchForm');
+  form.destination.value = destino;
+  form.prompt.value = `Quero viajar para ${destino}, 7 noites para 2 adultos.`;
+  location.hash = '#pesquisa';
+  form.requestSubmit();
+};
 
 window.searchDeal = function(deal) {
   const form = $('#searchForm');

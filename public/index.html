@@ -20,18 +20,21 @@
   </header>
 
   <div class="destination-strip" aria-label="Destinos populares">
-    <a href="#pesquisa">Caraibas</a>
-    <a href="#pesquisa">Africa</a>
-    <a href="#pesquisa">Espanha</a>
-    <a href="#pesquisa">Europa</a>
-    <a href="#pesquisa">Americas</a>
-    <a href="#pesquisa">Grandes viagens</a>
+    <a href="#pesquisa" data-destino="Punta Cana" data-prompt="Quero viajar para as Caraibas, tudo incluido, 7 noites para 2 adultos.">Caraibas</a>
+    <a href="#pesquisa" data-destino="Sal" data-prompt="Quero viajar para Cabo Verde, tudo incluido, 7 noites para 2 adultos.">Africa</a>
+    <a href="#pesquisa" data-destino="Espanha" data-prompt="Quero viajar para Espanha para 2 adultos.">Espanha</a>
+    <a href="#pesquisa" data-destino="Disneyland Paris" data-prompt="Quero viajar para a Europa, 3 noites para 2 adultos.">Europa</a>
+    <a href="#pesquisa" data-destino="Riviera Maya" data-prompt="Quero viajar para as Americas, tudo incluido, 7 noites para 2 adultos.">Americas</a>
+    <a href="#pesquisa" data-destino="Maldivas" data-prompt="Quero uma grande viagem ate as Maldivas, 7 noites para 2 adultos.">Grandes viagens</a>
+    <a href="#pesquisa" data-soon="Cruzeiros">Cruzeiros</a>
+    <a href="#pesquisa" data-soon="Seguros de viagem">Seguros</a>
+    <a href="#pesquisa" data-soon="Aluguer de carro">Aluguer de carro</a>
     <a href="#novidades">Last call</a>
   </div>
 
   <main>
     <section class="hero" id="pesquisa">
-      <div class="hero-copy">
+      <div class="hero-copy" id="heroCopy">
         <p class="eyebrow">boomdasviagens.pt</p>
         <h1>Punta Cana</h1>
         <p class="hero-subtitle">Republica Dominicana</p>
@@ -41,6 +44,7 @@
           <span>Voos de Lisboa ou Porto</span>
         </div>
         <p class="hero-price">desde <strong>779 EUR</strong> <small>por pessoa</small></p>
+        <div id="heroDots" class="hero-dots"></div>
       </div>
 
       <form id="searchForm" class="search-card">
@@ -79,6 +83,45 @@
         <a href="#pesquisa">Ver mais</a>
       </div>
       <div id="dealsGrid" class="deals-grid"></div>
+    </section>
+
+    <section id="inspiracoes" class="showcase">
+      <div class="showcase-head">
+        <div>
+          <p class="eyebrow">Inspiracao</p>
+          <h2>Historias para a sua proxima viagem</h2>
+        </div>
+      </div>
+      <div class="inspire-grid">
+        <article class="inspire-card" style="background-image:url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=900&q=80')">
+          <div class="inspire-body">
+            <h3>Punta Cana</h3>
+            <p>Praias de areia branca nas Caraibas, tudo incluido, sem preocupacoes.</p>
+            <button type="button" class="btn" onclick="inspireSearch('Punta Cana')">Quero ir</button>
+          </div>
+        </article>
+        <article class="inspire-card" style="background-image:url('https://images.unsplash.com/photo-1573843981267-be1999ff37cd?auto=format&fit=crop&w=900&q=80')">
+          <div class="inspire-body">
+            <h3>Maldivas</h3>
+            <p>Vilas sobre a agua e snorkeling a porta do quarto. O destino de lua de mel.</p>
+            <button type="button" class="btn" onclick="inspireSearch('Maldivas')">Quero ir</button>
+          </div>
+        </article>
+        <article class="inspire-card" style="background-image:url('https://images.unsplash.com/photo-1499856871958-5b9627545d1a?auto=format&fit=crop&w=900&q=80')">
+          <div class="inspire-body">
+            <h3>Disneyland Paris</h3>
+            <p>A magia Disney a poucas horas de aviao, ideal para familias.</p>
+            <button type="button" class="btn" onclick="inspireSearch('Disneyland Paris')">Quero ir</button>
+          </div>
+        </article>
+        <article class="inspire-card" style="background-image:url('https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=80')">
+          <div class="inspire-body">
+            <h3>Madeira</h3>
+            <p>Natureza atlantica e gastronomia portuguesa sem saida de euros.</p>
+            <button type="button" class="btn" onclick="inspireSearch('Madeira')">Quero ir</button>
+          </div>
+        </article>
+      </div>
     </section>
 
     <div id="resultsModal" class="modal-overlay" hidden>
@@ -154,7 +197,32 @@
   </aside>
 
   <footer>
-    <strong>Boom das Viagens</strong> - About Destiny, Unipessoal Lda - NIF 509080308 - RNAVT: <span id="rnavt">INSERIR_RNAVT</span> - Livro de Reclamacoes - Termos - Privacidade
+    <div class="footer-grid">
+      <div class="footer-col footer-brand">
+        <img src="/logo.svg" alt="Boom das Viagens" />
+        <p>About Destiny, Unipessoal Lda<br />NIF 509080308<br />RNAVT: <span id="rnavt">INSERIR_RNAVT</span></p>
+      </div>
+      <div class="footer-col">
+        <h4>Destinos</h4>
+        <a href="#pesquisa" data-destino="Punta Cana" data-prompt="Quero viajar para as Caraibas, tudo incluido, 7 noites para 2 adultos.">Caraibas</a>
+        <a href="#pesquisa" data-destino="Disneyland Paris" data-prompt="Quero viajar para a Europa, 3 noites para 2 adultos.">Europa</a>
+        <a href="#pesquisa" data-destino="Sal" data-prompt="Quero viajar para Cabo Verde, tudo incluido, 7 noites para 2 adultos.">Africa</a>
+        <a href="#pesquisa" data-destino="Maldivas" data-prompt="Quero uma grande viagem ate as Maldivas, 7 noites para 2 adultos.">Grandes viagens</a>
+      </div>
+      <div class="footer-col">
+        <h4>Empresa</h4>
+        <a href="#legal">Sobre nos</a>
+        <a href="#backoffice">Backoffice</a>
+        <a href="mailto:geral@boomdasviagens.pt">Contactos</a>
+      </div>
+      <div class="footer-col">
+        <h4>Legal</h4>
+        <a href="#legal">Termos e condicoes</a>
+        <a href="#legal">Privacidade</a>
+        <a href="#legal">Livro de reclamacoes</a>
+      </div>
+    </div>
+    <div class="footer-bottom">&copy; 2026 Boom das Viagens - boomdasviagens.pt</div>
   </footer>
 
   <script src="/app.js"></script>
