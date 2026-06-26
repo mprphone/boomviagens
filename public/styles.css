@@ -84,8 +84,8 @@ a { color: inherit; }
   flex-direction: column;
   gap: 2px;
   min-width: 220px;
-  margin-top: 14px;
-  padding: 10px;
+  margin-top: 0;
+  padding: 16px 10px 10px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: #fff;
