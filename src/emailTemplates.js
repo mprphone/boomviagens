@@ -14,4 +14,11 @@ function reservationEmail({ reservation, payment }) {
   };
 }
 
-module.exports = { proposalEmail, reservationEmail };
+function loginCodeEmail({ email, code }) {
+  return {
+    subject: 'O seu codigo de acesso Boomviagens',
+    body: `Ola,\n\nO seu codigo de acesso a area de cliente Boomviagens e:\n\n${code}\n\nEste codigo expira em 10 minutos. Se nao pediu este codigo, ignore este email.\n\nBoomviagens`
+  };
+}
+
+module.exports = { proposalEmail, reservationEmail, loginCodeEmail };

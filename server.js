@@ -5,9 +5,9 @@ const path = require('path');
 const crypto = require('crypto');
 const { readDb, updateDb } = require('./src/storage');
 const { baseOffers, searchOffers, getOfferById } = require('./src/mockOperators');
-const { proposalEmail, reservationEmail } = require('./src/emailTemplates');
+const { proposalEmail, reservationEmail, loginCodeEmail } = require('./src/emailTemplates');
 const { OperatorRegistry, TourDiezAdapter } = require('./src/operatorAdapters');
-const { cleanText, searchPayload, customerPayload, paymentMethod, numberInRange } = require('./src/validation');
+const { cleanText, searchPayload, customerPayload, paymentMethod, numberInRange, email: validateEmail } = require('./src/validation');
 
 const PORT = Number(process.env.PORT || 3000);
 const PUBLIC = path.join(__dirname, 'public');
@@ -17,6 +17,10 @@ const SESSION_COOKIE = 'bdv_admin_session';
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 const sessions = new Map();
 const rateBuckets = new Map();
+const CUSTOMER_SESSION_COOKIE = 'bdv_customer_session';
+const CUSTOMER_CODE_TTL_MS = 10 * 60 * 1000;
+const customerSessions = new Map();
+const customerLoginCodes = new Map();
 
 function id(prefix) {
   return `${prefix}-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
@@ -65,6 +69,25 @@ function setSessionCookie(res, token) {
 
 function clearSessionCookie(res) {
   res.setHeader('Set-Cookie', `${SESSION_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`);
+}
+
+function customerSessionEmail(req) {
+  const token = parseCookies(req)[CUSTOMER_SESSION_COOKIE];
+  if (!token) return null;
+  const session = customerSessions.get(token);
+  if (!session || session.expiresAt < Date.now()) {
+    customerSessions.delete(token);
+    return null;
+  }
+  return session.email;
+}
+
+function setCustomerSessionCookie(res, token) {
+  res.setHeader('Set-Cookie', `${CUSTOMER_SESSION_COOKIE}=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}`);
+}
+
+function clearCustomerSessionCookie(res) {
+  res.setHeader('Set-Cookie', `${CUSTOMER_SESSION_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`);
 }
 
 function clientIp(req) {
@@ -318,6 +341,61 @@ async function handleApi(req, res) {
         return found;
       });
       return json(res, 200, { ok: true, customer });
+    }
+
+    if (method === 'GET' && url.pathname === '/api/customer/session') {
+      const customerEmail = customerSessionEmail(req);
+      return json(res, 200, { ok: true, authenticated: Boolean(customerEmail), email: customerEmail });
+    }
+
+    if (method === 'POST' && url.pathname === '/api/customer/login/request') {
+      const limited = rateLimit(req, res, 'customer-login-request', 5, 15 * 60 * 1000);
+      if (limited) return limited;
+      const body = await parseBody(req);
+      const customerEmail = validateEmail(body.email);
+      const code = crypto.randomInt(100000, 999999).toString();
+      customerLoginCodes.set(customerEmail, { code, expiresAt: Date.now() + CUSTOMER_CODE_TTL_MS });
+      const mail = loginCodeEmail({ email: customerEmail, code });
+      await updateDb(d => {
+        ensureCollections(d);
+        d.emails.unshift({ id: id('email'), createdAt: now(), to: customerEmail, status: 'GERADO_DEMO', ...mail });
+        audit(d, customerEmail, 'CUSTOMER_LOGIN_CODE_REQUESTED', {});
+      });
+      return json(res, 200, { ok: true, message: 'Codigo gerado. Em produção seria enviado por email.', demoCode: code });
+    }
+
+    if (method === 'POST' && url.pathname === '/api/customer/login/verify') {
+      const limited = rateLimit(req, res, 'customer-login-verify', 10, 15 * 60 * 1000);
+      if (limited) return limited;
+      const body = await parseBody(req);
+      const customerEmail = validateEmail(body.email);
+      const pending = customerLoginCodes.get(customerEmail);
+      if (!pending || pending.expiresAt < Date.now() || !safeEqual(body.code, pending.code)) {
+        return json(res, 401, { ok: false, error: 'Codigo invalido ou expirado' });
+      }
+      customerLoginCodes.delete(customerEmail);
+      const token = crypto.randomBytes(32).toString('hex');
+      customerSessions.set(token, { email: customerEmail, expiresAt: Date.now() + SESSION_TTL_MS });
+      setCustomerSessionCookie(res, token);
+      const db = await readDb();
+      const customer = (db.customers || []).find(c => c.email === customerEmail) || null;
+      await updateDb(d => audit(d, customerEmail, 'CUSTOMER_LOGIN', {}));
+      return json(res, 200, { ok: true, email: customerEmail, name: customer?.name || '' });
+    }
+
+    if (method === 'POST' && url.pathname === '/api/customer/logout') {
+      const token = parseCookies(req)[CUSTOMER_SESSION_COOKIE];
+      if (token) customerSessions.delete(token);
+      clearCustomerSessionCookie(res);
+      return json(res, 200, { ok: true });
+    }
+
+    if (method === 'GET' && url.pathname === '/api/customer/reservations') {
+      const customerEmail = customerSessionEmail(req);
+      if (!customerEmail) return unauthorized(res);
+      const db = ensureCollections(await readDb());
+      const reservations = db.reservations.filter(r => r.customer?.email === customerEmail);
+      return json(res, 200, { ok: true, reservations });
     }
 
     if (method === 'POST' && url.pathname === '/api/checkout') {

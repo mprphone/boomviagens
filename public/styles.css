@@ -618,6 +618,8 @@ textarea:focus {
 .kpi span { color: var(--muted); font-weight: 900; }
 .kpi strong { display: block; margin-top: 4px; font-size: 30px; }
 
+.admin-login[hidden] { display: none; }
+
 .admin-login {
   display: grid;
   grid-template-columns: 1fr 1fr auto;
