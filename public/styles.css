@@ -96,12 +96,22 @@ a { color: inherit; }
 .nav-dropdown.open .nav-dropdown-panel { display: flex; }
 
 .nav-dropdown-panel a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   border-radius: 6px;
   padding: 8px 10px;
   color: var(--ink);
   font-size: 13px;
   font-weight: 800;
   text-transform: none;
+}
+
+.nav-icon {
+  display: inline-flex;
+  width: 20px;
+  font-size: 15px;
+  flex-shrink: 0;
 }
 
 .nav-dropdown-panel a:hover { background: #edf6f9; color: var(--pink); }
