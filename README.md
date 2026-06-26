@@ -164,7 +164,7 @@ Backoffice mostra leads, reservas, emails e logs. Chat responde e indica quando 
 
 ## Próximo desenvolvimento recomendado
 
-1. Migrar `data/db.json` para Supabase/PostgreSQL.
+1. ~~Migrar `data/db.json` para Supabase/PostgreSQL.~~ Feito: `src/storage.js` liga a Supabase quando `DB_MODE=supabase` (ver `docs/SUPABASE_SETUP.md`). Falta criar o projeto real e definir as variáveis em produção.
 2. Criar autenticação de clientes e backoffice.
 3. Colocar jobs de sincronização de hotéis/destinos TourDiez.
 4. Adicionar mais operadores.

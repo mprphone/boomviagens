@@ -56,10 +56,21 @@ As tabelas ficam com RLS ativo e sem policies publicas. Isto e intencional: clie
 
 O site deve continuar a falar com o `server.js`, e o `server.js` fala com Supabase usando service role.
 
-## Proximo passo tecnico
+## Estado atual: ligado
 
-Depois de confirmar que o projeto Supabase esta criado e que o import corre:
+`src/storage.js` ja fala com Supabase via PostgREST (`fetch` nativo do Node, sem dependencias novas) quando `DB_MODE=supabase` e `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` estao definidos com valores reais. Caso contrario usa sempre `data/db.json` local (nao persistente em Vercel) e avisa na consola.
 
-1. trocar `src/storage.js` para usar Supabase quando `DB_MODE=supabase`;
-2. manter JSON local como fallback;
-3. testar `/api/search`, `/api/checkout`, `/api/payment/confirm` e backoffice contra Supabase.
+Detalhes da implementacao:
+
+- `readDb()` faz `select` em paralelo a todas as tabelas e monta o mesmo formato que `data/db.json` (company, margins, customers, leads, reservations, payments, emails, operatorLogs, auditLogs, idempotencyKeys).
+- `updateDb(mutator)` le o estado atual, aplica o mutator e grava so as linhas que mudaram (diff por `id`), para nao reenviar todo o historico a cada pedido. Nada e apagado nas tabelas - so upsert.
+- `operator_logs` e `audit_logs` sao lidos com `limit` (100/200) para acompanhar o comportamento anterior em ficheiro.
+- `company_settings` so e lido (nao ha endpoint que o edite); se a linha `main` nao existir ainda, usa os valores de `.env` como default.
+
+### Como validar contra Supabase real
+
+1. Criar o projeto e correr `docs/supabase-schema.sql`.
+2. Preencher `.env` com `DB_MODE=supabase`, `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` reais.
+3. `npm run supabase:import` (opcional, semeia dados existentes do `data/db.json`).
+4. `npm start` e depois `npm run test:api` - o fluxo completo (login admin, pesquisa, checkout, pagamento, aprovacao) deve passar a ler/escrever direto no Supabase.
+5. Confirmar no SQL Editor do Supabase que `reservations`, `payments` e `audit_logs` ganharam linhas novas.

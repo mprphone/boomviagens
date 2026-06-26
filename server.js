@@ -194,12 +194,12 @@ async function handleApi(req, res) {
     }
 
     if (method === 'GET' && url.pathname === '/api/config') {
-      const db = readDb();
+      const db = await readDb();
       return json(res, 200, { company: db.company, margins: db.margins, paymentsMode: process.env.PAYMENTS_MODE || 'mock', operators: operators.list(), tourdiezConfigured: operators.list().some(o => o.name === 'TourDiez' && o.configured) });
     }
 
     if (method === 'GET' && url.pathname === '/api/deals') {
-      const db = readDb();
+      const db = await readDb();
       return json(res, 200, { ok: true, deals: publicDeals(db) });
     }
 
@@ -233,7 +233,7 @@ async function handleApi(req, res) {
     if (url.pathname.startsWith('/api/admin/') && !sessionUser(req)) return unauthorized(res);
 
     if (method === 'GET' && url.pathname === '/api/admin/dashboard') {
-      const db = ensureCollections(readDb());
+      const db = ensureCollections(await readDb());
       const totalReservations = db.reservations.length;
       const confirmed = db.reservations.filter(r => r.status === 'CONFIRMED').length;
       const revenue = db.reservations.filter(r => r.status === 'CONFIRMED').reduce((sum, r) => sum + (r.offer?.finalPrice || 0), 0);
@@ -248,11 +248,11 @@ async function handleApi(req, res) {
       });
     }
 
-    if (method === 'GET' && url.pathname === '/api/admin/margins') return json(res, 200, { margins: readDb().margins });
+    if (method === 'GET' && url.pathname === '/api/admin/margins') return json(res, 200, { margins: (await readDb()).margins });
 
     if (method === 'POST' && url.pathname === '/api/admin/margins') {
       const body = await parseBody(req);
-      const saved = updateDb(db => {
+      const saved = await updateDb(db => {
         ensureCollections(db);
         const margin = {
           id: cleanText(body.id || id('margin'), 80),
@@ -275,11 +275,11 @@ async function handleApi(req, res) {
       const limited = rateLimit(req, res, 'search', 60, 60 * 1000);
       if (limited) return limited;
       const body = searchPayload(await parseBody(req));
-      const db = readDb();
+      const db = await readDb();
       const { parsed, results } = searchOffers(body, db.margins);
       const lead = { id: id('lead'), createdAt: now(), search: parsed, source: body.source || 'site', status: 'PROPOSAL_SENT', topResult: results[0] };
       const email = proposalEmail({ customer: { name: body.name || 'Cliente' }, results, search: parsed });
-      updateDb(d => {
+      await updateDb(d => {
         ensureCollections(d);
         d.leads.unshift(lead);
         d.emails.unshift({ id: id('email'), createdAt: now(), to: body.email || 'cliente@exemplo.pt', status: 'GERADO_DEMO', ...email });
@@ -290,7 +290,7 @@ async function handleApi(req, res) {
 
     if (method === 'POST' && url.pathname === '/api/customer/register') {
       const body = customerPayload(await parseBody(req));
-      const customer = updateDb(db => {
+      const customer = await updateDb(db => {
         ensureCollections(db);
         let found = db.customers.find(c => c.email === body.email);
         if (found) Object.assign(found, body, { updatedAt: now() });
@@ -307,7 +307,7 @@ async function handleApi(req, res) {
     if (method === 'POST' && url.pathname === '/api/customer/register-legacy') {
       const body = await parseBody(req);
       if (!body.email) return json(res, 400, { ok: false, error: 'Email obrigatório' });
-      const customer = updateDb(db => {
+      const customer = await updateDb(db => {
         let found = db.customers.find(c => c.email === body.email);
         if (found) Object.assign(found, body, { updatedAt: now() });
         else {
@@ -323,7 +323,7 @@ async function handleApi(req, res) {
       const limited = rateLimit(req, res, 'checkout', 30, 60 * 1000);
       if (limited) return limited;
       const body = await parseBody(req);
-      const db = ensureCollections(readDb());
+      const db = ensureCollections(await readDb());
       const idemKey = cleanText(req.headers['idempotency-key'] || body.idempotencyKey || '', 160);
       if (idemKey && db.idempotencyKeys[idemKey]) {
         const existingReservation = db.reservations.find(r => r.id === db.idempotencyKeys[idemKey].reservationId);
@@ -356,7 +356,7 @@ async function handleApi(req, res) {
         reference: crypto.randomInt(100000000, 999999999).toString(),
         expiresAt: new Date(Date.now() + 86400000).toISOString()
       };
-      updateDb(d => {
+      await updateDb(d => {
         ensureCollections(d);
         d.reservations.unshift(reservation);
         d.payments.unshift(payment);
@@ -370,7 +370,7 @@ async function handleApi(req, res) {
 
     if (method === 'POST' && url.pathname === '/api/checkout-legacy') {
       const body = await parseBody(req);
-      const db = readDb();
+      const db = await readDb();
       let offer = body.offer || getOfferById(body.offerId, db.margins);
       if (!offer) return json(res, 404, { ok: false, error: 'Oferta não encontrada' });
       const customer = body.customer || { name: body.name || 'Cliente Teste', email: body.email || 'cliente@exemplo.pt', phone: body.phone || '' };
@@ -382,7 +382,7 @@ async function handleApi(req, res) {
         id: id('pay'), createdAt: now(), reservationId: reservation.id, method: body.paymentMethod || 'MB WAY', amount: offer.finalPrice,
         status: 'PENDING', reference: crypto.randomInt(100000000, 999999999).toString(), expiresAt: new Date(Date.now() + 86400000).toISOString()
       };
-      updateDb(d => {
+      await updateDb(d => {
         d.reservations.unshift(reservation);
         d.payments.unshift(payment);
         let existing = d.customers.find(c => c.email === customer.email);
@@ -396,7 +396,7 @@ async function handleApi(req, res) {
       if (limited) return limited;
       const body = await parseBody(req);
       let resultPayload = null;
-      const db = ensureCollections(readDb());
+      const db = ensureCollections(await readDb());
       const payment = db.payments.find(p => p.id === body.paymentId || p.reservationId === body.reservationId);
       if (!payment) return json(res, 404, { ok: false, error: 'Pagamento nao encontrado' });
       const reservation = db.reservations.find(r => r.id === payment.reservationId);
@@ -405,7 +405,7 @@ async function handleApi(req, res) {
       const adapter = operators.getForOffer(reservation.offer);
       const validation = await adapter.value({ offer: reservation.offer, reservation });
 
-      updateDb(d => {
+      await updateDb(d => {
         ensureCollections(d);
         const p = d.payments.find(x => x.id === payment.id);
         if (p.status !== 'PAID') {
@@ -430,7 +430,7 @@ async function handleApi(req, res) {
       const body = await parseBody(req);
       let resultPayload = null;
       await updateDb(asyncDb => asyncDb);
-      const db = readDb();
+      const db = await readDb();
       const payment = db.payments.find(p => p.id === body.paymentId || p.reservationId === body.reservationId);
       if (!payment) return json(res, 404, { ok: false, error: 'Pagamento não encontrado' });
       const reservation = db.reservations.find(r => r.id === payment.reservationId);
@@ -439,7 +439,7 @@ async function handleApi(req, res) {
       const validation = await tourdiez.value({ optionID: reservation.offer.id, rateKey: reservation.offer.id });
       const confirmation = await tourdiez.confirm({ optionID: reservation.offer.id, agencyReference: reservation.id, holder: reservation.customer?.name, passengers: [{ name: reservation.customer?.name || 'Cliente' }] });
 
-      updateDb(d => {
+      await updateDb(d => {
         const p = d.payments.find(x => x.id === payment.id);
         p.status = 'PAID'; p.paidAt = now();
         const r = d.reservations.find(x => x.id === reservation.id);
@@ -458,7 +458,7 @@ async function handleApi(req, res) {
     if (method === 'POST' && url.pathname === '/api/admin/reservations/approve') {
       const body = await parseBody(req);
       const reservationId = cleanText(body.reservationId, 120);
-      const db = ensureCollections(readDb());
+      const db = ensureCollections(await readDb());
       const reservation = db.reservations.find(r => r.id === reservationId);
       if (!reservation) return json(res, 404, { ok: false, error: 'Reserva nao encontrada' });
       const payment = db.payments.find(p => p.reservationId === reservation.id);
@@ -469,7 +469,7 @@ async function handleApi(req, res) {
       const confirmation = await adapter.confirm({ reservation, payment });
       let resultPayload = null;
 
-      updateDb(d => {
+      await updateDb(d => {
         ensureCollections(d);
         const r = d.reservations.find(x => x.id === reservation.id);
         const p = d.payments.find(x => x.id === payment.id);
@@ -503,7 +503,7 @@ async function handleApi(req, res) {
       const body = await parseBody(req);
       const login = await tourdiezAdapter.client.login();
       const avail = await tourdiezAdapter.search(body || { destination: 'Punta Cana', nights: 7, adults: 2 });
-      updateDb(db => { addOperatorLog(db, 'TEST_LOGIN', login); addOperatorLog(db, 'TEST_AVAIL', avail); });
+      await updateDb(db => { addOperatorLog(db, 'TEST_LOGIN', login); addOperatorLog(db, 'TEST_AVAIL', avail); });
       return json(res, 200, { ok: true, configured: tourdiezAdapter.isConfigured(), login, availability: avail });
     }
 
