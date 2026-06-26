@@ -81,17 +81,20 @@
       <div id="dealsGrid" class="deals-grid"></div>
     </section>
 
-    <section id="resultados" class="panel">
-      <div class="section-head">
-        <div>
-          <p class="eyebrow">Resultados</p>
-          <h2>Melhor preco e recomendacao</h2>
+    <div id="resultsModal" class="modal-overlay" hidden>
+      <div class="modal-box panel">
+        <button type="button" id="closeResultsModal" class="modal-close" aria-label="Fechar">&times;</button>
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Resultados</p>
+            <h2>Melhor preco e recomendacao</h2>
+          </div>
+          <span id="resultCount" class="badge">0 opcoes</span>
         </div>
-        <span id="resultCount" class="badge">0 opcoes</span>
+        <div id="parsedBox" class="parsed"></div>
+        <div id="results" class="cards"></div>
       </div>
-      <div id="parsedBox" class="parsed"></div>
-      <div id="results" class="cards"></div>
-    </section>
+    </div>
 
     <section class="panel checkout-panel" id="checkoutPanel" hidden>
       <div class="section-head">

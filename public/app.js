@@ -38,6 +38,14 @@ function setAdminState(authenticated) {
   if (!authenticated) $('#adminLoginMessage').textContent = 'Entre para ver reservas, leads, margens e logs.';
 }
 
+function openResultsModal() {
+  $('#resultsModal').hidden = false;
+}
+
+function closeResultsModal() {
+  $('#resultsModal').hidden = true;
+}
+
 function renderResults(data) {
   $('#resultCount').textContent = `${data.results.length} opcoes`;
   $('#parsedBox').innerHTML = `<b>Pedido interpretado:</b> ${data.parsed.destination}, ${data.parsed.nights} noites, ${data.parsed.adults} adultos, ${data.parsed.children} criancas, saida ${data.parsed.origin}, orcamento ${money(data.parsed.budget)}.`;
@@ -100,14 +108,24 @@ window.searchDeal = function(deal) {
 
 window.selectOffer = function(offer) {
   currentOffer = offer;
+  closeResultsModal();
   $('#checkoutPanel').hidden = false;
   $('#selectedOffer').innerHTML = `<b>${offer.hotel}</b><br>${offer.destination} - ${offer.board} - ${offer.nights} noites<br><b>Preco cliente:</b> ${money(offer.finalPrice)} - <b>Margem:</b> ${money(offer.marginValue)}<br><small>${offer.trace}</small>`;
   location.hash = '#checkoutPanel';
 };
 
+$('#closeResultsModal').onclick = closeResultsModal;
+$('#resultsModal').addEventListener('click', e => {
+  if (e.target.id === 'resultsModal') closeResultsModal();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !$('#resultsModal').hidden) closeResultsModal();
+});
+
 $('#searchForm').addEventListener('submit', async e => {
   e.preventDefault();
   $('#results').innerHTML = '<p>A pesquisar operadores, aplicar margens e gerar proposta...</p>';
+  openResultsModal();
   try {
     const data = await api('/api/search', { method: 'POST', body: JSON.stringify(formToJson(e.target)) });
     renderResults(data);
