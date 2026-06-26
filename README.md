@@ -71,7 +71,7 @@ TOURDIEZ_PASSWORD=
 PAYMENTS_MODE=mock
 ```
 
-Nota: este projeto não carrega automaticamente `.env` para evitar dependências. Em produção, usar variáveis no servidor, Docker, Vercel, Render, Railway ou instalar `dotenv`.
+Nota: o `server.js` carrega `.env` automaticamente via `dotenv` (so localmente; ficheiro `.env` nunca e enviado para o git). Em produção (Vercel, Docker, Render, Railway...), definir as variáveis diretamente nas settings da plataforma - o `dotenv` não tem efeito se não houver ficheiro `.env`.
 
 ---
 

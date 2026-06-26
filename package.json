@@ -9,8 +9,19 @@
     "test:api": "node scripts/test-api.js",
     "supabase:import": "node scripts/supabase-import-json.js"
   },
-  "keywords": ["viagens", "reservas", "tourdiezt", "crm", "boomdasviagens"],
+  "keywords": [
+    "viagens",
+    "reservas",
+    "tourdiezt",
+    "crm",
+    "boomdasviagens"
+  ],
   "author": "MPR / Boom das Viagens",
   "license": "UNLICENSED",
-  "engines": { "node": ">=18" }
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2"
+  }
 }
