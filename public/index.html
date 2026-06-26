@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Boom das Viagens - Reservas Inteligentes</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><img src="/logo.svg" alt="Boom das Viagens" /></div>
+    <nav class="main-nav">
+      <a href="#pesquisa">Pesquisar</a>
+      <a href="#novidades">Novidades</a>
+      <a href="#resultados">Resultados</a>
+      <a href="#backoffice">Backoffice</a>
+      <a href="#legal">Legal</a>
+    </nav>
+    <button id="refreshAdmin" class="ghost">Atualizar painel</button>
+  </header>
+
+  <div class="destination-strip" aria-label="Destinos populares">
+    <a href="#pesquisa">Caraibas</a>
+    <a href="#pesquisa">Africa</a>
+    <a href="#pesquisa">Espanha</a>
+    <a href="#pesquisa">Europa</a>
+    <a href="#pesquisa">Americas</a>
+    <a href="#pesquisa">Grandes viagens</a>
+    <a href="#novidades">Last call</a>
+  </div>
+
+  <main>
+    <section class="hero" id="pesquisa">
+      <div class="hero-copy">
+        <p class="eyebrow">boomdasviagens.pt</p>
+        <h1>Punta Cana</h1>
+        <p class="hero-subtitle">Republica Dominicana</p>
+        <div class="hero-facts">
+          <span>7 noites</span>
+          <span>Tudo incluido</span>
+          <span>Voos de Lisboa ou Porto</span>
+        </div>
+        <p class="hero-price">desde <strong>779 EUR</strong> <small>por pessoa</small></p>
+      </div>
+
+      <form id="searchForm" class="search-card">
+        <div class="section-head compact">
+          <div>
+            <p class="eyebrow">Pesquisa inteligente</p>
+            <h2>Encontre o melhor destino</h2>
+          </div>
+          <span id="modeBadge" class="badge">modo demo</span>
+        </div>
+
+        <label class="wide">Pedido livre
+          <textarea name="prompt" rows="3">Quero 7 noites nas Caraibas em agosto, tudo incluido, para 2 adultos, ate 2500 euros, saida do Porto.</textarea>
+        </label>
+        <div class="search-grid">
+          <label>Destino <input name="destination" placeholder="Punta Cana" /></label>
+          <label>Aeroporto <select name="origin"><option>Lisboa</option><option selected>Porto</option><option>Faro</option></select></label>
+          <label>Data <input name="checkin" type="date" /></label>
+          <label>Noites <input name="nights" type="number" value="7" min="1" /></label>
+          <label>Adultos <input name="adults" type="number" value="2" min="1" /></label>
+          <label>Criancas <input name="children" type="number" value="0" min="0" /></label>
+          <label>Orcamento <input name="budget" type="number" value="2500" /></label>
+          <label>Nome <input name="name" value="Cliente Teste" /></label>
+          <label class="wide">Email <input name="email" value="cliente@exemplo.pt" /></label>
+        </div>
+        <button class="btn wide" type="submit">Procurar viagens</button>
+      </form>
+    </section>
+
+    <section id="novidades" class="showcase">
+      <div class="showcase-head">
+        <div>
+          <p class="eyebrow">Novidades via API</p>
+          <h2>Last call</h2>
+        </div>
+        <a href="#pesquisa">Ver mais</a>
+      </div>
+      <div id="dealsGrid" class="deals-grid"></div>
+    </section>
+
+    <section id="resultados" class="panel">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Resultados</p>
+          <h2>Melhor preco e recomendacao</h2>
+        </div>
+        <span id="resultCount" class="badge">0 opcoes</span>
+      </div>
+      <div id="parsedBox" class="parsed"></div>
+      <div id="results" class="cards"></div>
+    </section>
+
+    <section class="panel checkout-panel" id="checkoutPanel" hidden>
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Checkout seguro</p>
+          <h2>Reserva de teste</h2>
+        </div>
+        <span class="badge green">pagamento + aprovacao interna</span>
+      </div>
+      <div id="selectedOffer" class="selected-offer"></div>
+      <form id="checkoutForm" class="grid-form">
+        <label>Nome <input name="name" value="Cliente Teste" required /></label>
+        <label>Email <input name="email" value="cliente@exemplo.pt" required /></label>
+        <label>Telefone <input name="phone" value="+351900000000" /></label>
+        <label>Metodo de pagamento <select name="paymentMethod"><option>MB WAY</option><option>Referencia Multibanco</option><option>Cartao</option></select></label>
+        <button class="btn wide" type="submit">Criar reserva e pagamento</button>
+      </form>
+      <div id="paymentBox"></div>
+    </section>
+
+    <section id="backoffice" class="panel">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Backoffice</p>
+          <h2>CRM, reservas, margens e logs</h2>
+        </div>
+        <button id="testOperator" class="ghost">Testar TourDiez</button>
+      </div>
+      <form id="adminLogin" class="admin-login">
+        <label>Utilizador <input name="username" autocomplete="username" value="admin" required /></label>
+        <label>Password <input name="password" type="password" autocomplete="current-password" placeholder="admin123" required /></label>
+        <button class="btn" type="submit">Entrar no backoffice</button>
+        <p id="adminLoginMessage"></p>
+      </form>
+      <div id="adminContent" hidden>
+        <div class="kpis" id="kpis"></div>
+        <div class="admin-grid">
+          <div><h3>Ultimas reservas</h3><div id="adminReservations" class="mini-list"></div></div>
+          <div><h3>Ultimos leads</h3><div id="adminLeads" class="mini-list"></div></div>
+          <div><h3>Margens</h3><div id="adminMargins" class="mini-list"></div></div>
+          <div><h3>Emails gerados</h3><div id="adminEmails" class="mini-list"></div></div>
+        </div>
+        <pre id="operatorLog" class="log"></pre>
+      </div>
+    </section>
+
+    <section id="legal" class="panel legal">
+      <h2>Elementos legais a completar antes de producao</h2>
+      <p>Rodape preparado para RNAVT, Livro de Reclamacoes, Termos, Privacidade, Cookies e condicoes de viagem. Substituir os campos INSERIR_RNAVT pelos dados finais da empresa.</p>
+    </section>
+  </main>
+
+  <aside class="chat">
+    <div class="chat-head">Chat Boom</div>
+    <div id="chatMessages" class="chat-messages"><p><b>Boom:</b> Ola! Diga-me o destino, datas, orcamento e passageiros.</p></div>
+    <form id="chatForm"><input name="message" placeholder="Ex: quero Caraibas em agosto" /><button>Enviar</button></form>
+  </aside>
+
+  <footer>
+    <strong>Boom das Viagens</strong> - About Destiny, Unipessoal Lda - NIF 509080308 - RNAVT: <span id="rnavt">INSERIR_RNAVT</span> - Livro de Reclamacoes - Termos - Privacidade
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>

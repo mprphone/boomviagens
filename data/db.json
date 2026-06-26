@@ -1,0 +1,1870 @@
+{
+  "company": {
+    "name": "About Destiny, Unipessoal Lda",
+    "brand": "Boom das Viagens",
+    "domain": "boomdasviagens.pt",
+    "email": "geral@boomdasviagens.pt",
+    "phone": "+351960257333",
+    "nif": "509080308",
+    "rnavt": "INSERIR_RNAVT",
+    "address": "Alameda de São Dâmaso, Centro Comercial São Francisco, Guimarães",
+    "cae": "79110 - Atividades das agências de viagens",
+    "marketCountry": "PT",
+    "currency": "EUR",
+    "priceType": "PVP",
+    "commissionIncluded": true,
+    "confirmationMode": "automatic",
+    "defaultMarginPercent": 5
+  },
+  "margins": [
+    {
+      "id": "m-caribe",
+      "name": "Caraíbas",
+      "match": "caraibas,punta cana,riviera maya,cancun,mexico,república dominicana",
+      "percent": 5,
+      "min": 0,
+      "roundTo": 5,
+      "active": true
+    },
+    {
+      "id": "m-europa",
+      "name": "Europa",
+      "match": "paris,disney,espanha,ilhas,europa,madeira,açores",
+      "percent": 5,
+      "min": 0,
+      "roundTo": 5,
+      "active": true
+    },
+    {
+      "id": "m-luxo",
+      "name": "Longo curso / luxo",
+      "match": "maldivas,bali,dubai,mauricias,zanzibar",
+      "percent": 5,
+      "min": 0,
+      "roundTo": 10,
+      "active": true
+    },
+    {
+      "id": "m-default",
+      "name": "Regra geral",
+      "match": "*",
+      "percent": 5,
+      "min": 0,
+      "roundTo": 5,
+      "active": true
+    }
+  ],
+  "customers": [
+    {
+      "id": "cli-20260626-97F3EF",
+      "createdAt": "2026-06-26T11:31:20.262Z",
+      "name": "Teste",
+      "email": "teste@boomdasviagens.pt"
+    }
+  ],
+  "leads": [
+    {
+      "id": "lead-20260626-6B0CC6",
+      "createdAt": "2026-06-26T12:50:16.728Z",
+      "search": {
+        "destination": "Punta Cana",
+        "budget": 2500,
+        "adults": 2,
+        "children": 0,
+        "nights": 7,
+        "origin": "Lisboa",
+        "board": "Qualquer regime",
+        "checkin": "",
+        "prompt": "7 noites nas Caraibas para 2 adultos ate 2500 euros"
+      },
+      "source": "site",
+      "status": "PROPOSAL_SENT",
+      "topResult": {
+        "id": "sol-puj-002",
+        "operator": "Solférias Demo",
+        "destination": "Punta Cana",
+        "country": "República Dominicana",
+        "hotel": "Bahia Azul Palace 5★",
+        "board": "Tudo incluído",
+        "nights": 7,
+        "base": 1025,
+        "rating": 4.2,
+        "freeCancellation": false,
+        "themes": [
+          "caraíbas",
+          "praia"
+        ],
+        "available": true,
+        "operatorReliability": 8,
+        "costPrice": 1047,
+        "marginRule": "Caraíbas",
+        "marginPercent": 5,
+        "marginValue": 53,
+        "finalPrice": 1100,
+        "adults": 2,
+        "children": 0,
+        "origin": "Lisboa",
+        "score": 99,
+        "label": "Dentro do orçamento",
+        "trace": "Operador: Solférias Demo; regra margem: Caraíbas; custo 1047€; margem 53€"
+      }
+    },
+    {
+      "id": "lead-20260626-C68D5A",
+      "createdAt": "2026-06-26T12:43:31.413Z",
+      "search": {
+        "destination": "Punta Cana",
+        "budget": 2500,
+        "adults": 2,
+        "children": 0,
+        "nights": 7,
+        "origin": "Lisboa",
+        "board": "Qualquer regime",
+        "checkin": "",
+        "prompt": "7 noites nas Caraibas para 2 adultos ate 2500 euros"
+      },
+      "source": "site",
+      "status": "PROPOSAL_SENT",
+      "topResult": {
+        "id": "sol-puj-002",
+        "operator": "Solférias Demo",
+        "destination": "Punta Cana",
+        "country": "República Dominicana",
+        "hotel": "Bahia Azul Palace 5★",
+        "board": "Tudo incluído",
+        "nights": 7,
+        "base": 1025,
+        "rating": 4.2,
+        "freeCancellation": false,
+        "themes": [
+          "caraíbas",
+          "praia"
+        ],
+        "available": true,
+        "operatorReliability": 8,
+        "costPrice": 1047,
+        "marginRule": "Caraíbas",
+        "marginPercent": 5,
+        "marginValue": 53,
+        "finalPrice": 1100,
+        "adults": 2,
+        "children": 0,
+        "origin": "Lisboa",
+        "score": 99,
+        "label": "Dentro do orçamento",
+        "trace": "Operador: Solférias Demo; regra margem: Caraíbas; custo 1047€; margem 53€"
+      }
+    },
+    {
+      "id": "lead-20260626-0B99DC",
+      "createdAt": "2026-06-26T12:35:10.811Z",
+      "search": {
+        "destination": "Punta Cana",
+        "budget": 2500,
+        "adults": 2,
+        "children": 0,
+        "nights": 7,
+        "origin": "Lisboa",
+        "board": "Qualquer regime",
+        "checkin": "",
+        "prompt": "7 noites nas Caraibas para 2 adultos ate 2500 euros"
+      },
+      "source": "site",
+      "status": "PROPOSAL_SENT",
+      "topResult": {
+        "id": "sol-puj-002",
+        "operator": "Solférias Demo",
+        "destination": "Punta Cana",
+        "country": "República Dominicana",
+        "hotel": "Bahia Azul Palace 5★",
+        "board": "Tudo incluído",
+        "nights": 7,
+        "base": 1025,
+        "rating": 4.2,
+        "freeCancellation": false,
+        "themes": [
+          "caraíbas",
+          "praia"
+        ],
+        "available": true,
+        "operatorReliability": 8,
+        "costPrice": 1047,
+        "marginRule": "Caraíbas",
+        "marginPercent": 5,
+        "marginValue": 53,
+        "finalPrice": 1100,
+        "adults": 2,
+        "children": 0,
+        "origin": "Lisboa",
+        "score": 99,
+        "label": "Dentro do orçamento",
+        "trace": "Operador: Solférias Demo; regra margem: Caraíbas; custo 1047€; margem 53€"
+      }
+    },
+    {
+      "id": "lead-20260626-26017C",
+      "createdAt": "2026-06-26T12:19:52.703Z",
+      "search": {
+        "destination": "Disneyland Paris",
+        "budget": 1056,
+        "adults": 2,
+        "children": 0,
+        "nights": 3,
+        "origin": "Porto",
+        "board": "Qualquer regime",
+        "checkin": "",
+        "prompt": "Quero 3 noites em Disneyland Paris, Alojamento e pequeno-almoço, para 2 adultos, ate 1056 euros, saida de Porto."
+      },
+      "source": "site",
+      "status": "PROPOSAL_SENT",
+      "topResult": {
+        "id": "eur-dis-006",
+        "operator": "EuroDisney Demo",
+        "destination": "Disneyland Paris",
+        "country": "França",
+        "hotel": "Magic Stay Val d’Europe 4★",
+        "board": "Alojamento e pequeno-almoço",
+        "nights": 3,
+        "base": 425,
+        "rating": 4,
+        "freeCancellation": true,
+        "themes": [
+          "disney",
+          "família",
+          "paris"
+        ],
+        "available": true,
+        "operatorReliability": 7,
+        "costPrice": 197.14,
+        "marginRule": "Europa",
+        "marginPercent": 6,
+        "marginValue": 57.86,
+        "finalPrice": 255,
+        "adults": 2,
+        "children": 0,
+        "origin": "Porto",
+        "score": 99,
+        "label": "Recomendado Boom",
+        "trace": "Operador: EuroDisney Demo; regra margem: Europa; custo 197.14€; margem 57.86€"
+      }
+    },
+    {
+      "id": "lead-20260626-2BAEF5",
+      "createdAt": "2026-06-26T12:19:52.513Z",
+      "search": {
+        "destination": "Disneyland Paris",
+        "budget": 1056,
+        "adults": 2,
+        "children": 0,
+        "nights": 3,
+        "origin": "Porto",
+        "board": "Qualquer regime",
+        "checkin": "",
+        "prompt": "Quero 3 noites em Disneyland Paris, Alojamento e pequeno-almoço, para 2 adultos, ate 1056 euros, saida de Porto."
+      },
+      "source": "site",
+      "status": "PROPOSAL_SENT",
+      "topResult": {
+        "id": "eur-dis-006",
+        "operator": "EuroDisney Demo",
+        "destination": "Disneyland Paris",
+        "country": "França",
+        "hotel": "Magic Stay Val d’Europe 4★",
+        "board": "Alojamento e pequeno-almoço",
+        "nights": 3,
+        "base": 425,
+        "rating": 4,
+        "freeCancellation": true,
+        "themes": [
+          "disney",
+          "família",
+          "paris"
+        ],
+        "available": true,
+        "operatorReliability": 7,
+        "costPrice": 197.14,
+        "marginRule": "Europa",
+        "marginPercent": 6,
+        "marginValue": 57.86,
+        "finalPrice": 255,
+        "adults": 2,
+        "children": 0,
+        "origin": "Porto",
+        "score": 99,
+        "label": "Recomendado Boom",
+        "trace": "Operador: EuroDisney Demo; regra margem: Europa; custo 197.14€; margem 57.86€"
+      }
+    },
+    {
+      "id": "lead-20260626-856179",
+      "createdAt": "2026-06-26T12:19:52.289Z",
+      "search": {
+        "destination": "Disneyland Paris",
+        "budget": 1056,
+        "adults": 2,
+        "children": 0,
+        "nights": 3,
+        "origin": "Porto",
+        "board": "Qualquer regime",
+        "checkin": "",
+        "prompt": "Quero 3 noites em Disneyland Paris, Alojamento e pequeno-almoço, para 2 adultos, ate 1056 euros, saida de Porto."
+      },
+      "source": "site",
+      "status": "PROPOSAL_SENT",
+      "topResult": {
+        "id": "eur-dis-006",
+        "operator": "EuroDisney Demo",
+        "destination": "Disneyland Paris",
+        "country": "França",
+        "hotel": "Magic Stay Val d’Europe 4★",
+        "board": "Alojamento e pequeno-almoço",
+        "nights": 3,
+        "base": 425,
+        "rating": 4,
+        "freeCancellation": true,
+        "themes": [
+          "disney",
+          "família",
+          "paris"
+        ],
+        "available": true,
+        "operatorReliability": 7,
+        "costPrice": 197.14,
+        "marginRule": "Europa",
+        "marginPercent": 6,
+        "marginValue": 57.86,
+        "finalPrice": 255,
+        "adults": 2,
+        "children": 0,
+        "origin": "Porto",
+        "score": 99,
+        "label": "Recomendado Boom",
+        "trace": "Operador: EuroDisney Demo; regra margem: Europa; custo 197.14€; margem 57.86€"
+      }
+    },
+    {
+      "id": "lead-20260626-A98DCE",
+      "createdAt": "2026-06-26T12:19:51.438Z",
+      "search": {
+        "destination": "Disneyland Paris",
+        "budget": 1056,
+        "adults": 2,
+        "children": 0,
+        "nights": 3,
+        "origin": "Porto",
+        "board": "Qualquer regime",
+        "checkin": "",
+        "prompt": "Quero 3 noites em Disneyland Paris, Alojamento e pequeno-almoço, para 2 adultos, ate 1056 euros, saida de Porto."
+      },
+      "source": "site",
+      "status": "PROPOSAL_SENT",
+      "topResult": {
+        "id": "eur-dis-006",
+        "operator": "EuroDisney Demo",
+        "destination": "Disneyland Paris",
+        "country": "França",
+        "hotel": "Magic Stay Val d’Europe 4★",
+        "board": "Alojamento e pequeno-almoço",
+        "nights": 3,
+        "base": 425,
+        "rating": 4,
+        "freeCancellation": true,
+        "themes": [
+          "disney",
+          "família",
+          "paris"
+        ],
+        "available": true,
+        "operatorReliability": 7,
+        "costPrice": 197.14,
+        "marginRule": "Europa",
+        "marginPercent": 6,
+        "marginValue": 57.86,
+        "finalPrice": 255,
+        "adults": 2,
+        "children": 0,
+        "origin": "Porto",
+        "score": 99,
+        "label": "Recomendado Boom",
+        "trace": "Operador: EuroDisney Demo; regra margem: Europa; custo 197.14€; margem 57.86€"
+      }
+    },
+    {
+      "id": "lead-20260626-681E11",
+      "createdAt": "2026-06-26T12:19:48.563Z",
+      "search": {
+        "destination": "Disneyland Paris",
+        "budget": 1056,
+        "adults": 2,
+        "children": 0,
+        "nights": 3,
+        "origin": "Porto",
+        "board": "Qualquer regime",
+        "checkin": "",
+        "prompt": "Quero 3 noites em Disneyland Paris, Alojamento e pequeno-almoço, para 2 adultos, ate 1056 euros, saida de Porto."
+      },
+      "source": "site",
+      "status": "PROPOSAL_SENT",
+      "topResult": {
+        "id": "eur-dis-006",
+        "operator": "EuroDisney Demo",
+        "destination": "Disneyland Paris",
+        "country": "França",
+        "hotel": "Magic Stay Val d’Europe 4★",
+        "board": "Alojamento e pequeno-almoço",
+        "nights": 3,
+        "base": 425,
+        "rating": 4,
+        "freeCancellation": true,
+        "themes": [
+          "disney",
+          "família",
+          "paris"
+        ],
+        "available": true,
+        "operatorReliability": 7,
+        "costPrice": 197.14,
+        "marginRule": "Europa",
+        "marginPercent": 6,
+        "marginValue": 57.86,
+        "finalPrice": 255,
+        "adults": 2,
+        "children": 0,
+        "origin": "Porto",
+        "score": 99,
+        "label": "Recomendado Boom",
+        "trace": "Operador: EuroDisney Demo; regra margem: Europa; custo 197.14€; margem 57.86€"
+      }
+    },
+    {
+      "id": "lead-20260626-C4C68D",
+      "createdAt": "2026-06-26T12:17:34.796Z",
+      "search": {
+        "destination": "Punta Cana",
+        "budget": 2500,
+        "adults": 2,
+        "children": 0,
+        "nights": 7,
+        "origin": "Lisboa",
+        "board": "Qualquer regime",
+        "checkin": "",
+        "prompt": "7 noites nas Caraibas para 2 adultos ate 2500 euros"
+      },
+      "source": "site",
+      "status": "PROPOSAL_SENT",
+      "topResult": {
+        "id": "sol-puj-002",
+        "operator": "Solférias Demo",
+        "destination": "Punta Cana",
+        "country": "República Dominicana",
+        "hotel": "Bahia Azul Palace 5★",
+        "board": "Tudo incluído",
+        "nights": 7,
+        "base": 1025,
+        "rating": 4.2,
+        "freeCancellation": false,
+        "themes": [
+          "caraíbas",
+          "praia"
+        ],
+        "available": true,
+        "operatorReliability": 8,
+        "costPrice": 1047,
+        "marginRule": "Caraíbas",
+        "marginPercent": 8,
+        "marginValue": 88,
+        "finalPrice": 1135,
+        "adults": 2,
+        "children": 0,
+        "origin": "Lisboa",
+        "score": 99,
+        "label": "Dentro do orçamento",
+        "trace": "Operador: Solférias Demo; regra margem: Caraíbas; custo 1047€; margem 88€"
+      }
+    },
+    {
+      "id": "lead-20260626-FE9CD5",
+      "createdAt": "2026-06-26T12:07:39.123Z",
+      "search": {
+        "destination": "Punta Cana",
+        "budget": 2500,
+        "adults": 2,
+        "children": 0,
+        "nights": 7,
+        "origin": "Lisboa",
+        "board": "Qualquer regime",
+        "checkin": "",
+        "prompt": "7 noites nas Caraibas para 2 adultos ate 2500 euros"
+      },
+      "source": "site",
+      "status": "PROPOSAL_SENT",
+      "topResult": {
+        "id": "sol-puj-002",
+        "operator": "Solférias Demo",
+        "destination": "Punta Cana",
+        "country": "República Dominicana",
+        "hotel": "Bahia Azul Palace 5★",
+        "board": "Tudo incluído",
+        "nights": 7,
+        "base": 1025,
+        "rating": 4.2,
+        "freeCancellation": false,
+        "themes": [
+          "caraíbas",
+          "praia"
+        ],
+        "available": true,
+        "operatorReliability": 8,
+        "costPrice": 1047,
+        "marginRule": "Caraíbas",
+        "marginPercent": 8,
+        "marginValue": 88,
+        "finalPrice": 1135,
+        "adults": 2,
+        "children": 0,
+        "origin": "Lisboa",
+        "score": 99,
+        "label": "Dentro do orçamento",
+        "trace": "Operador: Solférias Demo; regra margem: Caraíbas; custo 1047€; margem 88€"
+      }
+    },
+    {
+      "id": "lead-20260626-33CD8F",
+      "createdAt": "2026-06-26T11:45:50.478Z",
+      "search": {
+        "destination": "Punta Cana",
+        "budget": 2500,
+        "adults": 2,
+        "children": 0,
+        "nights": 7,
+        "origin": "Lisboa",
+        "board": "Qualquer regime",
+        "checkin": "",
+        "prompt": "7 noites nas Caraibas para 2 adultos ate 2500 euros"
+      },
+      "source": "site",
+      "status": "PROPOSAL_SENT",
+      "topResult": {
+        "id": "sol-puj-002",
+        "operator": "Solférias Demo",
+        "destination": "Punta Cana",
+        "country": "República Dominicana",
+        "hotel": "Bahia Azul Palace 5★",
+        "board": "Tudo incluído",
+        "nights": 7,
+        "base": 1025,
+        "rating": 4.2,
+        "freeCancellation": false,
+        "themes": [
+          "caraíbas",
+          "praia"
+        ],
+        "available": true,
+        "operatorReliability": 8,
+        "costPrice": 1047,
+        "marginRule": "Caraíbas",
+        "marginPercent": 8,
+        "marginValue": 88,
+        "finalPrice": 1135,
+        "adults": 2,
+        "children": 0,
+        "origin": "Lisboa",
+        "score": 99,
+        "label": "Dentro do orçamento",
+        "trace": "Operador: Solférias Demo; regra margem: Caraíbas; custo 1047€; margem 88€"
+      }
+    },
+    {
+      "id": "lead-20260626-16DF3F",
+      "createdAt": "2026-06-26T11:31:20.257Z",
+      "search": {
+        "destination": "Punta Cana",
+        "budget": 2500,
+        "adults": 2,
+        "children": 0,
+        "nights": 7,
+        "origin": "Lisboa",
+        "board": "Qualquer regime",
+        "checkin": "",
+        "prompt": "7 noites nas Caraibas para 2 adultos ate 2500 euros"
+      },
+      "source": "site",
+      "status": "PROPOSTA_AUTOMATICA",
+      "topResult": {
+        "id": "sol-puj-002",
+        "operator": "Solférias Demo",
+        "destination": "Punta Cana",
+        "country": "República Dominicana",
+        "hotel": "Bahia Azul Palace 5★",
+        "board": "Tudo incluído",
+        "nights": 7,
+        "base": 1025,
+        "rating": 4.2,
+        "freeCancellation": false,
+        "themes": [
+          "caraíbas",
+          "praia"
+        ],
+        "available": true,
+        "operatorReliability": 8,
+        "costPrice": 1047,
+        "marginRule": "Caraíbas",
+        "marginPercent": 8,
+        "marginValue": 88,
+        "finalPrice": 1135,
+        "adults": 2,
+        "children": 0,
+        "origin": "Lisboa",
+        "score": 99,
+        "label": "Dentro do orçamento",
+        "trace": "Operador: Solférias Demo; regra margem: Caraíbas; custo 1047€; margem 88€"
+      }
+    },
+    {
+      "id": "lead-20260626-D2E3BC",
+      "createdAt": "2026-06-26T10:36:51.100Z",
+      "search": {
+        "destination": "Punta Cana",
+        "budget": 2500,
+        "adults": 2,
+        "children": 0,
+        "nights": 7,
+        "origin": "Lisboa",
+        "board": "Qualquer regime",
+        "checkin": "",
+        "prompt": "7 noites nas Caraíbas para 2 adultos até 2500 euros"
+      },
+      "source": "site",
+      "status": "PROPOSTA_AUTOMATICA",
+      "topResult": {
+        "id": "sol-puj-002",
+        "operator": "Solférias Demo",
+        "destination": "Punta Cana",
+        "country": "República Dominicana",
+        "hotel": "Bahia Azul Palace 5★",
+        "board": "Tudo incluído",
+        "nights": 7,
+        "base": 1025,
+        "rating": 4.2,
+        "freeCancellation": false,
+        "themes": [
+          "caraíbas",
+          "praia"
+        ],
+        "available": true,
+        "operatorReliability": 8,
+        "costPrice": 1047,
+        "marginRule": "Caraíbas",
+        "marginPercent": 8,
+        "marginValue": 88,
+        "finalPrice": 1135,
+        "adults": 2,
+        "children": 0,
+        "origin": "Lisboa",
+        "score": 99,
+        "label": "Dentro do orçamento",
+        "trace": "Operador: Solférias Demo; regra margem: Caraíbas; custo 1047€; margem 88€"
+      }
+    }
+  ],
+  "reservations": [
+    {
+      "id": "res-20260626-EFE693",
+      "createdAt": "2026-06-26T12:50:16.734Z",
+      "status": "CONFIRMED",
+      "customer": {
+        "name": "Teste",
+        "email": "teste@boomdasviagens.pt",
+        "phone": "",
+        "passengers": []
+      },
+      "passengers": [],
+      "offer": {
+        "id": "sol-puj-002",
+        "operator": "Solférias Demo",
+        "destination": "Punta Cana",
+        "country": "República Dominicana",
+        "hotel": "Bahia Azul Palace 5★",
+        "board": "Tudo incluído",
+        "nights": 7,
+        "base": 1025,
+        "rating": 4.2,
+        "freeCancellation": false,
+        "themes": [
+          "caraíbas",
+          "praia"
+        ],
+        "available": true,
+        "operatorReliability": 8,
+        "costPrice": 1047,
+        "marginRule": "Caraíbas",
+        "marginPercent": 5,
+        "marginValue": 53,
+        "finalPrice": 1100,
+        "adults": 2,
+        "children": 0,
+        "origin": "Lisboa",
+        "score": 99,
+        "label": "Dentro do orçamento",
+        "trace": "Operador: Solférias Demo; regra margem: Caraíbas; custo 1047€; margem 53€"
+      },
+      "operator": "Solférias Demo",
+      "source": "site",
+      "notes": "Reserva criada em modo semi-automatico. Confirmacao no operador exige aprovacao do backoffice.",
+      "paymentReceivedAt": "2026-06-26T12:50:16.741Z",
+      "operatorValidation": "MOCK_VALUE_OK",
+      "operatorValidationAt": "2026-06-26T12:50:16.741Z",
+      "confirmedAt": "2026-06-26T12:50:16.748Z",
+      "operatorLocator": "BDV-185042",
+      "operatorConfirmation": "MOCK_CONFIRM_OK"
+    },
+    {
+      "id": "res-20260626-BE5FBF",
+      "createdAt": "2026-06-26T12:43:31.418Z",
+      "status": "CONFIRMED",
+      "customer": {
+        "name": "Teste",
+        "email": "teste@boomdasviagens.pt",
+        "phone": "",
+        "passengers": []
+      },
+      "passengers": [],
+      "offer": {
+        "id": "sol-puj-002",
+        "operator": "Solférias Demo",
+        "destination": "Punta Cana",
+        "country": "República Dominicana",
+        "hotel": "Bahia Azul Palace 5★",
+        "board": "Tudo incluído",
+        "nights": 7,
+        "base": 1025,
+        "rating": 4.2,
+        "freeCancellation": false,
+        "themes": [
+          "caraíbas",
+          "praia"
+        ],
+        "available": true,
+        "operatorReliability": 8,
+        "costPrice": 1047,
+        "marginRule": "Caraíbas",
+        "marginPercent": 5,
+        "marginValue": 53,
+        "finalPrice": 1100,
+        "adults": 2,
+        "children": 0,
+        "origin": "Lisboa",
+        "score": 99,
+        "label": "Dentro do orçamento",
+        "trace": "Operador: Solférias Demo; regra margem: Caraíbas; custo 1047€; margem 53€"
+      },
+      "operator": "Solférias Demo",
+      "source": "site",
+      "notes": "Reserva criada em modo semi-automatico. Confirmacao no operador exige aprovacao do backoffice.",
+      "paymentReceivedAt": "2026-06-26T12:43:31.425Z",
+      "operatorValidation": "MOCK_VALUE_OK",
+      "operatorValidationAt": "2026-06-26T12:43:31.425Z",
+      "confirmedAt": "2026-06-26T12:43:31.431Z",
+      "operatorLocator": "BDV-790193",
+      "operatorConfirmation": "MOCK_CONFIRM_OK"
+    },
+    {
+      "id": "res-20260626-5CB92B",
+      "createdAt": "2026-06-26T12:35:10.821Z",
+      "status": "CONFIRMED",
+      "customer": {
+        "name": "Teste",
+        "email": "teste@boomdasviagens.pt",
+        "phone": "",
+        "passengers": []
+      },
+      "passengers": [],
+      "offer": {
+        "id": "sol-puj-002",
+        "operator": "Solférias Demo",
+        "destination": "Punta Cana",
+        "country": "República Dominicana",
+        "hotel": "Bahia Azul Palace 5★",
+        "board": "Tudo incluído",
+        "nights": 7,
+        "base": 1025,
+        "rating": 4.2,
+        "freeCancellation": false,
+        "themes": [
+          "caraíbas",
+          "praia"
+        ],
+        "available": true,
+        "operatorReliability": 8,
+        "costPrice": 1047,
+        "marginRule": "Caraíbas",
+        "marginPercent": 5,
+        "marginValue": 53,
+        "finalPrice": 1100,
+        "adults": 2,
+        "children": 0,
+        "origin": "Lisboa",
+        "score": 99,
+        "label": "Dentro do orçamento",
+        "trace": "Operador: Solférias Demo; regra margem: Caraíbas; custo 1047€; margem 53€"
+      },
+      "operator": "Solférias Demo",
+      "source": "site",
+      "notes": "Reserva criada em modo semi-automatico. Confirmacao no operador exige aprovacao do backoffice.",
+      "paymentReceivedAt": "2026-06-26T12:35:10.831Z",
+      "operatorValidation": "MOCK_VALUE_OK",
+      "operatorValidationAt": "2026-06-26T12:35:10.831Z",
+      "confirmedAt": "2026-06-26T12:35:10.838Z",
+      "operatorLocator": "BDV-156689",
+      "operatorConfirmation": "MOCK_CONFIRM_OK"
+    },
+    {
+      "id": "res-20260626-0F6314",
+      "createdAt": "2026-06-26T12:17:34.801Z",
+      "status": "CONFIRMED",
+      "customer": {
+        "name": "Teste",
+        "email": "teste@boomdasviagens.pt",
+        "phone": "",
+        "passengers": []
+      },
+      "passengers": [],
+      "offer": {
+        "id": "sol-puj-002",
+        "operator": "Solférias Demo",
+        "destination": "Punta Cana",
+        "country": "República Dominicana",
+        "hotel": "Bahia Azul Palace 5★",
+        "board": "Tudo incluído",
+        "nights": 7,
+        "base": 1025,
+        "rating": 4.2,
+        "freeCancellation": false,
+        "themes": [
+          "caraíbas",
+          "praia"
+        ],
+        "available": true,
+        "operatorReliability": 8,
+        "costPrice": 1047,
+        "marginRule": "Caraíbas",
+        "marginPercent": 8,
+        "marginValue": 88,
+        "finalPrice": 1135,
+        "adults": 2,
+        "children": 0,
+        "origin": "Lisboa",
+        "score": 99,
+        "label": "Dentro do orçamento",
+        "trace": "Operador: Solférias Demo; regra margem: Caraíbas; custo 1047€; margem 88€"
+      },
+      "operator": "Solférias Demo",
+      "source": "site",
+      "notes": "Reserva criada em modo semi-automatico. Confirmacao no operador exige aprovacao do backoffice.",
+      "paymentReceivedAt": "2026-06-26T12:17:34.807Z",
+      "operatorValidation": "MOCK_VALUE_OK",
+      "operatorValidationAt": "2026-06-26T12:17:34.807Z",
+      "confirmedAt": "2026-06-26T12:17:34.811Z",
+      "operatorLocator": "BDV-971045",
+      "operatorConfirmation": "MOCK_CONFIRM_OK"
+    },
+    {
+      "id": "res-20260626-767645",
+      "createdAt": "2026-06-26T12:07:39.134Z",
+      "status": "CONFIRMED",
+      "customer": {
+        "name": "Teste",
+        "email": "teste@boomdasviagens.pt",
+        "phone": "",
+        "passengers": []
+      },
+      "passengers": [],
+      "offer": {
+        "id": "sol-puj-002",
+        "operator": "Solférias Demo",
+        "destination": "Punta Cana",
+        "country": "República Dominicana",
+        "hotel": "Bahia Azul Palace 5★",
+        "board": "Tudo incluído",
+        "nights": 7,
+        "base": 1025,
+        "rating": 4.2,
+        "freeCancellation": false,
+        "themes": [
+          "caraíbas",
+          "praia"
+        ],
+        "available": true,
+        "operatorReliability": 8,
+        "costPrice": 1047,
+        "marginRule": "Caraíbas",
+        "marginPercent": 8,
+        "marginValue": 88,
+        "finalPrice": 1135,
+        "adults": 2,
+        "children": 0,
+        "origin": "Lisboa",
+        "score": 99,
+        "label": "Dentro do orçamento",
+        "trace": "Operador: Solférias Demo; regra margem: Caraíbas; custo 1047€; margem 88€"
+      },
+      "operator": "Solférias Demo",
+      "source": "site",
+      "notes": "Reserva criada em modo semi-automatico. Confirmacao no operador exige aprovacao do backoffice.",
+      "paymentReceivedAt": "2026-06-26T12:07:39.141Z",
+      "operatorValidation": "MOCK_VALUE_OK",
+      "operatorValidationAt": "2026-06-26T12:07:39.141Z",
+      "confirmedAt": "2026-06-26T12:07:39.148Z",
+      "operatorLocator": "BDV-712297",
+      "operatorConfirmation": "MOCK_CONFIRM_OK"
+    },
+    {
+      "id": "res-20260626-0AE583",
+      "createdAt": "2026-06-26T11:45:50.483Z",
+      "status": "CONFIRMED",
+      "customer": {
+        "name": "Teste",
+        "email": "teste@boomdasviagens.pt",
+        "phone": "",
+        "passengers": []
+      },
+      "passengers": [],
+      "offer": {
+        "id": "sol-puj-002",
+        "operator": "Solférias Demo",
+        "destination": "Punta Cana",
+        "country": "República Dominicana",
+        "hotel": "Bahia Azul Palace 5★",
+        "board": "Tudo incluído",
+        "nights": 7,
+        "base": 1025,
+        "rating": 4.2,
+        "freeCancellation": false,
+        "themes": [
+          "caraíbas",
+          "praia"
+        ],
+        "available": true,
+        "operatorReliability": 8,
+        "costPrice": 1047,
+        "marginRule": "Caraíbas",
+        "marginPercent": 8,
+        "marginValue": 88,
+        "finalPrice": 1135,
+        "adults": 2,
+        "children": 0,
+        "origin": "Lisboa",
+        "score": 99,
+        "label": "Dentro do orçamento",
+        "trace": "Operador: Solférias Demo; regra margem: Caraíbas; custo 1047€; margem 88€"
+      },
+      "operator": "Solférias Demo",
+      "source": "site",
+      "notes": "Reserva criada em modo semi-automatico. Confirmacao no operador exige aprovacao do backoffice.",
+      "paymentReceivedAt": "2026-06-26T11:45:50.489Z",
+      "operatorValidation": "MOCK_VALUE_OK",
+      "operatorValidationAt": "2026-06-26T11:45:50.489Z",
+      "confirmedAt": "2026-06-26T11:45:50.493Z",
+      "operatorLocator": "BDV-148616",
+      "operatorConfirmation": "MOCK_CONFIRM_OK"
+    },
+    {
+      "id": "res-20260626-DE3E84",
+      "createdAt": "2026-06-26T11:31:20.261Z",
+      "status": "CONFIRMED",
+      "customer": {
+        "name": "Teste",
+        "email": "teste@boomdasviagens.pt"
+      },
+      "offer": {
+        "id": "sol-puj-002",
+        "operator": "Solférias Demo",
+        "destination": "Punta Cana",
+        "country": "República Dominicana",
+        "hotel": "Bahia Azul Palace 5★",
+        "board": "Tudo incluído",
+        "nights": 7,
+        "base": 1025,
+        "rating": 4.2,
+        "freeCancellation": false,
+        "themes": [
+          "caraíbas",
+          "praia"
+        ],
+        "available": true,
+        "operatorReliability": 8,
+        "costPrice": 1047,
+        "marginRule": "Caraíbas",
+        "marginPercent": 8,
+        "marginValue": 88,
+        "finalPrice": 1135,
+        "adults": 2,
+        "children": 0,
+        "origin": "Lisboa",
+        "score": 99,
+        "label": "Dentro do orçamento",
+        "trace": "Operador: Solférias Demo; regra margem: Caraíbas; custo 1047€; margem 88€"
+      },
+      "operator": "Solférias Demo",
+      "source": "site",
+      "notes": "Reserva criada pelo fluxo automático de teste.",
+      "confirmedAt": "2026-06-26T11:31:20.267Z",
+      "operatorLocator": "BDV-954448",
+      "operatorValidation": "MOCK_VALUE_OK",
+      "operatorConfirmation": "MOCK_CONFIRM_OK"
+    }
+  ],
+  "payments": [
+    {
+      "id": "pay-20260626-332038",
+      "createdAt": "2026-06-26T12:50:16.734Z",
+      "reservationId": "res-20260626-EFE693",
+      "method": "MB WAY",
+      "amount": 1100,
+      "status": "PAID",
+      "reference": "230785671",
+      "expiresAt": "2026-06-27T12:50:16.734Z",
+      "paidAt": "2026-06-26T12:50:16.741Z"
+    },
+    {
+      "id": "pay-20260626-E1ECC3",
+      "createdAt": "2026-06-26T12:43:31.418Z",
+      "reservationId": "res-20260626-BE5FBF",
+      "method": "MB WAY",
+      "amount": 1100,
+      "status": "PAID",
+      "reference": "251113651",
+      "expiresAt": "2026-06-27T12:43:31.418Z",
+      "paidAt": "2026-06-26T12:43:31.425Z"
+    },
+    {
+      "id": "pay-20260626-566A15",
+      "createdAt": "2026-06-26T12:35:10.821Z",
+      "reservationId": "res-20260626-5CB92B",
+      "method": "MB WAY",
+      "amount": 1100,
+      "status": "PAID",
+      "reference": "812214868",
+      "expiresAt": "2026-06-27T12:35:10.821Z",
+      "paidAt": "2026-06-26T12:35:10.831Z"
+    },
+    {
+      "id": "pay-20260626-DFB104",
+      "createdAt": "2026-06-26T12:17:34.801Z",
+      "reservationId": "res-20260626-0F6314",
+      "method": "MB WAY",
+      "amount": 1135,
+      "status": "PAID",
+      "reference": "824330382",
+      "expiresAt": "2026-06-27T12:17:34.801Z",
+      "paidAt": "2026-06-26T12:17:34.807Z"
+    },
+    {
+      "id": "pay-20260626-2DC0E1",
+      "createdAt": "2026-06-26T12:07:39.134Z",
+      "reservationId": "res-20260626-767645",
+      "method": "MB WAY",
+      "amount": 1135,
+      "status": "PAID",
+      "reference": "353981654",
+      "expiresAt": "2026-06-27T12:07:39.135Z",
+      "paidAt": "2026-06-26T12:07:39.141Z"
+    },
+    {
+      "id": "pay-20260626-3A7EB4",
+      "createdAt": "2026-06-26T11:45:50.483Z",
+      "reservationId": "res-20260626-0AE583",
+      "method": "MB WAY",
+      "amount": 1135,
+      "status": "PAID",
+      "reference": "541561412",
+      "expiresAt": "2026-06-27T11:45:50.483Z",
+      "paidAt": "2026-06-26T11:45:50.489Z"
+    },
+    {
+      "id": "pay-20260626-D3640A",
+      "createdAt": "2026-06-26T11:31:20.261Z",
+      "reservationId": "res-20260626-DE3E84",
+      "method": "MB WAY",
+      "amount": 1135,
+      "status": "PAID",
+      "reference": "705678675",
+      "expiresAt": "2026-06-27T11:31:20.261Z",
+      "paidAt": "2026-06-26T11:31:20.267Z"
+    }
+  ],
+  "emails": [
+    {
+      "id": "email-20260626-32D31B",
+      "createdAt": "2026-06-26T12:50:16.748Z",
+      "to": "teste@boomdasviagens.pt",
+      "status": "GERADO_DEMO",
+      "subject": "Reserva res-20260626-EFE693 - CONFIRMED",
+      "body": "Olá Teste,\n\nRecebemos o seu pedido de reserva para Bahia Azul Palace 5★, Punta Cana.\n\nEstado: CONFIRMED\nValor: 1100.00 €\nPagamento: MB WAY - PAID\n\nA equipa Boom das Viagens acompanha a validação final do operador.\n\nObrigado,\nBoom das Viagens"
+    },
+    {
+      "id": "email-20260626-98638D",
+      "createdAt": "2026-06-26T12:50:16.741Z",
+      "to": "teste@boomdasviagens.pt",
+      "status": "GERADO_DEMO",
+      "subject": "Reserva res-20260626-EFE693 - IN_VALIDATION",
+      "body": "Olá Teste,\n\nRecebemos o seu pedido de reserva para Bahia Azul Palace 5★, Punta Cana.\n\nEstado: IN_VALIDATION\nValor: 1100.00 €\nPagamento: MB WAY - PAID\n\nA equipa Boom das Viagens acompanha a validação final do operador.\n\nObrigado,\nBoom das Viagens"
+    },
+    {
+      "id": "email-20260626-B765B9",
+      "createdAt": "2026-06-26T12:50:16.729Z",
+      "to": "teste@boomdasviagens.pt",
+      "status": "GERADO_DEMO",
+      "subject": "Proposta Boom das Viagens - Punta Cana",
+      "body": "Olá Cliente,\n\nEncontrámos estas opções para a sua pesquisa:\n\n1. Bahia Azul Palace 5★ - Punta Cana - Tudo incluído - 7 noites - 1100.00 €\n2. Caribbean Bay Resort 5★ - Punta Cana - Tudo incluído - 7 noites - 1145.00 €\n3. Maya Beach Collection 5★ - Riviera Maya - Tudo incluído - 7 noites - 1295.00 €\n\nA opção recomendada é: Bahia Azul Palace 5★.\n\nSe pretender avançar, responda a este email ou finalize a reserva na sua área de cliente.\n\nCumprimentos,\nBoom das Viagens"
+    },
+    {
+      "id": "email-20260626-D9A28F",
+      "createdAt": "2026-06-26T12:43:31.431Z",
+      "to": "teste@boomdasviagens.pt",
+      "status": "GERADO_DEMO",
+      "subject": "Reserva res-20260626-BE5FBF - CONFIRMED",
+      "body": "Olá Teste,\n\nRecebemos o seu pedido de reserva para Bahia Azul Palace 5★, Punta Cana.\n\nEstado: CONFIRMED\nValor: 1100.00 €\nPagamento: MB WAY - PAID\n\nA equipa Boom das Viagens acompanha a validação final do operador.\n\nObrigado,\nBoom das Viagens"
+    },
+    {
+      "id": "email-20260626-BC4D07",
+      "createdAt": "2026-06-26T12:43:31.425Z",
+      "to": "teste@boomdasviagens.pt",
+      "status": "GERADO_DEMO",
+      "subject": "Reserva res-20260626-BE5FBF - IN_VALIDATION",
+      "body": "Olá Teste,\n\nRecebemos o seu pedido de reserva para Bahia Azul Palace 5★, Punta Cana.\n\nEstado: IN_VALIDATION\nValor: 1100.00 €\nPagamento: MB WAY - PAID\n\nA equipa Boom das Viagens acompanha a validação final do operador.\n\nObrigado,\nBoom das Viagens"
+    },
+    {
+      "id": "email-20260626-F38D79",
+      "createdAt": "2026-06-26T12:43:31.414Z",
+      "to": "teste@boomdasviagens.pt",
+      "status": "GERADO_DEMO",
+      "subject": "Proposta Boom das Viagens - Punta Cana",
+      "body": "Olá Cliente,\n\nEncontrámos estas opções para a sua pesquisa:\n\n1. Bahia Azul Palace 5★ - Punta Cana - Tudo incluído - 7 noites - 1100.00 €\n2. Caribbean Bay Resort 5★ - Punta Cana - Tudo incluído - 7 noites - 1145.00 €\n3. Maya Beach Collection 5★ - Riviera Maya - Tudo incluído - 7 noites - 1295.00 €\n\nA opção recomendada é: Bahia Azul Palace 5★.\n\nSe pretender avançar, responda a este email ou finalize a reserva na sua área de cliente.\n\nCumprimentos,\nBoom das Viagens"
+    },
+    {
+      "id": "email-20260626-17AD33",
+      "createdAt": "2026-06-26T12:35:10.838Z",
+      "to": "teste@boomdasviagens.pt",
+      "status": "GERADO_DEMO",
+      "subject": "Reserva res-20260626-5CB92B - CONFIRMED",
+      "body": "Olá Teste,\n\nRecebemos o seu pedido de reserva para Bahia Azul Palace 5★, Punta Cana.\n\nEstado: CONFIRMED\nValor: 1100.00 €\nPagamento: MB WAY - PAID\n\nA equipa Boom das Viagens acompanha a validação final do operador.\n\nObrigado,\nBoom das Viagens"
+    },
+    {
+      "id": "email-20260626-0FE39A",
+      "createdAt": "2026-06-26T12:35:10.831Z",
+      "to": "teste@boomdasviagens.pt",
+      "status": "GERADO_DEMO",
+      "subject": "Reserva res-20260626-5CB92B - IN_VALIDATION",
+      "body": "Olá Teste,\n\nRecebemos o seu pedido de reserva para Bahia Azul Palace 5★, Punta Cana.\n\nEstado: IN_VALIDATION\nValor: 1100.00 €\nPagamento: MB WAY - PAID\n\nA equipa Boom das Viagens acompanha a validação final do operador.\n\nObrigado,\nBoom das Viagens"
+    },
+    {
+      "id": "email-20260626-A313E6",
+      "createdAt": "2026-06-26T12:35:10.813Z",
+      "to": "teste@boomdasviagens.pt",
+      "status": "GERADO_DEMO",
+      "subject": "Proposta Boom das Viagens - Punta Cana",
+      "body": "Olá Cliente,\n\nEncontrámos estas opções para a sua pesquisa:\n\n1. Bahia Azul Palace 5★ - Punta Cana - Tudo incluído - 7 noites - 1100.00 €\n2. Caribbean Bay Resort 5★ - Punta Cana - Tudo incluído - 7 noites - 1145.00 €\n3. Maya Beach Collection 5★ - Riviera Maya - Tudo incluído - 7 noites - 1295.00 €\n\nA opção recomendada é: Bahia Azul Palace 5★.\n\nSe pretender avançar, responda a este email ou finalize a reserva na sua área de cliente.\n\nCumprimentos,\nBoom das Viagens"
+    },
+    {
+      "id": "email-20260626-22E320",
+      "createdAt": "2026-06-26T12:19:52.704Z",
+      "to": "cliente@exemplo.pt",
+      "status": "GERADO_DEMO",
+      "subject": "Proposta Boom das Viagens - Disneyland Paris",
+      "body": "Olá Cliente Teste,\n\nEncontrámos estas opções para a sua pesquisa:\n\n1. Magic Stay Val d’Europe 4★ - Disneyland Paris - Alojamento e pequeno-almoço - 3 noites - 255.00 €\n\nA opção recomendada é: Magic Stay Val d’Europe 4★.\n\nSe pretender avançar, responda a este email ou finalize a reserva na sua área de cliente.\n\nCumprimentos,\nBoom das Viagens"
+    },
+    {
+      "id": "email-20260626-D22755",
+      "createdAt": "2026-06-26T12:19:52.515Z",
+      "to": "cliente@exemplo.pt",
+      "status": "GERADO_DEMO",
+      "subject": "Proposta Boom das Viagens - Disneyland Paris",
+      "body": "Olá Cliente Teste,\n\nEncontrámos estas opções para a sua pesquisa:\n\n1. Magic Stay Val d’Europe 4★ - Disneyland Paris - Alojamento e pequeno-almoço - 3 noites - 255.00 €\n\nA opção recomendada é: Magic Stay Val d’Europe 4★.\n\nSe pretender avançar, responda a este email ou finalize a reserva na sua área de cliente.\n\nCumprimentos,\nBoom das Viagens"
+    },
+    {
+      "id": "email-20260626-50FBCF",
+      "createdAt": "2026-06-26T12:19:52.290Z",
+      "to": "cliente@exemplo.pt",
+      "status": "GERADO_DEMO",
+      "subject": "Proposta Boom das Viagens - Disneyland Paris",
+      "body": "Olá Cliente Teste,\n\nEncontrámos estas opções para a sua pesquisa:\n\n1. Magic Stay Val d’Europe 4★ - Disneyland Paris - Alojamento e pequeno-almoço - 3 noites - 255.00 €\n\nA opção recomendada é: Magic Stay Val d’Europe 4★.\n\nSe pretender avançar, responda a este email ou finalize a reserva na sua área de cliente.\n\nCumprimentos,\nBoom das Viagens"
+    },
+    {
+      "id": "email-20260626-232437",
+      "createdAt": "2026-06-26T12:19:51.439Z",
+      "to": "cliente@exemplo.pt",
+      "status": "GERADO_DEMO",
+      "subject": "Proposta Boom das Viagens - Disneyland Paris",
+      "body": "Olá Cliente Teste,\n\nEncontrámos estas opções para a sua pesquisa:\n\n1. Magic Stay Val d’Europe 4★ - Disneyland Paris - Alojamento e pequeno-almoço - 3 noites - 255.00 €\n\nA opção recomendada é: Magic Stay Val d’Europe 4★.\n\nSe pretender avançar, responda a este email ou finalize a reserva na sua área de cliente.\n\nCumprimentos,\nBoom das Viagens"
+    },
+    {
+      "id": "email-20260626-B5D44B",
+      "createdAt": "2026-06-26T12:19:48.563Z",
+      "to": "cliente@exemplo.pt",
+      "status": "GERADO_DEMO",
+      "subject": "Proposta Boom das Viagens - Disneyland Paris",
+      "body": "Olá Cliente Teste,\n\nEncontrámos estas opções para a sua pesquisa:\n\n1. Magic Stay Val d’Europe 4★ - Disneyland Paris - Alojamento e pequeno-almoço - 3 noites - 255.00 €\n\nA opção recomendada é: Magic Stay Val d’Europe 4★.\n\nSe pretender avançar, responda a este email ou finalize a reserva na sua área de cliente.\n\nCumprimentos,\nBoom das Viagens"
+    },
+    {
+      "id": "email-20260626-B5064D",
+      "createdAt": "2026-06-26T12:17:34.811Z",
+      "to": "teste@boomdasviagens.pt",
+      "status": "GERADO_DEMO",
+      "subject": "Reserva res-20260626-0F6314 - CONFIRMED",
+      "body": "Olá Teste,\n\nRecebemos o seu pedido de reserva para Bahia Azul Palace 5★, Punta Cana.\n\nEstado: CONFIRMED\nValor: 1135.00 €\nPagamento: MB WAY - PAID\n\nA equipa Boom das Viagens acompanha a validação final do operador.\n\nObrigado,\nBoom das Viagens"
+    },
+    {
+      "id": "email-20260626-36615C",
+      "createdAt": "2026-06-26T12:17:34.807Z",
+      "to": "teste@boomdasviagens.pt",
+      "status": "GERADO_DEMO",
+      "subject": "Reserva res-20260626-0F6314 - IN_VALIDATION",
+      "body": "Olá Teste,\n\nRecebemos o seu pedido de reserva para Bahia Azul Palace 5★, Punta Cana.\n\nEstado: IN_VALIDATION\nValor: 1135.00 €\nPagamento: MB WAY - PAID\n\nA equipa Boom das Viagens acompanha a validação final do operador.\n\nObrigado,\nBoom das Viagens"
+    },
+    {
+      "id": "email-20260626-3C62FB",
+      "createdAt": "2026-06-26T12:17:34.797Z",
+      "to": "teste@boomdasviagens.pt",
+      "status": "GERADO_DEMO",
+      "subject": "Proposta Boom das Viagens - Punta Cana",
+      "body": "Olá Cliente,\n\nEncontrámos estas opções para a sua pesquisa:\n\n1. Bahia Azul Palace 5★ - Punta Cana - Tudo incluído - 7 noites - 1135.00 €\n2. Caribbean Bay Resort 5★ - Punta Cana - Tudo incluído - 7 noites - 1180.00 €\n3. Maya Beach Collection 5★ - Riviera Maya - Tudo incluído - 7 noites - 1330.00 €\n\nA opção recomendada é: Bahia Azul Palace 5★.\n\nSe pretender avançar, responda a este email ou finalize a reserva na sua área de cliente.\n\nCumprimentos,\nBoom das Viagens"
+    },
+    {
+      "id": "email-20260626-001E21",
+      "createdAt": "2026-06-26T12:07:39.148Z",
+      "to": "teste@boomdasviagens.pt",
+      "status": "GERADO_DEMO",
+      "subject": "Reserva res-20260626-767645 - CONFIRMED",
+      "body": "Olá Teste,\n\nRecebemos o seu pedido de reserva para Bahia Azul Palace 5★, Punta Cana.\n\nEstado: CONFIRMED\nValor: 1135.00 €\nPagamento: MB WAY - PAID\n\nA equipa Boom das Viagens acompanha a validação final do operador.\n\nObrigado,\nBoom das Viagens"
+    },
+    {
+      "id": "email-20260626-5C30CF",
+      "createdAt": "2026-06-26T12:07:39.141Z",
+      "to": "teste@boomdasviagens.pt",
+      "status": "GERADO_DEMO",
+      "subject": "Reserva res-20260626-767645 - IN_VALIDATION",
+      "body": "Olá Teste,\n\nRecebemos o seu pedido de reserva para Bahia Azul Palace 5★, Punta Cana.\n\nEstado: IN_VALIDATION\nValor: 1135.00 €\nPagamento: MB WAY - PAID\n\nA equipa Boom das Viagens acompanha a validação final do operador.\n\nObrigado,\nBoom das Viagens"
+    },
+    {
+      "id": "email-20260626-8DEEE1",
+      "createdAt": "2026-06-26T12:07:39.125Z",
+      "to": "teste@boomdasviagens.pt",
+      "status": "GERADO_DEMO",
+      "subject": "Proposta Boom das Viagens - Punta Cana",
+      "body": "Olá Cliente,\n\nEncontrámos estas opções para a sua pesquisa:\n\n1. Bahia Azul Palace 5★ - Punta Cana - Tudo incluído - 7 noites - 1135.00 €\n2. Caribbean Bay Resort 5★ - Punta Cana - Tudo incluído - 7 noites - 1180.00 €\n3. Maya Beach Collection 5★ - Riviera Maya - Tudo incluído - 7 noites - 1330.00 €\n\nA opção recomendada é: Bahia Azul Palace 5★.\n\nSe pretender avançar, responda a este email ou finalize a reserva na sua área de cliente.\n\nCumprimentos,\nBoom das Viagens"
+    },
+    {
+      "id": "email-20260626-352315",
+      "createdAt": "2026-06-26T11:45:50.493Z",
+      "to": "teste@boomdasviagens.pt",
+      "status": "GERADO_DEMO",
+      "subject": "Reserva res-20260626-0AE583 - CONFIRMED",
+      "body": "Olá Teste,\n\nRecebemos o seu pedido de reserva para Bahia Azul Palace 5★, Punta Cana.\n\nEstado: CONFIRMED\nValor: 1135.00 €\nPagamento: MB WAY - PAID\n\nA equipa Boom das Viagens acompanha a validação final do operador.\n\nObrigado,\nBoom das Viagens"
+    },
+    {
+      "id": "email-20260626-537FFF",
+      "createdAt": "2026-06-26T11:45:50.489Z",
+      "to": "teste@boomdasviagens.pt",
+      "status": "GERADO_DEMO",
+      "subject": "Reserva res-20260626-0AE583 - IN_VALIDATION",
+      "body": "Olá Teste,\n\nRecebemos o seu pedido de reserva para Bahia Azul Palace 5★, Punta Cana.\n\nEstado: IN_VALIDATION\nValor: 1135.00 €\nPagamento: MB WAY - PAID\n\nA equipa Boom das Viagens acompanha a validação final do operador.\n\nObrigado,\nBoom das Viagens"
+    },
+    {
+      "id": "email-20260626-7B45A1",
+      "createdAt": "2026-06-26T11:45:50.479Z",
+      "to": "teste@boomdasviagens.pt",
+      "status": "GERADO_DEMO",
+      "subject": "Proposta Boom das Viagens - Punta Cana",
+      "body": "Olá Cliente,\n\nEncontrámos estas opções para a sua pesquisa:\n\n1. Bahia Azul Palace 5★ - Punta Cana - Tudo incluído - 7 noites - 1135.00 €\n2. Caribbean Bay Resort 5★ - Punta Cana - Tudo incluído - 7 noites - 1180.00 €\n3. Maya Beach Collection 5★ - Riviera Maya - Tudo incluído - 7 noites - 1330.00 €\n\nA opção recomendada é: Bahia Azul Palace 5★.\n\nSe pretender avançar, responda a este email ou finalize a reserva na sua área de cliente.\n\nCumprimentos,\nBoom das Viagens"
+    },
+    {
+      "id": "email-20260626-D01CE3",
+      "createdAt": "2026-06-26T11:31:20.267Z",
+      "to": "teste@boomdasviagens.pt",
+      "status": "GERADO_DEMO",
+      "subject": "Reserva res-20260626-DE3E84 - CONFIRMED",
+      "body": "Olá Teste,\n\nRecebemos o seu pedido de reserva para Bahia Azul Palace 5★, Punta Cana.\n\nEstado: CONFIRMED\nValor: 1135.00 €\nPagamento: MB WAY - PAID\n\nA equipa Boom das Viagens acompanha a validação final do operador.\n\nObrigado,\nBoom das Viagens"
+    },
+    {
+      "id": "email-20260626-121D79",
+      "createdAt": "2026-06-26T11:31:20.257Z",
+      "to": "teste@boomdasviagens.pt",
+      "status": "GERADO_DEMO",
+      "subject": "Proposta Boom das Viagens - Punta Cana",
+      "body": "Olá Cliente,\n\nEncontrámos estas opções para a sua pesquisa:\n\n1. Bahia Azul Palace 5★ - Punta Cana - Tudo incluído - 7 noites - 1135.00 €\n2. Caribbean Bay Resort 5★ - Punta Cana - Tudo incluído - 7 noites - 1180.00 €\n3. Maya Beach Collection 5★ - Riviera Maya - Tudo incluído - 7 noites - 1330.00 €\n\nA opção recomendada é: Bahia Azul Palace 5★.\n\nSe pretender avançar, responda a este email ou finalize a reserva na sua área de cliente.\n\nCumprimentos,\nBoom das Viagens"
+    },
+    {
+      "id": "email-20260626-BB575A",
+      "createdAt": "2026-06-26T10:36:51.101Z",
+      "to": "teste@x.pt",
+      "status": "GERADO_DEMO",
+      "subject": "Proposta Boom das Viagens - Punta Cana",
+      "body": "Olá Cliente,\n\nEncontrámos estas opções para a sua pesquisa:\n\n1. Bahia Azul Palace 5★ - Punta Cana - Tudo incluído - 7 noites - 1135.00 €\n2. Caribbean Bay Resort 5★ - Punta Cana - Tudo incluído - 7 noites - 1180.00 €\n3. Maya Beach Collection 5★ - Riviera Maya - Tudo incluído - 7 noites - 1330.00 €\n\nA opção recomendada é: Bahia Azul Palace 5★.\n\nSe pretender avançar, responda a este email ou finalize a reserva na sua área de cliente.\n\nCumprimentos,\nBoom das Viagens"
+    }
+  ],
+  "operatorLogs": [
+    {
+      "id": "log-20260626-F2345B",
+      "createdAt": "2026-06-26T12:50:16.748Z",
+      "type": "CONFIRM",
+      "payload": {
+        "ok": true,
+        "operator": "TourDiez",
+        "locator": "BDV-185042",
+        "raw": {
+          "mock": true,
+          "operation": "confirm",
+          "requestXml": "<confirm><sessionID>mock-session</sessionID><optionID>sol-puj-002</optionID><agencyReference>res-20260626-EFE693</agencyReference><holder>Teste</holder><passengers><passenger><name>Teste</name><surname></surname><type>ADT</type></passenger></passengers></confirm>",
+          "responseXml": "<result><code>0</code><description>MOCK OK - definir TOURDIEZ_MODE=real e credenciais para chamada externa</description></result>"
+        }
+      }
+    },
+    {
+      "id": "log-20260626-FE6A4C",
+      "createdAt": "2026-06-26T12:50:16.741Z",
+      "type": "VALUE",
+      "payload": {
+        "ok": true,
+        "operator": "TourDiez",
+        "offerId": "sol-puj-002",
+        "priceStillValid": true,
+        "availabilityStillValid": true,
+        "raw": {
+          "mock": true,
+          "operation": "value",
+          "requestXml": "<value><sessionID>mock-session</sessionID><optionID>sol-puj-002</optionID><rateKey>sol-puj-002</rateKey></value>",
+          "responseXml": "<result><code>0</code><description>MOCK OK - definir TOURDIEZ_MODE=real e credenciais para chamada externa</description></result>"
+        }
+      }
+    },
+    {
+      "id": "log-20260626-06CF32",
+      "createdAt": "2026-06-26T12:43:31.431Z",
+      "type": "CONFIRM",
+      "payload": {
+        "ok": true,
+        "operator": "TourDiez",
+        "locator": "BDV-790193",
+        "raw": {
+          "mock": true,
+          "operation": "confirm",
+          "requestXml": "<confirm><sessionID>mock-session</sessionID><optionID>sol-puj-002</optionID><agencyReference>res-20260626-BE5FBF</agencyReference><holder>Teste</holder><passengers><passenger><name>Teste</name><surname></surname><type>ADT</type></passenger></passengers></confirm>",
+          "responseXml": "<result><code>0</code><description>MOCK OK - definir TOURDIEZ_MODE=real e credenciais para chamada externa</description></result>"
+        }
+      }
+    },
+    {
+      "id": "log-20260626-E435C7",
+      "createdAt": "2026-06-26T12:43:31.425Z",
+      "type": "VALUE",
+      "payload": {
+        "ok": true,
+        "operator": "TourDiez",
+        "offerId": "sol-puj-002",
+        "priceStillValid": true,
+        "availabilityStillValid": true,
+        "raw": {
+          "mock": true,
+          "operation": "value",
+          "requestXml": "<value><sessionID>mock-session</sessionID><optionID>sol-puj-002</optionID><rateKey>sol-puj-002</rateKey></value>",
+          "responseXml": "<result><code>0</code><description>MOCK OK - definir TOURDIEZ_MODE=real e credenciais para chamada externa</description></result>"
+        }
+      }
+    },
+    {
+      "id": "log-20260626-578AD9",
+      "createdAt": "2026-06-26T12:35:10.838Z",
+      "type": "CONFIRM",
+      "payload": {
+        "ok": true,
+        "operator": "TourDiez",
+        "locator": "BDV-156689",
+        "raw": {
+          "mock": true,
+          "operation": "confirm",
+          "requestXml": "<confirm><sessionID>mock-session</sessionID><optionID>sol-puj-002</optionID><agencyReference>res-20260626-5CB92B</agencyReference><holder>Teste</holder><passengers><passenger><name>Teste</name><surname></surname><type>ADT</type></passenger></passengers></confirm>",
+          "responseXml": "<result><code>0</code><description>MOCK OK - definir TOURDIEZ_MODE=real e credenciais para chamada externa</description></result>"
+        }
+      }
+    },
+    {
+      "id": "log-20260626-A9EB09",
+      "createdAt": "2026-06-26T12:35:10.831Z",
+      "type": "VALUE",
+      "payload": {
+        "ok": true,
+        "operator": "TourDiez",
+        "offerId": "sol-puj-002",
+        "priceStillValid": true,
+        "availabilityStillValid": true,
+        "raw": {
+          "mock": true,
+          "operation": "value",
+          "requestXml": "<value><sessionID>mock-session</sessionID><optionID>sol-puj-002</optionID><rateKey>sol-puj-002</rateKey></value>",
+          "responseXml": "<result><code>0</code><description>MOCK OK - definir TOURDIEZ_MODE=real e credenciais para chamada externa</description></result>"
+        }
+      }
+    },
+    {
+      "id": "log-20260626-219A85",
+      "createdAt": "2026-06-26T12:17:34.811Z",
+      "type": "CONFIRM",
+      "payload": {
+        "ok": true,
+        "operator": "TourDiez",
+        "locator": "BDV-971045",
+        "raw": {
+          "mock": true,
+          "operation": "confirm",
+          "requestXml": "<confirm><sessionID>mock-session</sessionID><optionID>sol-puj-002</optionID><agencyReference>res-20260626-0F6314</agencyReference><holder>Teste</holder><passengers><passenger><name>Teste</name><surname></surname><type>ADT</type></passenger></passengers></confirm>",
+          "responseXml": "<result><code>0</code><description>MOCK OK - definir TOURDIEZ_MODE=real e credenciais para chamada externa</description></result>"
+        }
+      }
+    },
+    {
+      "id": "log-20260626-013E36",
+      "createdAt": "2026-06-26T12:17:34.807Z",
+      "type": "VALUE",
+      "payload": {
+        "ok": true,
+        "operator": "TourDiez",
+        "offerId": "sol-puj-002",
+        "priceStillValid": true,
+        "availabilityStillValid": true,
+        "raw": {
+          "mock": true,
+          "operation": "value",
+          "requestXml": "<value><sessionID>mock-session</sessionID><optionID>sol-puj-002</optionID><rateKey>sol-puj-002</rateKey></value>",
+          "responseXml": "<result><code>0</code><description>MOCK OK - definir TOURDIEZ_MODE=real e credenciais para chamada externa</description></result>"
+        }
+      }
+    },
+    {
+      "id": "log-20260626-ADEF45",
+      "createdAt": "2026-06-26T12:07:39.148Z",
+      "type": "CONFIRM",
+      "payload": {
+        "ok": true,
+        "operator": "TourDiez",
+        "locator": "BDV-712297",
+        "raw": {
+          "mock": true,
+          "operation": "confirm",
+          "requestXml": "<confirm><sessionID>mock-session</sessionID><optionID>sol-puj-002</optionID><agencyReference>res-20260626-767645</agencyReference><holder>Teste</holder><passengers><passenger><name>Teste</name><surname></surname><type>ADT</type></passenger></passengers></confirm>",
+          "responseXml": "<result><code>0</code><description>MOCK OK - definir TOURDIEZ_MODE=real e credenciais para chamada externa</description></result>"
+        }
+      }
+    },
+    {
+      "id": "log-20260626-5E4F6F",
+      "createdAt": "2026-06-26T12:07:39.141Z",
+      "type": "VALUE",
+      "payload": {
+        "ok": true,
+        "operator": "TourDiez",
+        "offerId": "sol-puj-002",
+        "priceStillValid": true,
+        "availabilityStillValid": true,
+        "raw": {
+          "mock": true,
+          "operation": "value",
+          "requestXml": "<value><sessionID>mock-session</sessionID><optionID>sol-puj-002</optionID><rateKey>sol-puj-002</rateKey></value>",
+          "responseXml": "<result><code>0</code><description>MOCK OK - definir TOURDIEZ_MODE=real e credenciais para chamada externa</description></result>"
+        }
+      }
+    },
+    {
+      "id": "log-20260626-1AF1B2",
+      "createdAt": "2026-06-26T11:45:50.493Z",
+      "type": "CONFIRM",
+      "payload": {
+        "ok": true,
+        "operator": "TourDiez",
+        "locator": "BDV-148616",
+        "raw": {
+          "mock": true,
+          "operation": "confirm",
+          "requestXml": "<confirm><sessionID>mock-session</sessionID><optionID>sol-puj-002</optionID><agencyReference>res-20260626-0AE583</agencyReference><holder>Teste</holder><passengers><passenger><name>Teste</name><surname></surname><type>ADT</type></passenger></passengers></confirm>",
+          "responseXml": "<result><code>0</code><description>MOCK OK - definir TOURDIEZ_MODE=real e credenciais para chamada externa</description></result>"
+        }
+      }
+    },
+    {
+      "id": "log-20260626-015900",
+      "createdAt": "2026-06-26T11:45:50.489Z",
+      "type": "VALUE",
+      "payload": {
+        "ok": true,
+        "operator": "TourDiez",
+        "offerId": "sol-puj-002",
+        "priceStillValid": true,
+        "availabilityStillValid": true,
+        "raw": {
+          "mock": true,
+          "operation": "value",
+          "requestXml": "<value><sessionID>mock-session</sessionID><optionID>sol-puj-002</optionID><rateKey>sol-puj-002</rateKey></value>",
+          "responseXml": "<result><code>0</code><description>MOCK OK - definir TOURDIEZ_MODE=real e credenciais para chamada externa</description></result>"
+        }
+      }
+    },
+    {
+      "id": "log-20260626-8A7A06",
+      "createdAt": "2026-06-26T11:31:20.267Z",
+      "type": "CONFIRM",
+      "payload": {
+        "mock": true,
+        "operation": "confirm",
+        "requestXml": "<confirm><sessionID>mock-session</sessionID><optionID>sol-puj-002</optionID><agencyReference>res-20260626-DE3E84</agencyReference><holder>Teste</holder><passengers><passenger><name>Teste</name><surname></surname><type>ADT</type></passenger></passengers></confirm>",
+        "responseXml": "<result><code>0</code><description>MOCK OK - definir TOURDIEZ_MODE=real e credenciais para chamada externa</description></result>"
+      }
+    },
+    {
+      "id": "log-20260626-CF3D3E",
+      "createdAt": "2026-06-26T11:31:20.267Z",
+      "type": "VALUE",
+      "payload": {
+        "mock": true,
+        "operation": "value",
+        "requestXml": "<value><sessionID>mock-session</sessionID><optionID>sol-puj-002</optionID><rateKey>sol-puj-002</rateKey></value>",
+        "responseXml": "<result><code>0</code><description>MOCK OK - definir TOURDIEZ_MODE=real e credenciais para chamada externa</description></result>"
+      }
+    }
+  ],
+  "auditLogs": [
+    {
+      "id": "audit-20260626-26936C",
+      "createdAt": "2026-06-26T12:50:16.748Z",
+      "actor": "admin",
+      "action": "RESERVATION_APPROVED",
+      "payload": {
+        "reservationId": "res-20260626-EFE693",
+        "operatorLocator": "BDV-185042"
+      }
+    },
+    {
+      "id": "audit-20260626-D05F90",
+      "createdAt": "2026-06-26T12:50:16.741Z",
+      "actor": "system",
+      "action": "PAYMENT_CONFIRMED_PENDING_OPERATOR",
+      "payload": {
+        "reservationId": "res-20260626-EFE693",
+        "paymentId": "pay-20260626-332038",
+        "status": "IN_VALIDATION"
+      }
+    },
+    {
+      "id": "audit-20260626-D405A5",
+      "createdAt": "2026-06-26T12:50:16.735Z",
+      "actor": "site",
+      "action": "CHECKOUT_CREATED",
+      "payload": {
+        "reservationId": "res-20260626-EFE693",
+        "paymentId": "pay-20260626-332038",
+        "idempotencyKey": "test-1782478216733"
+      }
+    },
+    {
+      "id": "audit-20260626-BCC613",
+      "createdAt": "2026-06-26T12:50:16.729Z",
+      "actor": "site",
+      "action": "SEARCH_CREATED",
+      "payload": {
+        "leadId": "lead-20260626-6B0CC6",
+        "destination": "Punta Cana"
+      }
+    },
+    {
+      "id": "audit-20260626-3A4778",
+      "createdAt": "2026-06-26T12:43:31.431Z",
+      "actor": "admin",
+      "action": "RESERVATION_APPROVED",
+      "payload": {
+        "reservationId": "res-20260626-BE5FBF",
+        "operatorLocator": "BDV-790193"
+      }
+    },
+    {
+      "id": "audit-20260626-C9BA42",
+      "createdAt": "2026-06-26T12:43:31.425Z",
+      "actor": "system",
+      "action": "PAYMENT_CONFIRMED_PENDING_OPERATOR",
+      "payload": {
+        "reservationId": "res-20260626-BE5FBF",
+        "paymentId": "pay-20260626-E1ECC3",
+        "status": "IN_VALIDATION"
+      }
+    },
+    {
+      "id": "audit-20260626-5894FF",
+      "createdAt": "2026-06-26T12:43:31.419Z",
+      "actor": "site",
+      "action": "CHECKOUT_CREATED",
+      "payload": {
+        "reservationId": "res-20260626-BE5FBF",
+        "paymentId": "pay-20260626-E1ECC3",
+        "idempotencyKey": "test-1782477811417"
+      }
+    },
+    {
+      "id": "audit-20260626-F2F1AB",
+      "createdAt": "2026-06-26T12:43:31.414Z",
+      "actor": "site",
+      "action": "SEARCH_CREATED",
+      "payload": {
+        "leadId": "lead-20260626-C68D5A",
+        "destination": "Punta Cana"
+      }
+    },
+    {
+      "id": "audit-20260626-3F802F",
+      "createdAt": "2026-06-26T12:35:10.838Z",
+      "actor": "admin",
+      "action": "RESERVATION_APPROVED",
+      "payload": {
+        "reservationId": "res-20260626-5CB92B",
+        "operatorLocator": "BDV-156689"
+      }
+    },
+    {
+      "id": "audit-20260626-F72692",
+      "createdAt": "2026-06-26T12:35:10.831Z",
+      "actor": "system",
+      "action": "PAYMENT_CONFIRMED_PENDING_OPERATOR",
+      "payload": {
+        "reservationId": "res-20260626-5CB92B",
+        "paymentId": "pay-20260626-566A15",
+        "status": "IN_VALIDATION"
+      }
+    },
+    {
+      "id": "audit-20260626-613026",
+      "createdAt": "2026-06-26T12:35:10.825Z",
+      "actor": "site",
+      "action": "CHECKOUT_CREATED",
+      "payload": {
+        "reservationId": "res-20260626-5CB92B",
+        "paymentId": "pay-20260626-566A15",
+        "idempotencyKey": "test-1782477310818"
+      }
+    },
+    {
+      "id": "audit-20260626-E87C37",
+      "createdAt": "2026-06-26T12:35:10.813Z",
+      "actor": "site",
+      "action": "SEARCH_CREATED",
+      "payload": {
+        "leadId": "lead-20260626-0B99DC",
+        "destination": "Punta Cana"
+      }
+    },
+    {
+      "id": "audit-20260626-BE26BA",
+      "createdAt": "2026-06-26T12:19:52.704Z",
+      "actor": "site",
+      "action": "SEARCH_CREATED",
+      "payload": {
+        "leadId": "lead-20260626-26017C",
+        "destination": "Disneyland Paris"
+      }
+    },
+    {
+      "id": "audit-20260626-B51CE5",
+      "createdAt": "2026-06-26T12:19:52.515Z",
+      "actor": "site",
+      "action": "SEARCH_CREATED",
+      "payload": {
+        "leadId": "lead-20260626-2BAEF5",
+        "destination": "Disneyland Paris"
+      }
+    },
+    {
+      "id": "audit-20260626-CC8C48",
+      "createdAt": "2026-06-26T12:19:52.290Z",
+      "actor": "site",
+      "action": "SEARCH_CREATED",
+      "payload": {
+        "leadId": "lead-20260626-856179",
+        "destination": "Disneyland Paris"
+      }
+    },
+    {
+      "id": "audit-20260626-A366AF",
+      "createdAt": "2026-06-26T12:19:51.439Z",
+      "actor": "site",
+      "action": "SEARCH_CREATED",
+      "payload": {
+        "leadId": "lead-20260626-A98DCE",
+        "destination": "Disneyland Paris"
+      }
+    },
+    {
+      "id": "audit-20260626-3B1F88",
+      "createdAt": "2026-06-26T12:19:48.564Z",
+      "actor": "site",
+      "action": "SEARCH_CREATED",
+      "payload": {
+        "leadId": "lead-20260626-681E11",
+        "destination": "Disneyland Paris"
+      }
+    },
+    {
+      "id": "audit-20260626-84D0C7",
+      "createdAt": "2026-06-26T12:17:34.812Z",
+      "actor": "admin",
+      "action": "RESERVATION_APPROVED",
+      "payload": {
+        "reservationId": "res-20260626-0F6314",
+        "operatorLocator": "BDV-971045"
+      }
+    },
+    {
+      "id": "audit-20260626-D44B61",
+      "createdAt": "2026-06-26T12:17:34.807Z",
+      "actor": "system",
+      "action": "PAYMENT_CONFIRMED_PENDING_OPERATOR",
+      "payload": {
+        "reservationId": "res-20260626-0F6314",
+        "paymentId": "pay-20260626-DFB104",
+        "status": "IN_VALIDATION"
+      }
+    },
+    {
+      "id": "audit-20260626-B737A6",
+      "createdAt": "2026-06-26T12:17:34.802Z",
+      "actor": "site",
+      "action": "CHECKOUT_CREATED",
+      "payload": {
+        "reservationId": "res-20260626-0F6314",
+        "paymentId": "pay-20260626-DFB104",
+        "idempotencyKey": "test-1782476254799"
+      }
+    },
+    {
+      "id": "audit-20260626-63F2F9",
+      "createdAt": "2026-06-26T12:17:34.797Z",
+      "actor": "site",
+      "action": "SEARCH_CREATED",
+      "payload": {
+        "leadId": "lead-20260626-C4C68D",
+        "destination": "Punta Cana"
+      }
+    },
+    {
+      "id": "audit-20260626-6D474D",
+      "createdAt": "2026-06-26T12:07:39.148Z",
+      "actor": "admin",
+      "action": "RESERVATION_APPROVED",
+      "payload": {
+        "reservationId": "res-20260626-767645",
+        "operatorLocator": "BDV-712297"
+      }
+    },
+    {
+      "id": "audit-20260626-FF62CA",
+      "createdAt": "2026-06-26T12:07:39.141Z",
+      "actor": "system",
+      "action": "PAYMENT_CONFIRMED_PENDING_OPERATOR",
+      "payload": {
+        "reservationId": "res-20260626-767645",
+        "paymentId": "pay-20260626-2DC0E1",
+        "status": "IN_VALIDATION"
+      }
+    },
+    {
+      "id": "audit-20260626-EB1587",
+      "createdAt": "2026-06-26T12:07:39.136Z",
+      "actor": "site",
+      "action": "CHECKOUT_CREATED",
+      "payload": {
+        "reservationId": "res-20260626-767645",
+        "paymentId": "pay-20260626-2DC0E1",
+        "idempotencyKey": "test-1782475659132"
+      }
+    },
+    {
+      "id": "audit-20260626-008320",
+      "createdAt": "2026-06-26T12:07:39.125Z",
+      "actor": "site",
+      "action": "SEARCH_CREATED",
+      "payload": {
+        "leadId": "lead-20260626-FE9CD5",
+        "destination": "Punta Cana"
+      }
+    },
+    {
+      "id": "audit-20260626-B1B1B5",
+      "createdAt": "2026-06-26T11:45:50.493Z",
+      "actor": "admin",
+      "action": "RESERVATION_APPROVED",
+      "payload": {
+        "reservationId": "res-20260626-0AE583",
+        "operatorLocator": "BDV-148616"
+      }
+    },
+    {
+      "id": "audit-20260626-7CAD43",
+      "createdAt": "2026-06-26T11:45:50.489Z",
+      "actor": "system",
+      "action": "PAYMENT_CONFIRMED_PENDING_OPERATOR",
+      "payload": {
+        "reservationId": "res-20260626-0AE583",
+        "paymentId": "pay-20260626-3A7EB4",
+        "status": "IN_VALIDATION"
+      }
+    },
+    {
+      "id": "audit-20260626-F26758",
+      "createdAt": "2026-06-26T11:45:50.484Z",
+      "actor": "site",
+      "action": "CHECKOUT_CREATED",
+      "payload": {
+        "reservationId": "res-20260626-0AE583",
+        "paymentId": "pay-20260626-3A7EB4",
+        "idempotencyKey": "test-1782474350480"
+      }
+    },
+    {
+      "id": "audit-20260626-666D7A",
+      "createdAt": "2026-06-26T11:45:50.479Z",
+      "actor": "site",
+      "action": "SEARCH_CREATED",
+      "payload": {
+        "leadId": "lead-20260626-33CD8F",
+        "destination": "Punta Cana"
+      }
+    }
+  ],
+  "idempotencyKeys": {
+    "test-1782474350480": {
+      "reservationId": "res-20260626-0AE583",
+      "paymentId": "pay-20260626-3A7EB4",
+      "createdAt": "2026-06-26T11:45:50.484Z"
+    },
+    "test-1782475659132": {
+      "reservationId": "res-20260626-767645",
+      "paymentId": "pay-20260626-2DC0E1",
+      "createdAt": "2026-06-26T12:07:39.136Z"
+    },
+    "test-1782476254799": {
+      "reservationId": "res-20260626-0F6314",
+      "paymentId": "pay-20260626-DFB104",
+      "createdAt": "2026-06-26T12:17:34.802Z"
+    },
+    "test-1782477310818": {
+      "reservationId": "res-20260626-5CB92B",
+      "paymentId": "pay-20260626-566A15",
+      "createdAt": "2026-06-26T12:35:10.825Z"
+    },
+    "test-1782477811417": {
+      "reservationId": "res-20260626-BE5FBF",
+      "paymentId": "pay-20260626-E1ECC3",
+      "createdAt": "2026-06-26T12:43:31.419Z"
+    },
+    "test-1782478216733": {
+      "reservationId": "res-20260626-EFE693",
+      "paymentId": "pay-20260626-332038",
+      "createdAt": "2026-06-26T12:50:16.735Z"
+    }
+  }
+}
