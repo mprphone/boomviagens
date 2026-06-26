@@ -1,7 +1,7 @@
 {
-  "name": "boomdasviagens-operacional",
+  "name": "boomviagens-operacional",
   "version": "1.0.0",
-  "description": "Site operacional de reservas inteligentes para boomdasviagens.pt com motor de margens, CRM, pagamentos mock, chat e adapter TourDiez.",
+  "description": "Site operacional de reservas inteligentes para boomviagens.pt com motor de margens, CRM, pagamentos mock, chat e adapter TourDiez.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -14,9 +14,9 @@
     "reservas",
     "tourdiezt",
     "crm",
-    "boomdasviagens"
+    "boomviagens"
   ],
-  "author": "MPR / Boom das Viagens",
+  "author": "MPR / Boomviagens",
   "license": "UNLICENSED",
   "engines": {
     "node": ">=18"

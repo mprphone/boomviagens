@@ -191,7 +191,7 @@ async function handleApi(req, res) {
 
   try {
     if (method === 'GET' && url.pathname === '/api/health') {
-      return json(res, 200, { ok: true, service: 'Boom das Viagens', time: now(), mode: process.env.TOURDIEZ_MODE || 'mock' });
+      return json(res, 200, { ok: true, service: 'Boomviagens', time: now(), mode: process.env.TOURDIEZ_MODE || 'mock' });
     }
 
     if (method === 'GET' && url.pathname === '/api/config') {
@@ -495,7 +495,7 @@ async function handleApi(req, res) {
       let answer = 'Posso ajudar a encontrar férias por destino, orçamento, datas e nº de passageiros. Exemplo: “7 noites em Punta Cana em agosto, tudo incluído, até 2500€”.';
       if (msg.includes('pag')) answer = 'Aceitamos, em modo de teste, MB WAY, referência Multibanco e cartão. Em produção deve ligar a SIBS, Easypay ou Stripe.';
       if (msg.includes('cancel')) answer = 'Antes da confirmação final mostramos as condições de cancelamento do operador. Na API TourDiez existe fluxo de cancelamento/simulação.';
-      if (msg.includes('rn') || msg.includes('rnavt')) answer = 'O rodapé e os termos já estão preparados para indicar o RNAVT da About Destiny / Boom das Viagens. Deve inserir o número final na configuração.';
+      if (msg.includes('rn') || msg.includes('rnavt')) answer = 'O rodapé e os termos já estão preparados para indicar o RNAVT da About Destiny / Boomviagens. Deve inserir o número final na configuração.';
       if (msg.includes('cara') || msg.includes('punta') || msg.includes('caribe')) answer = 'Para Caraíbas, recomendo começar por Punta Cana ou Riviera Maya. O motor compara preço, regime, avaliação, cancelamento e margem.';
       return json(res, 200, { ok: true, answer, handoff: /humano|operador|urgente|problema/.test(msg) });
     }
@@ -522,7 +522,7 @@ function appHandler(req, res) {
 if (require.main === module) {
   const server = http.createServer(appHandler);
   server.listen(PORT, () => {
-    console.log(`Boom das Viagens operacional em http://localhost:${PORT}`);
+    console.log(`Boomviagens operacional em http://localhost:${PORT}`);
     console.log(`Modo TourDiez: ${process.env.TOURDIEZ_MODE || 'mock'}`);
   });
 }

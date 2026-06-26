@@ -122,7 +122,7 @@ function ts(value) {
     id: e.id,
     created_at: ts(e.createdAt),
     recipient: e.to || e.recipient || 'cliente@exemplo.pt',
-    subject: e.subject || 'Email Boom das Viagens',
+    subject: e.subject || 'Email Boomviagens',
     body: e.body || '',
     status: e.status || 'GERADO_DEMO'
   })));

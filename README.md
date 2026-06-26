@@ -1,6 +1,6 @@
-# Boom das Viagens — Site operacional de reservas inteligentes
+# Boomviagens — Site operacional de reservas inteligentes
 
-Este ZIP inclui uma primeira versão **funcional para testes reais em ambiente local** do `boomdasviagens.pt`:
+Este ZIP inclui uma primeira versão **funcional para testes reais em ambiente local** do `boomviagens.pt`:
 
 - site público com pesquisa inteligente;
 - motor de comparação de operadores;

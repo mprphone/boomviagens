@@ -1,4 +1,4 @@
-# Supabase setup - Boom das Viagens
+# Supabase setup - Boomviagens
 
 ## Decisoes atuais
 

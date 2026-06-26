@@ -73,7 +73,7 @@ async function upsertRows(table, rows, onConflict = 'id') {
 function defaultCompany() {
   return {
     name: process.env.COMPANY_NAME || 'About Destiny, Unipessoal Lda',
-    brand: 'Boom das Viagens',
+    brand: 'Boomviagens',
     domain: process.env.COMPANY_DOMAIN || '',
     email: process.env.COMPANY_EMAIL || '',
     phone: process.env.COMPANY_PHONE || '',
@@ -288,7 +288,7 @@ function emailToRow(e) {
     id: e.id,
     created_at: e.createdAt,
     recipient: e.to || e.recipient || 'cliente@exemplo.pt',
-    subject: e.subject || 'Email Boom das Viagens',
+    subject: e.subject || 'Email Boomviagens',
     body: e.body || '',
     status: e.status || 'GERADO_DEMO'
   };

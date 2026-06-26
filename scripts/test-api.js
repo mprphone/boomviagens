@@ -52,13 +52,13 @@ async function post(path, body) {
 
   const search = await post('/api/search', {
     prompt: '7 noites nas Caraibas para 2 adultos ate 2500 euros',
-    email: 'teste@boomdasviagens.pt'
+    email: 'teste@boomviagens.pt'
   });
   console.log('Pesquisa:', search.results[0].hotel, search.results[0].finalPrice);
 
   const checkout = await post('/api/checkout', {
     offer: search.results[0],
-    customer: { name: 'Teste', email: 'teste@boomdasviagens.pt' },
+    customer: { name: 'Teste', email: 'teste@boomviagens.pt' },
     paymentMethod: 'MB WAY',
     idempotencyKey: `test-${Date.now()}`
   });

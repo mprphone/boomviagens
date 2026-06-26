@@ -1,6 +1,6 @@
 -- ATENCAO: NAO EXECUTAR ESTE FICHEIRO NO SUPABASE.
 -- Para Supabase use docs/EXECUTAR_NO_SUPABASE.sql ou docs/supabase-schema.sql.
--- Boom das Viagens - schema inicial para Oracle Cloud Database.
+-- Boomviagens - schema inicial para Oracle Cloud Database.
 -- Usar tipos e constraints conservadores para facilitar migracao a partir do JSON local.
 
 CREATE TABLE customers (

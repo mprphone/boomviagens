@@ -1,4 +1,4 @@
--- Boom das Viagens - Supabase/Postgres schema inicial
+-- Boomviagens - Supabase/Postgres schema inicial
 -- Aplicar no SQL Editor do Supabase.
 -- As tabelas ficam com RLS ativo e sem policies publicas: o frontend nao deve aceder diretamente a dados sensiveis.
 -- O servidor Node deve usar SUPABASE_SERVICE_ROLE_KEY apenas no backend.

@@ -58,7 +58,7 @@ const destinationContent = {
 function recommendationBullets(r) {
   const bullets = [];
   bullets.push(r.freeCancellation ? 'Cancelamento flexivel disponivel' : 'Tarifa com preco mais baixo, sem reembolso');
-  bullets.push(r.operatorReliability >= 9 ? 'Operador com historico de fiabilidade muito elevado' : r.operatorReliability >= 7 ? 'Operador com boa fiabilidade' : 'Operador parceiro Boom das Viagens');
+  bullets.push(r.operatorReliability >= 9 ? 'Operador com historico de fiabilidade muito elevado' : r.operatorReliability >= 7 ? 'Operador com boa fiabilidade' : 'Operador parceiro Boomviagens');
   if (r.rating) bullets.push(`Hospedes avaliam este hotel em ${r.rating}/5`);
   bullets.push(r.label === 'Recomendado Boom' ? 'Escolha da equipa Boom para este pedido' : r.finalPrice <= (r.budget || Infinity) ? 'Dentro do orcamento indicado' : 'Acima do orcamento indicado, mas com excelente relacao qualidade/preco');
   return bullets;
@@ -161,7 +161,7 @@ document.querySelectorAll('a[data-destino], a[data-soon]').forEach(link => {
   link.addEventListener('click', e => {
     if (link.dataset.soon) {
       e.preventDefault();
-      alert(`${link.dataset.soon}: ainda nao disponivel no Boom das Viagens. Contacte-nos enquanto isso para tratarmos do pedido a sua medida.`);
+      alert(`${link.dataset.soon}: ainda nao disponivel no Boomviagens. Contacte-nos enquanto isso para tratarmos do pedido a sua medida.`);
       return;
     }
     if (!link.dataset.destino) return;
