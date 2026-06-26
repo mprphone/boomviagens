@@ -55,6 +55,57 @@ a { color: inherit; }
 .main-nav a { text-decoration: none; }
 .main-nav a:hover { color: var(--pink); }
 
+.nav-dropdown { position: relative; }
+
+.nav-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: none;
+  padding: 0;
+  color: #31506e;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 900;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.nav-dropdown-trigger::after { content: "\25be"; font-size: 10px; }
+.nav-dropdown-trigger:hover { color: var(--pink); }
+
+.nav-dropdown-panel {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 50;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 220px;
+  margin-top: 14px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.nav-dropdown:hover .nav-dropdown-panel,
+.nav-dropdown.open .nav-dropdown-panel { display: flex; }
+
+.nav-dropdown-panel a {
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: none;
+}
+
+.nav-dropdown-panel a:hover { background: #edf6f9; color: var(--pink); }
+
 .destination-strip {
   position: sticky;
   top: 82px;
