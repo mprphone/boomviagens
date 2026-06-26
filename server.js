@@ -22,6 +22,7 @@ const CUSTOMER_CODE_TTL_MS = 10 * 60 * 1000;
 const customerSessions = new Map();
 const customerLoginCodes = new Map();
 const RESERVATION_STATUSES = ['NEW_LEAD', 'PROPOSAL_SENT', 'PENDING_PAYMENT', 'PAYMENT_RECEIVED', 'IN_VALIDATION', 'HUMAN_REVIEW', 'CONFIRMED', 'CANCELLED', 'OPERATOR_ERROR'];
+const LEAD_STAGES = ['NOVA', 'EM_CONSULTA', 'FECHADA', 'PERDIDA'];
 
 function id(prefix) {
   return `${prefix}-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
@@ -139,6 +140,14 @@ function statusLabel(status) {
     OPERATOR_ERROR: 'Erro no operador',
     HUMAN_REVIEW: 'Pendente de intervencao humana'
   })[status] || status;
+}
+
+function leadStageLabel(stage) {
+  return ({ NOVA: 'Nova', EM_CONSULTA: 'Em consulta', FECHADA: 'Fechada', PERDIDA: 'Perdida' })[stage] || 'Nova';
+}
+
+function leadStage(lead) {
+  return LEAD_STAGES.includes(lead.status) ? lead.status : 'NOVA';
 }
 
 const offerImages = {
@@ -302,7 +311,7 @@ async function handleApi(req, res) {
       const body = searchPayload(await parseBody(req));
       const db = await readDb();
       const { parsed, results } = searchOffers(body, db.margins);
-      const lead = { id: id('lead'), createdAt: now(), search: parsed, source: body.source || 'site', status: 'PROPOSAL_SENT', topResult: results[0] };
+      const lead = { id: id('lead'), createdAt: now(), search: { ...parsed, name: body.name, email: body.email }, source: body.source || 'site', status: 'PROPOSAL_SENT', topResult: results[0] };
       const email = proposalEmail({ customer: { name: body.name || 'Cliente' }, results, search: parsed });
       await updateDb(d => {
         ensureCollections(d);
@@ -596,6 +605,68 @@ async function handleApi(req, res) {
         resultPayload = { reservation: r };
       });
       return json(res, 200, { ok: true, ...resultPayload });
+    }
+
+    if (method === 'GET' && url.pathname === '/api/admin/customers') {
+      const db = ensureCollections(await readDb());
+      const customers = db.customers.map(c => ({
+        ...c,
+        leadsCount: db.leads.filter(l => l.search?.email === c.email).length,
+        reservationsCount: db.reservations.filter(r => r.customer?.email === c.email).length
+      }));
+      return json(res, 200, { ok: true, customers });
+    }
+
+    if (method === 'GET' && url.pathname === '/api/admin/customers/detail') {
+      const customerEmail = cleanText(url.searchParams.get('email'), 254);
+      const db = ensureCollections(await readDb());
+      const customer = db.customers.find(c => c.email === customerEmail);
+      if (!customer) return json(res, 404, { ok: false, error: 'Cliente nao encontrado' });
+      const leads = db.leads.filter(l => l.search?.email === customerEmail);
+      const reservations = db.reservations.filter(r => r.customer?.email === customerEmail);
+      return json(res, 200, { ok: true, customer, leads, reservations });
+    }
+
+    if (method === 'POST' && url.pathname === '/api/admin/customers/notes') {
+      const body = await parseBody(req);
+      const customerEmail = cleanText(body.email, 254);
+      const notes = cleanText(body.notes, 2000);
+      const saved = await updateDb(d => {
+        ensureCollections(d);
+        const customer = d.customers.find(c => c.email === customerEmail);
+        if (!customer) return null;
+        customer.notes = notes;
+        customer.updatedAt = now();
+        audit(d, sessionUser(req), 'CUSTOMER_NOTES_UPDATED', { email: customerEmail });
+        return customer;
+      });
+      if (!saved) return json(res, 404, { ok: false, error: 'Cliente nao encontrado' });
+      return json(res, 200, { ok: true, customer: saved });
+    }
+
+    if (method === 'GET' && url.pathname === '/api/admin/leads') {
+      const db = ensureCollections(await readDb());
+      const leads = db.leads.map(l => ({ ...l, stage: leadStage(l) }));
+      return json(res, 200, { ok: true, leads, leadStages: LEAD_STAGES.map(value => ({ value, label: leadStageLabel(value) })) });
+    }
+
+    if (method === 'POST' && url.pathname === '/api/admin/leads/update') {
+      const body = await parseBody(req);
+      const leadId = cleanText(body.leadId, 120);
+      const stage = cleanText(body.status, 40);
+      if (!LEAD_STAGES.includes(stage)) return json(res, 400, { ok: false, error: 'Estagio invalido' });
+      const saved = await updateDb(d => {
+        ensureCollections(d);
+        const lead = d.leads.find(l => l.id === leadId);
+        if (!lead) return null;
+        const previousStatus = lead.status;
+        lead.status = stage;
+        lead.updatedAt = now();
+        audit(d, sessionUser(req), 'LEAD_STAGE_UPDATED', { leadId: lead.id, from: previousStatus, to: stage });
+        return lead;
+      });
+      if (!saved) return json(res, 404, { ok: false, error: 'Lead nao encontrado' });
+      return json(res, 200, { ok: true, lead: saved });
     }
 
     if (method === 'POST' && url.pathname === '/api/chat') {

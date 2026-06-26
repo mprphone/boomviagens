@@ -389,7 +389,8 @@ async function refreshAdmin() {
     $('#reservationsStatusFilter').dataset.filled = '1';
   }
   loadAdminReservations();
-  $('#adminLeads').innerHTML = data.latest.leads.map(l => `<div class="mini-item"><b>${l.search.destination}</b> - ${statusLabel(l.status)}<br>${l.search.adults} adultos - orcamento ${money(l.search.budget)}</div>`).join('') || '<div class="mini-item">Sem leads.</div>';
+  loadCustomers();
+  loadLeadsPipeline();
   $('#adminMargins').innerHTML = data.margins.map(m => `<div class="mini-item"><b>${m.name}</b><br>${m.percent}% - minimo ${money(m.min)} - match: ${m.match}</div>`).join('');
   $('#adminEmails').innerHTML = data.latest.emails.map(e => `<div class="mini-item"><b>${e.subject}</b><br>Para: ${e.to}<br>${e.status}</div>`).join('') || '<div class="mini-item">Sem emails.</div>';
   $('#operatorLog').textContent = JSON.stringify({ operadores: data.operators, chamadas: data.latest.logs, auditoria: data.latest.audit }, null, 2);
@@ -458,6 +459,115 @@ async function loadAdminReservations() {
 
 $('#reservationsSearch').addEventListener('input', renderReservationsTable);
 $('#reservationsStatusFilter').addEventListener('change', renderReservationsTable);
+
+let allCustomers = [];
+let allLeads = [];
+let leadStages = [];
+
+function leadStageLabel(stage) {
+  const found = leadStages.find(s => s.value === stage);
+  return found ? found.label : 'Nova';
+}
+
+function renderCustomersList() {
+  const query = $('#customersSearch').value.trim().toLowerCase();
+  const filtered = allCustomers.filter(c => !query || `${c.name} ${c.email}`.toLowerCase().includes(query));
+  $('#customersList').innerHTML = filtered.map(c => `
+    <div class="mini-item customer-item">
+      <div class="customer-summary" data-email="${c.email}">
+        <b>${c.name}</b> - ${c.email}<br>
+        ${c.phone || ''} - ${c.leadsCount} leads - ${c.reservationsCount} reservas
+      </div>
+      <div class="customer-detail" data-email="${c.email}" hidden></div>
+    </div>`).join('') || '<div class="mini-item">Sem clientes.</div>';
+
+  $('#customersList').querySelectorAll('.customer-summary').forEach(el => {
+    el.onclick = () => toggleCustomerDetail(el.dataset.email);
+  });
+}
+
+async function toggleCustomerDetail(email) {
+  const detailEl = document.querySelector(`.customer-detail[data-email="${email}"]`);
+  if (!detailEl) return;
+  if (!detailEl.hidden) { detailEl.hidden = true; return; }
+  document.querySelectorAll('.customer-detail').forEach(el => { el.hidden = true; });
+  detailEl.hidden = false;
+  detailEl.innerHTML = 'A carregar...';
+  try {
+    const data = await api(`/api/admin/customers/detail?email=${encodeURIComponent(email)}`);
+    detailEl.innerHTML = `
+      <label>Notas internas
+        <textarea class="customer-notes" rows="3">${data.customer.notes || ''}</textarea>
+      </label>
+      <button class="ghost mini-action customer-save-notes">Guardar notas</button>
+      <div class="muted" style="margin-top:8px"><b>Leads:</b> ${data.leads.map(l => `${l.search?.destination || ''} (${leadStageLabel(l.status)})`).join(', ') || 'nenhum'}</div>
+      <div class="muted"><b>Reservas:</b> ${data.reservations.map(r => `${r.id} (${statusLabel(r.status)})`).join(', ') || 'nenhuma'}</div>`;
+    detailEl.querySelector('.customer-save-notes').onclick = async () => {
+      const notes = detailEl.querySelector('.customer-notes').value;
+      try {
+        await api('/api/admin/customers/notes', { method: 'POST', body: JSON.stringify({ email, notes }) });
+      } catch (err) { alert(err.message); }
+    };
+  } catch (err) {
+    detailEl.innerHTML = `<p class="error">${err.message}</p>`;
+  }
+}
+
+async function loadCustomers() {
+  try {
+    const data = await api('/api/admin/customers');
+    allCustomers = data.customers;
+    renderCustomersList();
+  } catch (err) {
+    $('#customersList').innerHTML = `<p class="error">${err.message}</p>`;
+  }
+}
+
+$('#customersSearch').addEventListener('input', renderCustomersList);
+
+function renderLeadsPipeline() {
+  const columns = leadStages.length ? leadStages : [{ value: 'NOVA', label: 'Nova' }, { value: 'EM_CONSULTA', label: 'Em consulta' }, { value: 'FECHADA', label: 'Fechada' }, { value: 'PERDIDA', label: 'Perdida' }];
+  $('#leadsPipeline').innerHTML = columns.map(col => {
+    const items = allLeads.filter(l => l.stage === col.value);
+    return `
+      <div class="pipeline-column">
+        <h4>${col.label} <span class="badge">${items.length}</span></h4>
+        ${items.map(l => `
+          <div class="pipeline-card">
+            <b>${l.search?.destination || ''}</b><br>
+            ${l.search?.name || l.search?.email || ''}<br>
+            <span class="muted">orcamento ${money(l.search?.budget)}</span>
+            <select class="lead-stage-select" data-lead="${l.id}">
+              ${columns.map(c => `<option value="${c.value}" ${c.value === col.value ? 'selected' : ''}>${c.label}</option>`).join('')}
+            </select>
+          </div>`).join('') || '<p class="muted">Sem leads.</p>'}
+      </div>`;
+  }).join('');
+
+  $('#leadsPipeline').querySelectorAll('.lead-stage-select').forEach(sel => {
+    sel.onchange = () => updateLeadStage(sel.dataset.lead, sel.value);
+  });
+}
+
+async function updateLeadStage(leadId, status) {
+  try {
+    await api('/api/admin/leads/update', { method: 'POST', body: JSON.stringify({ leadId, status }) });
+    await loadLeadsPipeline();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function loadLeadsPipeline() {
+  try {
+    const data = await api('/api/admin/leads');
+    allLeads = data.leads;
+    leadStages = data.leadStages;
+    renderLeadsPipeline();
+  } catch (err) {
+    $('#leadsPipeline').innerHTML = `<p class="error">${err.message}</p>`;
+  }
+}
 
 $('#adminLogin').addEventListener('submit', async e => {
   e.preventDefault();
