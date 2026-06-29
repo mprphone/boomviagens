@@ -284,6 +284,7 @@ async function confirmPayment() {
 }
 
 let pendingCustomerEmail = '';
+let pendingCustomerChallenge = '';
 
 function setCustomerState(authenticated) {
   $('#customerLoginForm').hidden = authenticated;
@@ -325,6 +326,7 @@ $('#customerLoginForm').addEventListener('submit', async e => {
   try {
     const data = await api('/api/customer/login/request', { method: 'POST', body: JSON.stringify({ email: f.email }) });
     pendingCustomerEmail = f.email;
+    pendingCustomerChallenge = data.challenge;
     $('#customerLoginForm').hidden = true;
     $('#customerCodeForm').hidden = false;
     $('#customerCodeMessage').textContent = `Codigo (demo, sem email real): ${data.demoCode}`;
@@ -338,7 +340,7 @@ $('#customerCodeForm').addEventListener('submit', async e => {
   const f = formToJson(e.target);
   $('#customerCodeMessage').textContent = 'A validar...';
   try {
-    await api('/api/customer/login/verify', { method: 'POST', body: JSON.stringify({ email: pendingCustomerEmail, code: f.code }) });
+    await api('/api/customer/login/verify', { method: 'POST', body: JSON.stringify({ email: pendingCustomerEmail, code: f.code, challenge: pendingCustomerChallenge }) });
     setCustomerState(true);
     loadCustomerReservations();
   } catch (err) {
@@ -349,6 +351,7 @@ $('#customerCodeForm').addEventListener('submit', async e => {
 $('#customerLogout').onclick = async () => {
   await api('/api/customer/logout', { method: 'POST', body: '{}' });
   pendingCustomerEmail = '';
+  pendingCustomerChallenge = '';
   setCustomerState(false);
   $('#customerLoginMessage').textContent = 'Entre com o seu email para ver as suas reservas.';
 };

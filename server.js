@@ -10,18 +10,20 @@ const { OperatorRegistry, TourDiezAdapter } = require('./src/operatorAdapters');
 const { cleanText, searchPayload, customerPayload, paymentMethod, numberInRange, email: validateEmail } = require('./src/validation');
 const fileStorage = require('./src/fileStorage');
 
+const SESSION_SECRET = process.env.SESSION_SECRET || crypto.createHash('sha256').update(`${process.env.ADMIN_PASSWORD || 'admin123'}::boomviagens-session-fallback`).digest('hex');
+if (!process.env.SESSION_SECRET) {
+  console.warn('[server] SESSION_SECRET nao definido no .env - a usar um valor derivado de ADMIN_PASSWORD. Defina SESSION_SECRET (valor aleatorio) para maior seguranca em producao.');
+}
+
 const PORT = Number(process.env.PORT || 3000);
 const PUBLIC = path.join(__dirname, 'public');
 const tourdiezAdapter = new TourDiezAdapter(process.env);
 const operators = new OperatorRegistry([tourdiezAdapter]);
 const SESSION_COOKIE = 'bdv_admin_session';
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
-const sessions = new Map();
 const rateBuckets = new Map();
 const CUSTOMER_SESSION_COOKIE = 'bdv_customer_session';
 const CUSTOMER_CODE_TTL_MS = 10 * 60 * 1000;
-const customerSessions = new Map();
-const customerLoginCodes = new Map();
 const RESERVATION_STATUSES = ['NEW_LEAD', 'PROPOSAL_SENT', 'PENDING_PAYMENT', 'PAYMENT_RECEIVED', 'IN_VALIDATION', 'HUMAN_REVIEW', 'CONFIRMED', 'CANCELLED', 'OPERATOR_ERROR'];
 const LEAD_STAGES = ['NOVA', 'EM_CONSULTA', 'FECHADA', 'PERDIDA'];
 const DOCUMENT_TYPES = ['PASSPORT', 'INSURANCE', 'OTHER'];
@@ -56,15 +58,37 @@ function safeEqual(a, b) {
   return left.length === right.length && crypto.timingSafeEqual(left, right);
 }
 
-function sessionUser(req) {
-  const token = parseCookies(req)[SESSION_COOKIE];
-  if (!token) return null;
-  const session = sessions.get(token);
-  if (!session || session.expiresAt < Date.now()) {
-    sessions.delete(token);
+// Sessoes sem estado no servidor: o cookie e o proprio token, assinado com
+// HMAC. Necessario em Vercel porque cada pedido pode cair numa instancia de
+// funcao serverless diferente - um Map em memoria (como se usava antes) so
+// e visivel na instancia que o escreveu, causando 401 aleatorios noutras
+// instancias mesmo com sessao valida.
+function signToken(payload) {
+  const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const sig = crypto.createHmac('sha256', SESSION_SECRET).update(body).digest('base64url');
+  return `${body}.${sig}`;
+}
+
+function verifyToken(token) {
+  if (!token || typeof token !== 'string') return null;
+  const dot = token.lastIndexOf('.');
+  if (dot < 0) return null;
+  const body = token.slice(0, dot);
+  const sig = token.slice(dot + 1);
+  const expectedSig = crypto.createHmac('sha256', SESSION_SECRET).update(body).digest('base64url');
+  if (!safeEqual(sig, expectedSig)) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
+    if (!payload.exp || payload.exp < Date.now()) return null;
+    return payload;
+  } catch {
     return null;
   }
-  return session.user;
+}
+
+function sessionUser(req) {
+  const payload = verifyToken(parseCookies(req)[SESSION_COOKIE]);
+  return payload && payload.scope === 'admin' ? payload.user : null;
 }
 
 function setSessionCookie(res, token) {
@@ -76,14 +100,8 @@ function clearSessionCookie(res) {
 }
 
 function customerSessionEmail(req) {
-  const token = parseCookies(req)[CUSTOMER_SESSION_COOKIE];
-  if (!token) return null;
-  const session = customerSessions.get(token);
-  if (!session || session.expiresAt < Date.now()) {
-    customerSessions.delete(token);
-    return null;
-  }
-  return session.email;
+  const payload = verifyToken(parseCookies(req)[CUSTOMER_SESSION_COOKIE]);
+  return payload && payload.scope === 'customer' ? payload.email : null;
 }
 
 function setCustomerSessionCookie(res, token) {
@@ -268,15 +286,12 @@ async function handleApi(req, res) {
       if (!safeEqual(body.username, expectedUser) || !safeEqual(body.password, expectedPassword)) {
         return json(res, 401, { ok: false, error: 'Credenciais inválidas' });
       }
-      const token = crypto.randomBytes(32).toString('hex');
-      sessions.set(token, { user: expectedUser, expiresAt: Date.now() + SESSION_TTL_MS });
+      const token = signToken({ scope: 'admin', user: expectedUser, exp: Date.now() + SESSION_TTL_MS });
       setSessionCookie(res, token);
       return json(res, 200, { ok: true, user: expectedUser });
     }
 
     if (method === 'POST' && url.pathname === '/api/admin/logout') {
-      const token = parseCookies(req)[SESSION_COOKIE];
-      if (token) sessions.delete(token);
       clearSessionCookie(res);
       return json(res, 200, { ok: true });
     }
@@ -381,14 +396,14 @@ async function handleApi(req, res) {
       const body = await parseBody(req);
       const customerEmail = validateEmail(body.email);
       const code = crypto.randomInt(100000, 999999).toString();
-      customerLoginCodes.set(customerEmail, { code, expiresAt: Date.now() + CUSTOMER_CODE_TTL_MS });
+      const challenge = signToken({ scope: 'customer-code', email: customerEmail, code, exp: Date.now() + CUSTOMER_CODE_TTL_MS });
       const mail = loginCodeEmail({ email: customerEmail, code });
       await updateDb(d => {
         ensureCollections(d);
         d.emails.unshift({ id: id('email'), createdAt: now(), to: customerEmail, status: 'GERADO_DEMO', ...mail });
         audit(d, customerEmail, 'CUSTOMER_LOGIN_CODE_REQUESTED', {});
       });
-      return json(res, 200, { ok: true, message: 'Codigo gerado. Em produção seria enviado por email.', demoCode: code });
+      return json(res, 200, { ok: true, message: 'Codigo gerado. Em produção seria enviado por email.', demoCode: code, challenge });
     }
 
     if (method === 'POST' && url.pathname === '/api/customer/login/verify') {
@@ -396,13 +411,11 @@ async function handleApi(req, res) {
       if (limited) return limited;
       const body = await parseBody(req);
       const customerEmail = validateEmail(body.email);
-      const pending = customerLoginCodes.get(customerEmail);
-      if (!pending || pending.expiresAt < Date.now() || !safeEqual(body.code, pending.code)) {
+      const pending = verifyToken(body.challenge);
+      if (!pending || pending.scope !== 'customer-code' || pending.email !== customerEmail || !safeEqual(String(body.code || ''), String(pending.code || ''))) {
         return json(res, 401, { ok: false, error: 'Codigo invalido ou expirado' });
       }
-      customerLoginCodes.delete(customerEmail);
-      const token = crypto.randomBytes(32).toString('hex');
-      customerSessions.set(token, { email: customerEmail, expiresAt: Date.now() + SESSION_TTL_MS });
+      const token = signToken({ scope: 'customer', email: customerEmail, exp: Date.now() + SESSION_TTL_MS });
       setCustomerSessionCookie(res, token);
       const db = await readDb();
       const customer = (db.customers || []).find(c => c.email === customerEmail) || null;
@@ -411,8 +424,6 @@ async function handleApi(req, res) {
     }
 
     if (method === 'POST' && url.pathname === '/api/customer/logout') {
-      const token = parseCookies(req)[CUSTOMER_SESSION_COOKIE];
-      if (token) customerSessions.delete(token);
       clearCustomerSessionCookie(res);
       return json(res, 200, { ok: true });
     }
