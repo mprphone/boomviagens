@@ -70,6 +70,12 @@ async function upsertRows(table, rows, onConflict = 'id') {
   });
 }
 
+async function deleteRows(table, ids) {
+  if (!ids || !ids.length) return;
+  const filter = ids.map(id => encodeURIComponent(id)).join(',');
+  await supabaseFetch(table, { method: 'DELETE', search: `?id=in.(${filter})` });
+}
+
 function defaultCompany() {
   return {
     name: process.env.COMPANY_NAME || 'About Destiny, Unipessoal Lda',
@@ -310,6 +316,32 @@ function auditLogToRow(l) {
   return { id: l.id, created_at: l.createdAt, actor: l.actor || null, action: l.action, payload: l.payload || {} };
 }
 
+function rowToDocument(row) {
+  return {
+    id: row.id,
+    createdAt: row.created_at,
+    reservationId: row.reservation_id,
+    type: row.type,
+    passengerName: row.passenger_name || undefined,
+    fileName: row.file_name,
+    storagePath: row.storage_path,
+    uploadedBy: row.uploaded_by || undefined
+  };
+}
+
+function documentToRow(d) {
+  return {
+    id: d.id,
+    created_at: d.createdAt,
+    reservation_id: d.reservationId,
+    type: d.type,
+    passenger_name: d.passengerName || null,
+    file_name: d.fileName,
+    storage_path: d.storagePath,
+    uploaded_by: d.uploadedBy || null
+  };
+}
+
 function idemRowsToMap(rows) {
   const map = {};
   for (const row of rows || []) {
@@ -328,7 +360,7 @@ function idemEntryToRow([key, value]) {
 }
 
 async function readDbSupabase() {
-  const [companyRows, marginRows, customerRows, leadRows, reservationRows, paymentRows, emailRows, operatorLogRows, auditLogRows, idemRows] = await Promise.all([
+  const [companyRows, marginRows, customerRows, leadRows, reservationRows, paymentRows, emailRows, operatorLogRows, auditLogRows, idemRows, documentRows] = await Promise.all([
     selectAll('company_settings', '&id=eq.main'),
     selectAll('margins', '&order=created_at.asc'),
     selectAll('customers', '&order=created_at.desc'),
@@ -338,7 +370,8 @@ async function readDbSupabase() {
     selectAll('emails', '&order=created_at.desc'),
     selectAll('operator_logs', '&order=created_at.desc&limit=100'),
     selectAll('audit_logs', '&order=created_at.desc&limit=200'),
-    selectAll('idempotency_keys', '')
+    selectAll('idempotency_keys', ''),
+    selectAll('documents', '&order=created_at.desc')
   ]);
 
   return {
@@ -351,7 +384,8 @@ async function readDbSupabase() {
     emails: (emailRows || []).map(rowToEmail),
     operatorLogs: (operatorLogRows || []).map(rowToOperatorLog),
     auditLogs: (auditLogRows || []).map(rowToAuditLog),
-    idempotencyKeys: idemRowsToMap(idemRows)
+    idempotencyKeys: idemRowsToMap(idemRows),
+    documents: (documentRows || []).map(rowToDocument)
   };
 }
 
@@ -366,7 +400,8 @@ async function writeDbSupabase(db) {
     upsertRows('emails', (db.emails || []).map(emailToRow)),
     upsertRows('operator_logs', (db.operatorLogs || []).map(operatorLogToRow)),
     upsertRows('audit_logs', (db.auditLogs || []).map(auditLogToRow)),
-    upsertRows('idempotency_keys', Object.entries(db.idempotencyKeys || {}).map(idemEntryToRow), 'idempotency_key')
+    upsertRows('idempotency_keys', Object.entries(db.idempotencyKeys || {}).map(idemEntryToRow), 'idempotency_key'),
+    upsertRows('documents', (db.documents || []).map(documentToRow))
   ]);
   return db;
 }
@@ -407,6 +442,12 @@ async function updateDbSupabase(mutator) {
   tasks.push(upsertRows('operator_logs', diffById(before.operatorLogs, db.operatorLogs).map(operatorLogToRow)));
   tasks.push(upsertRows('audit_logs', diffById(before.auditLogs, db.auditLogs).map(auditLogToRow)));
   tasks.push(upsertRows('idempotency_keys', diffMapEntries(before.idempotencyKeys, db.idempotencyKeys).map(idemEntryToRow), 'idempotency_key'));
+  tasks.push(upsertRows('documents', diffById(before.documents, db.documents).map(documentToRow)));
+
+  const beforeDocIds = new Set((before.documents || []).map(d => d.id));
+  const afterDocIds = new Set((db.documents || []).map(d => d.id));
+  const removedDocIds = [...beforeDocIds].filter(docId => !afterDocIds.has(docId));
+  if (removedDocIds.length) tasks.push(deleteRows('documents', removedDocIds));
 
   await Promise.all(tasks);
   return result;

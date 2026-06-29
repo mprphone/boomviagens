@@ -661,6 +661,53 @@ textarea:focus {
   font-size: 12px;
 }
 
+.pill-warning { background: #fdecea; color: #b3261e; }
+.pill-ok { background: #e8f6ec; color: #1c7a3a; }
+
+.reservation-documents {
+  flex: 1 1 100%;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+
+.reservation-documents[hidden] { display: none; }
+
+.doc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.doc-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.doc-type {
+  font-weight: 900;
+  color: #345a73;
+}
+
+.doc-upload-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.doc-upload-form select,
+.doc-upload-form input[type="text"],
+.doc-upload-form input[type="file"] {
+  width: auto;
+  padding: 7px 8px;
+  font-size: 12px;
+}
+
 .customer-item { cursor: default; }
 .customer-summary { cursor: pointer; }
 .customer-detail {

@@ -8,6 +8,7 @@ const { baseOffers, searchOffers, getOfferById } = require('./src/mockOperators'
 const { proposalEmail, reservationEmail, loginCodeEmail } = require('./src/emailTemplates');
 const { OperatorRegistry, TourDiezAdapter } = require('./src/operatorAdapters');
 const { cleanText, searchPayload, customerPayload, paymentMethod, numberInRange, email: validateEmail } = require('./src/validation');
+const fileStorage = require('./src/fileStorage');
 
 const PORT = Number(process.env.PORT || 3000);
 const PUBLIC = path.join(__dirname, 'public');
@@ -23,6 +24,7 @@ const customerSessions = new Map();
 const customerLoginCodes = new Map();
 const RESERVATION_STATUSES = ['NEW_LEAD', 'PROPOSAL_SENT', 'PENDING_PAYMENT', 'PAYMENT_RECEIVED', 'IN_VALIDATION', 'HUMAN_REVIEW', 'CONFIRMED', 'CANCELLED', 'OPERATOR_ERROR'];
 const LEAD_STAGES = ['NOVA', 'EM_CONSULTA', 'FECHADA', 'PERDIDA'];
+const DOCUMENT_TYPES = ['PASSPORT', 'INSURANCE', 'OTHER'];
 
 function id(prefix) {
   return `${prefix}-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
@@ -120,7 +122,22 @@ function ensureCollections(db) {
   db.operatorLogs ||= [];
   db.auditLogs ||= [];
   db.idempotencyKeys ||= {};
+  db.documents ||= [];
   return db;
+}
+
+function missingDocumentsFor(reservation, documents) {
+  const docs = documents.filter(d => d.reservationId === reservation.id);
+  const missing = [];
+  const passengers = reservation.passengers?.length ? reservation.passengers : [{ name: reservation.customer?.name || 'Titular' }];
+  for (const passenger of passengers) {
+    const passengerName = passenger.name || 'Titular';
+    const hasPassport = docs.some(d => d.type === 'PASSPORT' && d.passengerName === passengerName);
+    if (!hasPassport) missing.push(`Passaporte/cartao de cidadao de ${passengerName}`);
+  }
+  const hasInsurance = docs.some(d => d.type === 'INSURANCE');
+  if (!hasInsurance) missing.push('Seguro de viagem');
+  return missing;
 }
 
 function audit(db, actor, action, payload = {}) {
@@ -184,7 +201,7 @@ function parseBody(req) {
     let body = '';
     req.on('data', chunk => {
       body += chunk;
-      if (body.length > 3_000_000) { req.destroy(); reject(new Error('Pedido demasiado grande')); }
+      if (body.length > 12_000_000) { req.destroy(); reject(new Error('Pedido demasiado grande')); }
     });
     req.on('end', () => {
       if (!body) return resolve({});
@@ -577,7 +594,8 @@ async function handleApi(req, res) {
 
     if (method === 'GET' && url.pathname === '/api/admin/reservations') {
       const db = ensureCollections(await readDb());
-      return json(res, 200, { ok: true, reservations: db.reservations });
+      const reservations = db.reservations.map(r => ({ ...r, missingDocuments: missingDocumentsFor(r, db.documents) }));
+      return json(res, 200, { ok: true, reservations });
     }
 
     if (method === 'POST' && url.pathname === '/api/admin/reservations/update') {
@@ -605,6 +623,66 @@ async function handleApi(req, res) {
         resultPayload = { reservation: r };
       });
       return json(res, 200, { ok: true, ...resultPayload });
+    }
+
+    if (method === 'POST' && url.pathname === '/api/admin/documents/upload') {
+      const body = await parseBody(req);
+      const reservationId = cleanText(body.reservationId, 120);
+      const type = cleanText(body.type, 20);
+      if (!DOCUMENT_TYPES.includes(type)) return json(res, 400, { ok: false, error: 'Tipo de documento invalido' });
+      const fileName = cleanText(body.fileName, 200);
+      const passengerName = body.passengerName ? cleanText(body.passengerName, 200) : undefined;
+      if (!fileName || !body.fileBase64) return json(res, 400, { ok: false, error: 'Ficheiro invalido' });
+
+      const db = ensureCollections(await readDb());
+      const reservation = db.reservations.find(r => r.id === reservationId);
+      if (!reservation) return json(res, 404, { ok: false, error: 'Reserva nao encontrada' });
+
+      const buffer = Buffer.from(body.fileBase64, 'base64');
+      const docId = id('doc');
+      const storagePath = `${reservationId}/${docId}-${fileName}`;
+      try {
+        await fileStorage.uploadFile(storagePath, buffer, body.mimeType);
+      } catch (err) {
+        return json(res, 502, { ok: false, error: `Falha ao guardar documento: ${err.message}` });
+      }
+
+      const document = { id: docId, createdAt: now(), reservationId, type, passengerName, fileName, storagePath, uploadedBy: sessionUser(req) };
+      await updateDb(d => {
+        ensureCollections(d);
+        d.documents.unshift(document);
+        audit(d, sessionUser(req), 'DOCUMENT_UPLOADED', { reservationId, documentId: docId, type });
+      });
+      return json(res, 200, { ok: true, document });
+    }
+
+    if (method === 'GET' && url.pathname === '/api/admin/documents') {
+      const reservationId = cleanText(url.searchParams.get('reservationId'), 120);
+      const db = ensureCollections(await readDb());
+      const documents = db.documents.filter(d => d.reservationId === reservationId);
+      const withUrls = await Promise.all(documents.map(async d => ({ ...d, signedUrl: await fileStorage.signedUrl(d.storagePath) })));
+      return json(res, 200, { ok: true, documents: withUrls });
+    }
+
+    if (method === 'POST' && url.pathname === '/api/admin/documents/delete') {
+      const body = await parseBody(req);
+      const documentId = cleanText(body.documentId, 120);
+      const db = ensureCollections(await readDb());
+      const document = db.documents.find(d => d.id === documentId);
+      if (!document) return json(res, 404, { ok: false, error: 'Documento nao encontrado' });
+
+      try {
+        await fileStorage.deleteFile(document.storagePath);
+      } catch (err) {
+        return json(res, 502, { ok: false, error: `Falha ao remover documento: ${err.message}` });
+      }
+
+      await updateDb(d => {
+        ensureCollections(d);
+        d.documents = d.documents.filter(x => x.id !== documentId);
+        audit(d, sessionUser(req), 'DOCUMENT_DELETED', { reservationId: document.reservationId, documentId });
+      });
+      return json(res, 200, { ok: true });
     }
 
     if (method === 'GET' && url.pathname === '/api/admin/customers') {

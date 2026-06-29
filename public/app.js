@@ -416,6 +416,7 @@ function renderReservationsTable() {
         <b>${r.id}</b> - ${r.customer?.name || ''} (${r.customer?.email || ''})<br>
         ${r.offer?.hotel || ''} - ${r.offer?.destination || ''} - ${money(r.offer?.finalPrice)}
         <div class="muted">Criado em ${new Date(r.createdAt).toLocaleString('pt-PT')}</div>
+        ${r.missingDocuments?.length ? `<div class="pill pill-warning">Falta: ${r.missingDocuments.join(', ')}</div>` : '<div class="pill pill-ok">Documentos completos</div>'}
       </div>
       <div class="reservation-actions">
         <span class="pill">${statusLabel(r.status)}</span>
@@ -425,7 +426,9 @@ function renderReservationsTable() {
         <button class="ghost mini-action reservation-save" data-reservation="${r.id}">Guardar</button>
         ${r.status !== 'CANCELLED' ? `<button class="ghost mini-action reservation-cancel" data-reservation="${r.id}">Cancelar</button>` : ''}
         ${['IN_VALIDATION', 'HUMAN_REVIEW'].includes(r.status) ? `<button class="ghost mini-action" onclick="approveReservation('${r.id}')">Aprovar no operador</button>` : ''}
+        <button class="ghost mini-action reservation-docs-toggle" data-reservation="${r.id}">Documentos</button>
       </div>
+      <div class="reservation-documents" data-reservation="${r.id}" hidden></div>
     </div>`).join('') || '<div class="mini-item">Sem reservas.</div>';
 
   $('#reservationsTable').querySelectorAll('.reservation-save').forEach(btn => {
@@ -434,6 +437,103 @@ function renderReservationsTable() {
   $('#reservationsTable').querySelectorAll('.reservation-cancel').forEach(btn => {
     btn.onclick = () => { if (confirm('Cancelar esta reserva?')) updateReservationStatus(btn.dataset.reservation, 'CANCELLED'); };
   });
+  $('#reservationsTable').querySelectorAll('.reservation-docs-toggle').forEach(btn => {
+    btn.onclick = () => toggleReservationDocuments(btn.dataset.reservation);
+  });
+}
+
+async function toggleReservationDocuments(reservationId) {
+  const panel = document.querySelector(`.reservation-documents[data-reservation="${reservationId}"]`);
+  if (!panel) return;
+  if (!panel.hidden) { panel.hidden = true; return; }
+  document.querySelectorAll('.reservation-documents').forEach(el => { el.hidden = true; });
+  panel.hidden = false;
+  await loadReservationDocuments(reservationId, panel);
+}
+
+async function loadReservationDocuments(reservationId, panel) {
+  panel.innerHTML = 'A carregar...';
+  try {
+    const data = await api(`/api/admin/documents?reservationId=${encodeURIComponent(reservationId)}`);
+    renderReservationDocuments(reservationId, panel, data.documents);
+  } catch (err) {
+    panel.innerHTML = `<p class="error">${err.message}</p>`;
+  }
+}
+
+async function refreshReservationsKeepingDocsOpen(reservationId) {
+  await loadAdminReservations();
+  const panel = document.querySelector(`.reservation-documents[data-reservation="${reservationId}"]`);
+  if (!panel) return;
+  panel.hidden = false;
+  await loadReservationDocuments(reservationId, panel);
+}
+
+function renderReservationDocuments(reservationId, panel, documents) {
+  panel.innerHTML = `
+    <div class="doc-list">
+      ${documents.map(d => `
+        <div class="doc-item">
+          <span class="doc-type">${d.type === 'PASSPORT' ? 'Passaporte/CC' : d.type === 'INSURANCE' ? 'Seguro' : 'Outro'}</span>
+          ${d.passengerName ? `<span class="muted">${d.passengerName}</span>` : ''}
+          <span class="muted">${d.fileName}</span>
+          <a href="${d.signedUrl}" target="_blank" rel="noopener">Ver</a>
+          <button class="ghost mini-action doc-delete" data-doc="${d.id}">Remover</button>
+        </div>`).join('') || '<div class="muted">Sem documentos anexados.</div>'}
+    </div>
+    <form class="doc-upload-form">
+      <select class="doc-type-select">
+        <option value="PASSPORT">Passaporte/Cartao de cidadao</option>
+        <option value="INSURANCE">Seguro de viagem</option>
+        <option value="OTHER">Outro</option>
+      </select>
+      <input type="text" class="doc-passenger-name" placeholder="Nome do passageiro">
+      <input type="file" class="doc-file-input" required>
+      <button type="submit" class="ghost mini-action">Anexar</button>
+    </form>`;
+
+  panel.querySelectorAll('.doc-delete').forEach(btn => {
+    btn.onclick = async () => {
+      if (!confirm('Remover este documento?')) return;
+      try {
+        await api('/api/admin/documents/delete', { method: 'POST', body: JSON.stringify({ documentId: btn.dataset.doc }) });
+        await refreshReservationsKeepingDocsOpen(reservationId);
+      } catch (err) { alert(err.message); }
+    };
+  });
+
+  const typeSelect = panel.querySelector('.doc-type-select');
+  const passengerInput = panel.querySelector('.doc-passenger-name');
+  const toggleitem = () => { passengerInput.hidden = typeSelect.value !== 'PASSPORT'; };
+  typeSelect.onchange = toggleitem;
+  toggleitem();
+
+  panel.querySelector('.doc-upload-form').onsubmit = async ev => {
+    ev.preventDefault();
+    const fileInput = panel.querySelector('.doc-file-input');
+    const file = fileInput.files[0];
+    if (!file) return;
+    const fileBase64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    try {
+      await api('/api/admin/documents/upload', {
+        method: 'POST',
+        body: JSON.stringify({
+          reservationId,
+          type: typeSelect.value,
+          passengerName: typeSelect.value === 'PASSPORT' ? passengerInput.value : undefined,
+          fileName: file.name,
+          mimeType: file.type,
+          fileBase64
+        })
+      });
+      await refreshReservationsKeepingDocsOpen(reservationId);
+    } catch (err) { alert(err.message); }
+  };
 }
 
 async function updateReservationStatus(reservationId, forceStatus) {

@@ -126,6 +126,19 @@ create table if not exists public.idempotency_keys (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.documents (
+  id text primary key,
+  created_at timestamptz not null default now(),
+  reservation_id text not null references public.reservations(id) on delete cascade,
+  type text not null,
+  passenger_name text,
+  file_name text not null,
+  storage_path text not null,
+  uploaded_by text
+);
+
+create index if not exists documents_reservation_id_idx on public.documents(reservation_id);
+
 alter table public.company_settings enable row level security;
 alter table public.margins enable row level security;
 alter table public.customers enable row level security;
@@ -136,6 +149,7 @@ alter table public.emails enable row level security;
 alter table public.operator_logs enable row level security;
 alter table public.audit_logs enable row level security;
 alter table public.idempotency_keys enable row level security;
+alter table public.documents enable row level security;
 
 -- Dados publicos que podem ser lidos pelo site sem expor clientes/reservas.
 create or replace view public.public_margins

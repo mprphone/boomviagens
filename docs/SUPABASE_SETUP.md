@@ -29,6 +29,14 @@ SUPABASE_SERVICE_ROLE_KEY=...
 
 Se uma `SUPABASE_SERVICE_ROLE_KEY` real tiver sido colocada em `.env.example`, chat, print, commit ou outro ficheiro partilhado, rode/recrie essa chave no painel do Supabase antes de usar o projeto em producao.
 
+## Documentos por reserva (Storage)
+
+Documentos de passageiros (passaporte/cartao de cidadao, seguro de viagem) ficam num bucket privado do Supabase Storage, nunca em disco local (efemero em Vercel) nem publico (sao documentos sensiveis).
+
+1. No projeto Supabase: Storage -> New bucket -> nome `documents` -> **Private**.
+2. Garantir que a tabela `documents` de `docs/supabase-schema.sql` foi criada (faz parte do schema normal, basta correr o ficheiro completo no SQL Editor).
+3. O servidor acede ao bucket sempre com `SUPABASE_SERVICE_ROLE_KEY` (`src/fileStorage.js`), por isso os documentos exigem `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` reais no `.env` mesmo que `DB_MODE=local` para o resto dos dados.
+
 ## Importar dados atuais
 
 Depois de criar as tabelas:
