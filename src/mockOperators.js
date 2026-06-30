@@ -13,7 +13,6 @@ const baseOffers = [
 function smartParse(input = {}) {
   const prompt = normalize(input.prompt || '');
   const text = `${prompt} ${normalize(input.destination || '')}`;
-  let destination = input.destination || '';
   const map = [
     ['punta cana', 'Punta Cana'], ['dominicana', 'Punta Cana'], ['caraibas', 'Punta Cana'],
     ['riviera maya', 'Riviera Maya'], ['mexico', 'Riviera Maya'], ['cancun', 'Riviera Maya'],
@@ -21,8 +20,9 @@ function smartParse(input = {}) {
     ['maldivas', 'Maldivas'], ['disney', 'Disneyland Paris'], ['paris', 'Disneyland Paris'],
     ['madeira', 'Madeira'], ['funchal', 'Madeira']
   ];
-  for (const [key, value] of map) if (text.includes(key)) destination = destination || value;
-  if (!destination) destination = 'Punta Cana';
+  const promptMatch = map.find(([key]) => prompt.includes(key));
+  const fieldMatch = map.find(([key]) => normalize(input.destination || '').includes(key));
+  const destination = promptMatch?.[1] || fieldMatch?.[1] || input.destination || 'Punta Cana';
 
   const budgetMatch = (input.budget || prompt).toString().match(/(\d{3,5})(?:\s?€|\s?eur| euros)?/i);
   const budget = Number(input.budget || (budgetMatch ? budgetMatch[1] : 2500));

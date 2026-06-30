@@ -66,13 +66,18 @@ function recommendationBullets(r) {
 
 function renderResults(data) {
   $('#resultCount').textContent = `${data.results.length} opcoes`;
-  $('#parsedBox').innerHTML = `<b>Pedido interpretado:</b> ${data.parsed.destination}, ${data.parsed.nights} noites, ${data.parsed.adults} adultos, ${data.parsed.children} criancas, saida ${data.parsed.origin}, orcamento ${money(data.parsed.budget)}.`;
+  const status = data.operatorStatus || {};
+  const statusText = status.source === 'tourdiez'
+    ? 'Precos reais confirmados pela TourDiez neste momento.'
+    : 'A mostrar alternativas enquanto o operador real nao responde.';
+  $('#parsedBox').innerHTML = `<b>Pedido interpretado:</b> ${data.parsed.destination}, ${data.parsed.nights} noites, ${data.parsed.adults} adultos, ${data.parsed.children} criancas, saida ${data.parsed.origin}, orcamento ${money(data.parsed.budget)}.<br><b>Fonte:</b> ${statusText}`;
   $('#results').innerHTML = data.results.map((r, i) => {
     const story = destinationContent[r.destination];
     const videoQuery = encodeURIComponent(`${r.destination} ${r.hotel} video`);
+    const liveBadge = r.live ? '<span class="pill live">Preco real</span>' : '<span class="pill">Simulacao</span>';
     return `
     <article class="card ${i === 0 ? 'recommended' : ''}">
-      <div class="meta"><span class="pill">${r.label}</span><span class="pill">Score ${r.score}/100</span><span class="pill">${r.operator}</span></div>
+      <div class="meta">${liveBadge}<span class="pill">${r.label}</span><span class="pill">Score ${r.score}/100</span><span class="pill">${r.operator}</span></div>
       <h3>${r.hotel}</h3>
       <div>${r.destination}, ${r.country}</div>
       <div class="price">${money(r.finalPrice)}</div>
@@ -80,7 +85,7 @@ function renderResults(data) {
       ${story ? `<p class="muted">${story}</p>` : ''}
       <ul class="recommend-list">${recommendationBullets(r).map(b => `<li>${b}</li>`).join('')}</ul>
       <a class="ghost video-link" target="_blank" rel="noopener" href="https://www.youtube.com/results?search_query=${videoQuery}">Ver videos deste destino</a>
-      <button class="btn" onclick='selectOffer(${JSON.stringify(r).replaceAll("'", "&apos;")})'>Reservar esta opcao</button>
+      <button class="btn" onclick='selectOffer(${JSON.stringify(r).replaceAll("'", "&apos;")})'>Continuar para reserva</button>
     </article>`;
   }).join('');
 }
@@ -220,7 +225,16 @@ window.selectOffer = function(offer) {
   currentOffer = offer;
   closeResultsModal();
   $('#checkoutPanel').hidden = false;
-  $('#selectedOffer').innerHTML = `<b>${offer.hotel}</b><br>${offer.destination} - ${offer.board} - ${offer.nights} noites<br><b>Preco cliente:</b> ${money(offer.finalPrice)} - <b>Margem:</b> ${money(offer.marginValue)}<br><small>${offer.trace}</small>`;
+  $('#selectedOffer').innerHTML = `
+    <div class="checkout-steps">
+      <span class="active">1 Dados</span>
+      <span>2 Pagamento seguro</span>
+      <span>3 Confirmacao</span>
+    </div>
+    <b>${offer.hotel}</b><br>
+    ${offer.destination} - ${offer.board} - ${offer.nights} noites<br>
+    <b>Total a pagar:</b> ${money(offer.finalPrice)}<br>
+    <small>${offer.live ? 'Preco obtido diretamente no operador.' : 'Preco demonstrativo. A equipa confirma disponibilidade real antes de emitir documentos.'}</small>`;
   location.hash = '#checkoutPanel';
 };
 
@@ -249,7 +263,7 @@ $('#checkoutForm').addEventListener('submit', async e => {
   e.preventDefault();
   if (!currentOffer) return alert('Escolha uma oferta primeiro.');
   const f = formToJson(e.target);
-  $('#paymentBox').innerHTML = 'A criar reserva e pagamento...';
+  $('#paymentBox').innerHTML = '<div class="secure-box">A criar reserva segura. Ainda nao sera feita emissao final sem validacao.</div>';
   try {
     const data = await api('/api/checkout', {
       method: 'POST',
@@ -262,9 +276,15 @@ $('#checkoutForm').addEventListener('submit', async e => {
     });
     lastPayment = data.payment;
     $('#paymentBox').innerHTML = `
-      <h3>Pagamento criado</h3>
+      <div class="checkout-steps">
+        <span>1 Dados</span>
+        <span class="active">2 Pagamento seguro</span>
+        <span>3 Confirmacao</span>
+      </div>
+      <h3>Pagamento preparado</h3>
       <p><b>Reserva:</b> ${data.reservation.id}<br><b>Referencia:</b> ${data.payment.reference}<br><b>Valor:</b> ${money(data.payment.amount)}<br><b>Metodo:</b> ${data.payment.method}</p>
-      <button class="btn" id="confirmPayment">Simular pagamento recebido</button>`;
+      <p class="muted">Em producao este passo liga a SIBS, Easypay, Ifthenpay, EuPago ou Stripe. Neste momento estamos a simular o pagamento para testar o fluxo.</p>
+      <button class="btn" id="confirmPayment">Confirmar pagamento de teste</button>`;
     $('#confirmPayment').onclick = confirmPayment;
     refreshAdmin();
   } catch (err) {
@@ -273,10 +293,18 @@ $('#checkoutForm').addEventListener('submit', async e => {
 });
 
 async function confirmPayment() {
-  $('#paymentBox').innerHTML += '<p>A validar preco e disponibilidade antes da aprovacao interna...</p>';
+  $('#paymentBox').innerHTML += '<p>A validar preco e disponibilidade antes da confirmacao final...</p>';
   try {
     const data = await api('/api/payment/confirm', { method: 'POST', body: JSON.stringify({ paymentId: lastPayment.id }) });
-    $('#paymentBox').innerHTML = `<h3>Pagamento recebido</h3><p><b>Reserva:</b> ${data.reservation.id}<br><b>Estado:</b> ${statusLabel(data.reservation.status)}<br><b>Validacao:</b> ${data.reservation.operatorValidation}<br><b>Proximo passo:</b> aprovacao no backoffice para confirmar no operador.</p>`;
+    $('#paymentBox').innerHTML = `
+      <div class="checkout-steps">
+        <span>1 Dados</span>
+        <span>2 Pagamento seguro</span>
+        <span class="active">3 Confirmacao</span>
+      </div>
+      <h3>Pedido recebido</h3>
+      <p><b>Reserva:</b> ${data.reservation.id}<br><b>Estado:</b> ${statusLabel(data.reservation.status)}<br><b>Validacao:</b> ${data.reservation.operatorValidation}</p>
+      <p class="secure-box">A sua reserva ficou registada. Quando o operador estiver ligado com disponibilidade real, a confirmacao final e documentos seguem automaticamente apos pagamento.</p>`;
     refreshAdmin();
   } catch (err) {
     $('#paymentBox').innerHTML += `<p class="error">${err.message}</p>`;

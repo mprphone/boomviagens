@@ -569,11 +569,49 @@ textarea:focus {
   font-weight: 900;
 }
 
+.pill.live {
+  background: #dff8eb;
+  color: #087f5b;
+}
+
 .trace,
 .muted {
   color: var(--muted);
   font-size: 13px;
   line-height: 1.45;
+}
+
+.checkout-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.checkout-steps span {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 10px;
+  background: #f7fbfd;
+  color: #60758a;
+  font-size: 12px;
+  font-weight: 950;
+  text-align: center;
+}
+
+.checkout-steps span.active {
+  border-color: #8bdbe8;
+  background: #e7f8fb;
+  color: var(--blue);
+}
+
+.secure-box {
+  border: 1px solid #bcebd4;
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  background: #ecfbf3;
+  color: #087f5b;
+  font-weight: 850;
 }
 
 .recommend-list {

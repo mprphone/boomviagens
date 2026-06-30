@@ -342,16 +342,36 @@ async function handleApi(req, res) {
       if (limited) return limited;
       const body = searchPayload(await parseBody(req));
       const db = await readDb();
-      const { parsed, results } = searchOffers(body, db.margins);
-      const lead = { id: id('lead'), createdAt: now(), search: { ...parsed, name: body.name, email: body.email }, source: body.source || 'site', status: 'PROPOSAL_SENT', topResult: results[0] };
+      const demoSearch = searchOffers(body, db.margins);
+      const parsed = demoSearch.parsed;
+      let results = demoSearch.results;
+      let operatorStatus = { source: 'demo', message: 'Resultados demo usados.' };
+      let operatorLog = null;
+      if (tourdiezAdapter.isConfigured()) {
+        try {
+          const live = await tourdiezAdapter.liveOffers(parsed, db.margins);
+          operatorLog = { type: 'SEARCH_TOURDIEZ_AVAIL', payload: { params: live.params, offers: live.offers.length, statusCode: live.raw.statusCode } };
+          if (live.offers.length) {
+            results = live.offers;
+            operatorStatus = { source: 'tourdiez', message: 'Precos reais TourDiez.' };
+          } else {
+            operatorStatus = { source: 'demo_fallback', message: 'TourDiez respondeu sem precos convertiveis; a mostrar alternativas demo.' };
+          }
+        } catch (e) {
+          operatorLog = { type: 'SEARCH_TOURDIEZ_ERROR', payload: { error: e.message, destination: parsed.destination } };
+          operatorStatus = { source: 'demo_fallback', message: 'TourDiez indisponivel neste momento; a mostrar alternativas demo.', error: e.message };
+        }
+      }
+      const lead = { id: id('lead'), createdAt: now(), search: { ...parsed, name: body.name, email: body.email, operatorStatus }, source: body.source || 'site', status: 'PROPOSAL_SENT', topResult: results[0] };
       const email = proposalEmail({ customer: { name: body.name || 'Cliente' }, results, search: parsed });
       await updateDb(d => {
         ensureCollections(d);
         d.leads.unshift(lead);
         d.emails.unshift({ id: id('email'), createdAt: now(), to: body.email || 'cliente@exemplo.pt', status: 'GERADO_DEMO', ...email });
+        if (operatorLog) addOperatorLog(d, operatorLog.type, operatorLog.payload);
         audit(d, 'site', 'SEARCH_CREATED', { leadId: lead.id, destination: parsed.destination });
       });
-      return json(res, 200, { ok: true, parsed, results, leadId: lead.id, message: 'Pesquisa feita, proposta gerada e lead criado.' });
+      return json(res, 200, { ok: true, parsed, results, operatorStatus, leadId: lead.id, message: 'Pesquisa feita, proposta gerada e lead criado.' });
     }
 
     if (method === 'POST' && url.pathname === '/api/customer/register') {

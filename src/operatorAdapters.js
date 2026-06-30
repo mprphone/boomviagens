@@ -1,4 +1,5 @@
 const { TourDiezClient } = require('./tourdiezClient');
+const { applyMargin, computeScore } = require('./pricing');
 
 class OperatorAdapter {
   constructor(name) {
@@ -45,6 +46,102 @@ class TourDiezAdapter extends OperatorAdapter {
 
   async search(params) {
     return this.client.getAccomodationAvail(params);
+  }
+
+  defaultSearchParams(parsed = {}) {
+    const checkin = parsed.checkin || new Date(Date.now() + 120 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const start = new Date(`${checkin}T00:00:00Z`);
+    const nights = Number(parsed.nights || 7);
+    const checkout = new Date(start.getTime() + nights * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    return {
+      city: process.env.TOURDIEZ_DEFAULT_CITY || 'ES00634',
+      accomodationsCode: process.env.TOURDIEZ_DEFAULT_ACCOMMODATIONS || 'Mlg0846,Mlg1295,Mlg1141,Mlg0902',
+      checkin,
+      checkout,
+      nights,
+      adults: Number(parsed.adults || 2),
+      children: Number(parsed.children || 0),
+      retrieveCancelPolicies: true
+    };
+  }
+
+  tag(xml, name) {
+    const match = String(xml || '').match(new RegExp(`<${name}>([^<]*)</${name}>`, 'i'));
+    return match ? match[1].trim() : '';
+  }
+
+  findNumber(xml, names = []) {
+    for (const name of names) {
+      const raw = this.tag(xml, name);
+      if (!raw) continue;
+      const value = Number(String(raw).replace(',', '.'));
+      if (Number.isFinite(value) && value > 0) return value;
+    }
+    return 0;
+  }
+
+  availabilityBlocks(xml = '') {
+    const blocks = [];
+    const patterns = [
+      /<accomodation\b[\s\S]*?<\/accomodation>/gi,
+      /<distribution\b[\s\S]*?<\/distribution>/gi,
+      /<availability\b[\s\S]*?<\/availability>/gi
+    ];
+    for (const pattern of patterns) {
+      for (const match of String(xml).matchAll(pattern)) {
+        if (this.findNumber(match[0], ['pvp', 'price', 'amount', 'total', 'totalPrice', 'finalPrice'])) blocks.push(match[0]);
+      }
+      if (blocks.length) return blocks;
+    }
+    return [];
+  }
+
+  normalizeAvailabilityOffers(response, parsed = {}, margins = []) {
+    const blocks = this.availabilityBlocks(response.responseXml);
+    const offers = blocks.slice(0, 12).map((block, index) => {
+      const rawPrice = this.findNumber(block, ['pvp', 'price', 'amount', 'total', 'totalPrice', 'finalPrice']);
+      if (!rawPrice) return null;
+      const hotel = this.tag(block, 'name') || this.tag(block, 'accomodationName') || this.tag(block, 'hotelName') || `Hotel TourDiez ${index + 1}`;
+      const destination = parsed.destination || this.tag(block, 'city') || 'Destino TourDiez';
+      const board = this.tag(block, 'mealPlan') || this.tag(block, 'board') || this.tag(block, 'regime') || 'Regime conforme operador';
+      const priced = applyMargin(rawPrice, destination, margins);
+      const offer = {
+        id: `tdz-live-${this.tag(block, 'code') || index + 1}-${this.tag(block, 'idDistributions') || index + 1}`,
+        operator: 'TourDiez',
+        destination,
+        country: this.tag(block, 'country') || '',
+        hotel,
+        board,
+        nights: Number(parsed.nights || 7),
+        adults: Number(parsed.adults || 2),
+        children: Number(parsed.children || 0),
+        origin: parsed.origin || 'Lisboa',
+        rating: Number(this.tag(block, 'category') || 4) || 4,
+        freeCancellation: !/NS|non refundable|no reembols/i.test(block),
+        themes: ['preco real', 'operador'],
+        available: true,
+        operatorReliability: 9,
+        live: true,
+        tourdiez: {
+          idOperation: this.tag(block, 'IdOperation') || this.tag(response.responseXml, 'IdOperation'),
+          code: this.tag(block, 'code'),
+          idDistributions: this.tag(block, 'idDistributions')
+        },
+        ...priced
+      };
+      offer.score = computeScore(offer, parsed);
+      offer.label = index === 0 ? 'Preco real TourDiez' : 'Disponivel TourDiez';
+      offer.trace = `Operador: TourDiez; preco real ${offer.costPrice} EUR; regra margem: ${offer.marginRule}; margem ${offer.marginValue} EUR`;
+      return offer;
+    }).filter(Boolean);
+    offers.sort((a, b) => a.finalPrice - b.finalPrice);
+    return offers;
+  }
+
+  async liveOffers(parsed = {}, margins = []) {
+    const params = this.defaultSearchParams(parsed);
+    const raw = await this.search(params);
+    return { params, raw, offers: this.normalizeAvailabilityOffers(raw, parsed, margins) };
   }
 
   tourdiezRefs(offer = {}) {
