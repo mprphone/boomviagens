@@ -1,6 +1,7 @@
--- RUN THIS FILE IN SUPABASE SQL EDITOR.
--- Do not translate this SQL in the browser.
--- Do not use docs/oracle-schema.sql in Supabase.
+-- Boomviagens - Supabase/Postgres schema inicial
+-- Aplicar no SQL Editor do Supabase.
+-- As tabelas ficam com RLS ativo e sem policies publicas: o frontend nao deve aceder diretamente a dados sensiveis.
+-- O servidor Node deve usar SUPABASE_SERVICE_ROLE_KEY apenas no backend.
 
 create table if not exists public.company_settings (
   id text primary key default 'main',
@@ -125,6 +126,19 @@ create table if not exists public.idempotency_keys (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.documents (
+  id text primary key,
+  created_at timestamptz not null default now(),
+  reservation_id text not null references public.reservations(id) on delete cascade,
+  type text not null,
+  passenger_name text,
+  file_name text not null,
+  storage_path text not null,
+  uploaded_by text
+);
+
+create index if not exists documents_reservation_id_idx on public.documents(reservation_id);
+
 alter table public.company_settings enable row level security;
 alter table public.margins enable row level security;
 alter table public.customers enable row level security;
@@ -135,7 +149,9 @@ alter table public.emails enable row level security;
 alter table public.operator_logs enable row level security;
 alter table public.audit_logs enable row level security;
 alter table public.idempotency_keys enable row level security;
+alter table public.documents enable row level security;
 
+-- Dados publicos que podem ser lidos pelo site sem expor clientes/reservas.
 create or replace view public.public_margins
 with (security_invoker = true)
 as
@@ -145,6 +161,13 @@ where active = true;
 
 alter view public.public_margins set (security_invoker = true);
 
+-- Grants para acesso via PostgREST. RLS continua a proteger as linhas.
 grant usage on schema public to anon, authenticated, service_role;
 grant select on public.public_margins to anon, authenticated;
 grant all on all tables in schema public to service_role;
+
+-- Bucket privado para documentos de reservas. O acesso deve ser feito pelo servidor
+-- com service role e URLs assinadas de curta duracao.
+insert into storage.buckets (id, name, public)
+values ('documents', 'documents', false)
+on conflict (id) do nothing;

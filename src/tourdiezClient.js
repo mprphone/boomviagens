@@ -70,7 +70,7 @@ class TourDiezClient {
       port: target.port || (target.protocol === 'https:' ? 443 : 80),
       path: `${target.pathname}${target.search}`,
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8',
+        'Content-Type': 'application/x-www-form-urlencoded',
         'Content-Length': Buffer.byteLength(payload)
       },
       timeout: 30000
@@ -78,10 +78,12 @@ class TourDiezClient {
 
     return new Promise((resolve, reject) => {
       const req = lib.request(options, res => {
-        let body = '';
-        res.setEncoding('utf8');
-        res.on('data', chunk => body += chunk);
-        res.on('end', () => resolve({ statusCode: res.statusCode, operation, requestXml: xml, responseXml: body }));
+        const chunks = [];
+        res.on('data', chunk => chunks.push(Buffer.from(chunk)));
+        res.on('end', () => {
+          const body = Buffer.concat(chunks).toString('latin1');
+          resolve({ statusCode: res.statusCode, operation, requestXml: xml, responseXml: body });
+        });
       });
       req.on('error', reject);
       req.on('timeout', () => { req.destroy(new Error('Timeout TourDiez')); });
@@ -91,7 +93,7 @@ class TourDiezClient {
   }
 
   loginXml() {
-    return `<Login><user>${esc(this.user)}</user><password>${esc(this.password)}</password></Login>`;
+    return `<?xml version="1.0" encoding="ISO-8859-1"?><Login><user>${esc(this.user)}</user><password>${esc(this.password)}</password></Login>`;
   }
 
   // Schema real (SirioIntegrationWebServicesBooking_2_9_3_T10.docx, secao

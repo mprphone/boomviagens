@@ -17,7 +17,13 @@ function request(path, method = 'GET', body) {
         res.on('end', () => {
           const cookie = res.headers['set-cookie']?.[0]?.split(';')[0];
           if (cookie) adminCookie = cookie;
-          resolve({ status: res.statusCode, data: JSON.parse(out) });
+          let parsed;
+          try {
+            parsed = JSON.parse(out);
+          } catch {
+            parsed = { ok: false, error: out || `Resposta invalida (${res.statusCode})` };
+          }
+          resolve({ status: res.statusCode, data: parsed });
         });
       }
     );
@@ -33,7 +39,11 @@ async function get(path) {
 }
 
 async function post(path, body) {
-  return (await request(path, 'POST', body)).data;
+  const response = await request(path, 'POST', body);
+  if (response.status >= 400 || response.data?.ok === false) {
+    throw new Error(`${path} falhou (${response.status}): ${response.data?.error || JSON.stringify(response.data)}`);
+  }
+  return response.data;
 }
 
 (async () => {

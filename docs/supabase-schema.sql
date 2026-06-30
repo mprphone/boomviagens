@@ -165,3 +165,9 @@ alter view public.public_margins set (security_invoker = true);
 grant usage on schema public to anon, authenticated, service_role;
 grant select on public.public_margins to anon, authenticated;
 grant all on all tables in schema public to service_role;
+
+-- Bucket privado para documentos de reservas. O acesso deve ser feito pelo servidor
+-- com service role e URLs assinadas de curta duracao.
+insert into storage.buckets (id, name, public)
+values ('documents', 'documents', false)
+on conflict (id) do nothing;

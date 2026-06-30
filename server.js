@@ -544,6 +544,7 @@ async function handleApi(req, res) {
     }
 
     if (method === 'POST' && url.pathname === '/api/payment/confirm-legacy') {
+      return json(res, 410, { ok: false, error: 'Endpoint legado removido. Use /api/payment/confirm.' });
       const body = await parseBody(req);
       let resultPayload = null;
       await updateDb(asyncDb => asyncDb);
@@ -773,10 +774,29 @@ async function handleApi(req, res) {
 
     if (method === 'POST' && url.pathname === '/api/admin/operator/tourdiez/test') {
       const body = await parseBody(req);
-      const login = await tourdiezAdapter.client.login();
-      const avail = await tourdiezAdapter.search(body || { destination: 'Punta Cana', nights: 7, adults: 2 });
-      await updateDb(db => { addOperatorLog(db, 'TEST_LOGIN', login); addOperatorLog(db, 'TEST_AVAIL', avail); });
-      return json(res, 200, { ok: true, configured: tourdiezAdapter.isConfigured(), login, availability: avail });
+      const checkin = new Date(Date.now() + 120 * 24 * 60 * 60 * 1000);
+      const nights = Number(body.nights || 5);
+      const checkout = new Date(checkin.getTime() + nights * 24 * 60 * 60 * 1000);
+      const testParams = {
+        city: 'ES00634',
+        accomodationsCode: 'Mlg0846,Mlg1295,Mlg1141,Mlg0902',
+        checkin: checkin.toISOString().slice(0, 10),
+        checkout: checkout.toISOString().slice(0, 10),
+        nights,
+        adults: 2,
+        children: 0,
+        retrieveCancelPolicies: true,
+        ...body
+      };
+      try {
+        const login = await tourdiezAdapter.client.login();
+        const avail = await tourdiezAdapter.search(testParams);
+        await updateDb(db => { addOperatorLog(db, 'TEST_LOGIN', login); addOperatorLog(db, 'TEST_AVAIL', avail); });
+        return json(res, 200, { ok: true, configured: tourdiezAdapter.isConfigured(), tourdiezOk: true, params: testParams, login, availability: avail });
+      } catch (e) {
+        await updateDb(db => addOperatorLog(db, 'TEST_ERROR', { error: e.message, params: testParams }));
+        return json(res, 200, { ok: true, configured: tourdiezAdapter.isConfigured(), tourdiezOk: false, params: testParams, error: e.message });
+      }
     }
 
     return json(res, 404, { ok: false, error: 'Endpoint não encontrado' });

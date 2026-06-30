@@ -390,19 +390,19 @@ async function readDbSupabase() {
 }
 
 async function writeDbSupabase(db) {
+  await upsertRows('company_settings', [companyToRow(db.company)]);
+  await upsertRows('margins', (db.margins || []).map(marginToRow));
+  await upsertRows('customers', (db.customers || []).map(customerToRow));
+  await upsertRows('leads', (db.leads || []).map(leadToRow));
+  await upsertRows('reservations', (db.reservations || []).map(reservationToRow));
+  await upsertRows('payments', (db.payments || []).map(paymentToRow));
   await Promise.all([
-    upsertRows('company_settings', [companyToRow(db.company)]),
-    upsertRows('margins', (db.margins || []).map(marginToRow)),
-    upsertRows('customers', (db.customers || []).map(customerToRow)),
-    upsertRows('leads', (db.leads || []).map(leadToRow)),
-    upsertRows('reservations', (db.reservations || []).map(reservationToRow)),
-    upsertRows('payments', (db.payments || []).map(paymentToRow)),
     upsertRows('emails', (db.emails || []).map(emailToRow)),
     upsertRows('operator_logs', (db.operatorLogs || []).map(operatorLogToRow)),
     upsertRows('audit_logs', (db.auditLogs || []).map(auditLogToRow)),
-    upsertRows('idempotency_keys', Object.entries(db.idempotencyKeys || {}).map(idemEntryToRow), 'idempotency_key'),
     upsertRows('documents', (db.documents || []).map(documentToRow))
   ]);
+  await upsertRows('idempotency_keys', Object.entries(db.idempotencyKeys || {}).map(idemEntryToRow), 'idempotency_key');
   return db;
 }
 
@@ -429,27 +429,40 @@ async function updateDbSupabase(mutator) {
   const before = JSON.parse(JSON.stringify(db));
   const result = mutator(db) || db;
 
-  const tasks = [];
+  const marginRows = diffById(before.margins, db.margins).map(marginToRow);
+  const customerRows = diffById(before.customers, db.customers).map(customerToRow);
+  const leadRows = diffById(before.leads, db.leads).map(leadToRow);
+  const reservationRows = diffById(before.reservations, db.reservations).map(reservationToRow);
+  const paymentRows = diffById(before.payments, db.payments).map(paymentToRow);
+  const emailRows = diffById(before.emails, db.emails).map(emailToRow);
+  const operatorLogRows = diffById(before.operatorLogs, db.operatorLogs).map(operatorLogToRow);
+  const auditLogRows = diffById(before.auditLogs, db.auditLogs).map(auditLogToRow);
+  const documentRows = diffById(before.documents, db.documents).map(documentToRow);
+  const idemRows = diffMapEntries(before.idempotencyKeys, db.idempotencyKeys).map(idemEntryToRow);
+
+  const firstTasks = [];
   if (JSON.stringify(before.company) !== JSON.stringify(db.company)) {
-    tasks.push(upsertRows('company_settings', [companyToRow(db.company)]));
+    firstTasks.push(upsertRows('company_settings', [companyToRow(db.company)]));
   }
-  tasks.push(upsertRows('margins', diffById(before.margins, db.margins).map(marginToRow)));
-  tasks.push(upsertRows('customers', diffById(before.customers, db.customers).map(customerToRow)));
-  tasks.push(upsertRows('leads', diffById(before.leads, db.leads).map(leadToRow)));
-  tasks.push(upsertRows('reservations', diffById(before.reservations, db.reservations).map(reservationToRow)));
-  tasks.push(upsertRows('payments', diffById(before.payments, db.payments).map(paymentToRow)));
-  tasks.push(upsertRows('emails', diffById(before.emails, db.emails).map(emailToRow)));
-  tasks.push(upsertRows('operator_logs', diffById(before.operatorLogs, db.operatorLogs).map(operatorLogToRow)));
-  tasks.push(upsertRows('audit_logs', diffById(before.auditLogs, db.auditLogs).map(auditLogToRow)));
-  tasks.push(upsertRows('idempotency_keys', diffMapEntries(before.idempotencyKeys, db.idempotencyKeys).map(idemEntryToRow), 'idempotency_key'));
-  tasks.push(upsertRows('documents', diffById(before.documents, db.documents).map(documentToRow)));
+  firstTasks.push(upsertRows('margins', marginRows));
+  firstTasks.push(upsertRows('customers', customerRows));
+  firstTasks.push(upsertRows('leads', leadRows));
+  firstTasks.push(upsertRows('reservations', reservationRows));
 
   const beforeDocIds = new Set((before.documents || []).map(d => d.id));
   const afterDocIds = new Set((db.documents || []).map(d => d.id));
   const removedDocIds = [...beforeDocIds].filter(docId => !afterDocIds.has(docId));
-  if (removedDocIds.length) tasks.push(deleteRows('documents', removedDocIds));
-
-  await Promise.all(tasks);
+  await Promise.all(firstTasks);
+  await upsertRows('payments', paymentRows);
+  const thirdTasks = [
+    upsertRows('emails', emailRows),
+    upsertRows('operator_logs', operatorLogRows),
+    upsertRows('audit_logs', auditLogRows),
+    upsertRows('documents', documentRows)
+  ];
+  if (removedDocIds.length) thirdTasks.push(deleteRows('documents', removedDocIds));
+  await Promise.all(thirdTasks);
+  await upsertRows('idempotency_keys', idemRows, 'idempotency_key');
   return result;
 }
 
