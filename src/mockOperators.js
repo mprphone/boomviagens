@@ -22,7 +22,10 @@ function smartParse(input = {}) {
   ];
   const promptMatch = map.find(([key]) => prompt.includes(key));
   const fieldMatch = map.find(([key]) => normalize(input.destination || '').includes(key));
-  const destination = promptMatch?.[1] || fieldMatch?.[1] || input.destination || 'Punta Cana';
+  // Campo "Destino" explicito tem prioridade sobre o texto livre: se o
+  // utilizador preenche o campo mas deixa o prompt por omissao (ex.: ainda
+  // menciona "Caraibas"), a pesquisa deve respeitar o campo, nao o texto.
+  const destination = fieldMatch?.[1] || promptMatch?.[1] || input.destination || 'Punta Cana';
 
   const budgetMatch = (input.budget || prompt).toString().match(/(\d{3,5})(?:\s?€|\s?eur| euros)?/i);
   const budget = Number(input.budget || (budgetMatch ? budgetMatch[1] : 2500));
