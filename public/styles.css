@@ -739,6 +739,23 @@ textarea:focus {
 .summary-total span { color: var(--muted); font-size: 13px; }
 .summary-total strong { color: var(--green); font-family: var(--font-display); font-size: 24px; font-weight: 800; }
 
+.upgrade-suggestion {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid #f0d3ae;
+  border-radius: var(--radius-sm);
+  background: #fdf6ea;
+}
+
+.upgrade-suggestion-icon { font-size: 16px; line-height: 1.3; }
+.upgrade-suggestion-body { flex: 1 1 auto; min-width: 0; }
+.upgrade-suggestion-body b { display: block; font-size: 12px; color: var(--gold); }
+.upgrade-suggestion-body p { margin: 2px 0 0; font-size: 12.5px; color: var(--ink-soft); line-height: 1.4; }
+.upgrade-suggestion .mini-action { margin-top: 0; flex: 0 0 auto; white-space: nowrap; }
+
 .checkout-form { display: flex; flex-direction: column; gap: 14px; }
 
 .form-row {
@@ -857,6 +874,28 @@ textarea:focus {
 
 .payment-option input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .payment-option-icon { font-size: 17px; }
+
+.passenger-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.passenger-row {
+  display: grid;
+  grid-template-columns: 84px 1fr 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.passenger-label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.passenger-row input[type="date"] { width: 150px; }
 
 .consent {
   flex-direction: row;
@@ -1324,6 +1363,7 @@ footer {
   .checkout-summary { position: static; }
   .rate-chip { flex-wrap: wrap; }
   .rate-chip-price { text-align: left; }
+  .passenger-row { grid-template-columns: 1fr; }
   .modal-box.checkout-panel { padding: 20px; }
   .showcase,
   .panel { width: calc(100% - 28px); margin: 34px auto; }

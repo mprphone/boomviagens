@@ -235,8 +235,45 @@ function setCheckoutStep(step) {
   });
 }
 
+// Sugestao de upgrade calculada a partir dos precos reais das outras
+// opcoes do mesmo quarto - nunca inventa desconto/vantagem, so mostra a
+// diferenca real para (1) ganhar cancelamento gratuito ou, se ja tem,
+// (2) o proximo regime acima dentro do mesmo quarto.
+function upgradeSuggestion(offer) {
+  const options = offer.roomOptions;
+  if (!options || options.length < 2) return null;
+  const currentId = offer.tourdiez?.idDistributions;
+  const current = options.find(o => o.idDistributions === currentId);
+  if (!current) return null;
+  const sameRoom = options.filter(o => o.roomCode === current.roomCode).sort((a, b) => a.finalPrice - b.finalPrice);
+
+  if (!current.freeCancellation) {
+    const flexible = sameRoom.find(o => o.freeCancellation && o.mealPlan === current.mealPlan);
+    if (flexible) return { option: flexible, text: `Cancelamento gratuito por mais ${money(flexible.finalPrice - current.finalPrice)}` };
+  }
+  const idx = sameRoom.findIndex(o => o.idDistributions === currentId);
+  const next = sameRoom.slice(idx + 1).find(o => o.freeCancellation === current.freeCancellation);
+  if (next) return { option: next, text: `${next.mealPlanLabel} por mais ${money(next.finalPrice - current.finalPrice)}` };
+  return null;
+}
+
+window.applySuggestedOption = function(idDistributions) {
+  const option = currentOffer.roomOptions.find(o => o.idDistributions === idDistributions);
+  if (!option) return;
+  applyRoomOption(currentOffer, option);
+  const index = currentOffer.roomOptions.indexOf(option);
+  const input = document.querySelector(`#roomOptions input[name="roomOption"][value="${index}"]`);
+  if (input) {
+    input.checked = true;
+    document.querySelectorAll('#roomOptions .rate-chip').forEach(el => el.classList.remove('is-selected'));
+    input.closest('.rate-chip').classList.add('is-selected');
+  }
+  renderCheckoutSummary(currentOffer);
+};
+
 function renderCheckoutSummary(offer) {
   const trip = dateRange(offer.checkin, offer.checkout);
+  const suggestion = upgradeSuggestion(offer);
   $('#checkoutSummary').innerHTML = `
     <div class="meta">${offer.live ? '<span class="pill live">Preco real</span>' : '<span class="pill">Simulacao</span>'}</div>
     <h3>${offer.hotel}</h3>
@@ -249,6 +286,12 @@ function renderCheckoutSummary(offer) {
       <li>${offer.freeCancellation ? 'Cancelamento flexivel' : 'Tarifa nao reembolsavel'}</li>
     </ul>
     <div class="summary-total"><span>Total</span><strong id="summaryTotalValue">${money(offer.finalPrice)}</strong></div>
+    ${suggestion ? `
+    <div class="upgrade-suggestion">
+      <span class="upgrade-suggestion-icon">✨</span>
+      <div class="upgrade-suggestion-body"><b>Sugestão</b><p>${suggestion.text}</p></div>
+      <button type="button" class="ghost mini-action" onclick="applySuggestedOption('${suggestion.option.idDistributions}')">Aplicar</button>
+    </div>` : ''}
     <p class="muted small">${offer.live ? 'Preco obtido diretamente no operador.' : 'Preco demonstrativo - a equipa confirma disponibilidade real antes de emitir documentos.'}</p>`;
 }
 
@@ -320,6 +363,24 @@ function applyRoomOption(offer, option) {
   offer.tourdiez = { ...offer.tourdiez, idDistributions: option.idDistributions, code: option.roomCode || offer.tourdiez?.code };
 }
 
+function passengerFields(offer) {
+  const adults = offer.adults || 1;
+  const children = offer.children || 0;
+  const rows = [];
+  for (let i = 0; i < adults + children; i++) {
+    const isChild = i >= adults;
+    const label = isChild ? `Criança ${i - adults + 1}` : `Adulto ${i + 1}`;
+    rows.push(`
+      <div class="passenger-row">
+        <span class="passenger-label">${label}</span>
+        <input name="passengerName_${i}" placeholder="Nome" ${i === 0 ? 'value="Cliente Teste"' : ''} required />
+        <input name="passengerSurname_${i}" placeholder="Apelido" />
+        ${isChild ? `<input name="passengerBirthdate_${i}" type="date" title="Data de nascimento" />` : ''}
+      </div>`);
+  }
+  return rows.join('');
+}
+
 function renderCheckoutStep1() {
   const hasChoices = currentOffer.roomOptions?.length > 1;
   const roomGroups = hasChoices ? groupRoomOptions(currentOffer.roomOptions) : [];
@@ -340,6 +401,8 @@ function renderCheckoutStep1() {
         <label>Email <input type="email" name="email" value="cliente@exemplo.pt" required /></label>
       </div>
       <label>Telefone <input name="phone" value="+351900000000" /></label>
+      <label class="field-label">Passageiros (nomes tal como no documento de identificação)</label>
+      <div class="passenger-list">${passengerFields(currentOffer)}</div>
       <label class="field-label">Metodo de pagamento</label>
       <div class="payment-methods" role="radiogroup" aria-label="Metodo de pagamento">
         <label class="payment-option"><input type="radio" name="paymentMethod" value="MB WAY" checked /><span class="payment-option-icon">\u{1F4F1}</span><span>MB WAY</span></label>
@@ -467,12 +530,20 @@ async function onCheckoutSubmit(e) {
   btn.disabled = true;
   btn.textContent = 'A criar reserva...';
   $('#checkoutFormError').innerHTML = '';
+  const adults = currentOffer.adults || 1;
+  const total = adults + (currentOffer.children || 0);
+  const passengers = Array.from({ length: total }, (_, i) => ({
+    name: f[`passengerName_${i}`] || '',
+    surname: f[`passengerSurname_${i}`] || '',
+    type: i < adults ? 'ADT' : 'CHD',
+    birthdate: f[`passengerBirthdate_${i}`] || ''
+  }));
   try {
     const data = await api('/api/checkout', {
       method: 'POST',
       body: JSON.stringify({
         offer: currentOffer,
-        customer: { name: f.name, email: f.email, phone: f.phone },
+        customer: { name: f.name, email: f.email, phone: f.phone, passengers },
         paymentMethod: f.paymentMethod,
         idempotencyKey: `${currentOffer.id}-${f.email}-${Date.now()}`
       })

@@ -137,7 +137,7 @@ class TourDiezClient {
       <age>${esc(c.age ?? 30)}</age>
       <dni>${esc(c.dni || '')}</dni>
       <name>${esc(c.name)}</name>
-      <firstSurname>${esc(c.firstSurname || '')}</firstSurname>
+      <firstSurname>${esc(c.surname || c.firstSurname || '')}</firstSurname>
       <secondSurname>${esc(c.secondSurname || '')}</secondSurname>
     </client>`).join('');
     return `<confirm>
