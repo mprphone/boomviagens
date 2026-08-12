@@ -1002,6 +1002,44 @@ textarea:focus {
   background: #f8fafc;
 }
 
+.search-loading {
+  padding: 56px 20px;
+  text-align: center;
+}
+
+.search-loading-bar {
+  position: relative;
+  max-width: 320px;
+  height: 6px;
+  margin: 0 auto 18px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #eef2f6;
+}
+
+.search-loading-bar span {
+  position: absolute;
+  top: 0;
+  left: -40%;
+  width: 40%;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--cyan), var(--blue));
+  animation: search-loading-slide 1.1s ease-in-out infinite;
+}
+
+@keyframes search-loading-slide {
+  0% { left: -40%; }
+  100% { left: 100%; }
+}
+
+.search-loading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
 .kpis {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

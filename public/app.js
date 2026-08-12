@@ -508,15 +508,49 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && !$('#resultsModal').hidden) closeResultsModal();
 });
 
+// Etapas mostradas enquanto a pesquisa real corre (TourDiez + margens).
+// Um resultado instantaneo sem nenhum feedback parece falso, mesmo quando o
+// operador responde depressa - mostrar o que esta a acontecer da confianca.
+const SEARCH_STAGES = [
+  'A ligar ao operador TourDiez...',
+  'A verificar disponibilidade real...',
+  'A comparar precos entre operadores...',
+  'A aplicar margens comerciais...',
+  'A montar a melhor proposta...'
+];
+
+function renderSearchLoading() {
+  $('#results').innerHTML = `
+    <div class="search-loading">
+      <div class="search-loading-bar"><span></span></div>
+      <p id="searchLoadingText">${SEARCH_STAGES[0]}</p>
+    </div>`;
+  let i = 0;
+  const timer = setInterval(() => {
+    i = (i + 1) % SEARCH_STAGES.length;
+    const el = document.getElementById('searchLoadingText');
+    if (el) el.textContent = SEARCH_STAGES[i]; else clearInterval(timer);
+  }, 750);
+  return () => clearInterval(timer);
+}
+
 $('#searchForm').addEventListener('submit', async e => {
   e.preventDefault();
-  $('#results').innerHTML = '<p>A pesquisar operadores, aplicar margens e gerar proposta...</p>';
   openResultsModal();
+  $('#parsedBox').innerHTML = '';
+  $('#resultCount').textContent = 'A procurar...';
+  const stopLoading = renderSearchLoading();
+  const minDelay = new Promise(resolve => setTimeout(resolve, 1300));
   try {
-    const data = await api('/api/search', { method: 'POST', body: JSON.stringify(formToJson(e.target)) });
+    const [data] = await Promise.all([
+      api('/api/search', { method: 'POST', body: JSON.stringify(formToJson(e.target)) }),
+      minDelay
+    ]);
+    stopLoading();
     renderResults(data);
     refreshAdmin();
   } catch (err) {
+    stopLoading();
     $('#results').innerHTML = `<p class="error">${err.message}</p>`;
   }
 });
