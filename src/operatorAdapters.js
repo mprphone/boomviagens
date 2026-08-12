@@ -48,14 +48,18 @@ class TourDiezAdapter extends OperatorAdapter {
     return this.client.getAccomodationAvail(params);
   }
 
+  // Nota: o filtro accomodationsCode devolve sempre "No existen datos" na
+  // sandbox de testes, mesmo com um unico codigo valido - confirmado por
+  // testes diretos contra a API. Pesquisar so por city devolve dados reais
+  // (varios hoteis, quartos e regimes). Por isso accomodationsCode so e
+  // enviado se for explicitamente definido em TOURDIEZ_DEFAULT_ACCOMMODATIONS.
   defaultSearchParams(parsed = {}) {
-    const checkin = parsed.checkin || new Date(Date.now() + 120 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const checkin = parsed.checkin || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const start = new Date(`${checkin}T00:00:00Z`);
     const nights = Number(parsed.nights || 7);
     const checkout = new Date(start.getTime() + nights * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    return {
+    const params = {
       city: process.env.TOURDIEZ_DEFAULT_CITY || 'ES00634',
-      accomodationsCode: process.env.TOURDIEZ_DEFAULT_ACCOMMODATIONS || 'Mlg0846,Mlg1295,Mlg1141,Mlg0902',
       checkin,
       checkout,
       nights,
@@ -63,6 +67,8 @@ class TourDiezAdapter extends OperatorAdapter {
       children: Number(parsed.children || 0),
       retrieveCancelPolicies: true
     };
+    if (process.env.TOURDIEZ_DEFAULT_ACCOMMODATIONS) params.accomodationsCode = process.env.TOURDIEZ_DEFAULT_ACCOMMODATIONS;
+    return params;
   }
 
   tag(xml, name) {
@@ -102,7 +108,10 @@ class TourDiezAdapter extends OperatorAdapter {
       const rawPrice = this.findNumber(block, ['pvp', 'price', 'amount', 'total', 'totalPrice', 'finalPrice']);
       if (!rawPrice) return null;
       const hotel = this.tag(block, 'name') || this.tag(block, 'accomodationName') || this.tag(block, 'hotelName') || `Hotel TourDiez ${index + 1}`;
-      const destination = parsed.destination || this.tag(block, 'city') || 'Destino TourDiez';
+      // Preferir a cidade real devolvida pela API: o destino pesquisado pelo
+      // cliente (ex.: "Madeira") pode nao corresponder ao inventario real
+      // disponivel no operador (ex.: sandbox de testes so tem Torremolinos).
+      const destination = this.tag(block, 'cityName') || this.tag(block, 'city') || parsed.destination || 'Destino TourDiez';
       const board = this.tag(block, 'mealPlan') || this.tag(block, 'board') || this.tag(block, 'regime') || 'Regime conforme operador';
       const priced = applyMargin(rawPrice, destination, margins);
       const offer = {
