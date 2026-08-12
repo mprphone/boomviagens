@@ -627,6 +627,8 @@ textarea:focus {
   line-height: 1.5;
 }
 
+.small { font-size: 12px; }
+
 .stepper {
   display: flex;
   align-items: center;
@@ -693,7 +695,7 @@ textarea:focus {
 .checkout-summary {
   min-width: 0;
   position: sticky;
-  top: 96px;
+  top: 0;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 20px;
@@ -701,6 +703,17 @@ textarea:focus {
 }
 
 .checkout-summary h3 { margin: 10px 0 2px; font-size: 17px; }
+
+.summary-dates {
+  display: inline-flex;
+  margin-top: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #eaf4fb;
+  color: var(--blue-dark);
+  font-size: 12.5px;
+  font-weight: 700;
+}
 
 .summary-facts {
   display: flex;
@@ -739,6 +752,57 @@ textarea:focus {
   color: var(--muted);
   font-size: 12px;
   font-weight: 700;
+}
+
+.room-options-block {
+  margin-bottom: 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--line);
+}
+
+.room-options-block h3 { margin-bottom: 4px; }
+
+.room-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.room-option {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease;
+}
+
+.room-option:hover { border-color: #a9d4e6; }
+.room-option.is-selected { border-color: var(--blue); background: #eaf4fb; }
+.room-option input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+
+.room-option-main {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  min-width: 0;
+}
+
+.room-option-main b { flex: 1 1 100%; font-size: 13.5px; }
+.room-option-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.room-option-price {
+  flex: 0 0 auto;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--ink);
 }
 
 .payment-methods {
@@ -1100,6 +1164,8 @@ h3 { font-family: var(--font-display); font-weight: 700; letter-spacing: -.005em
   overflow-y: auto;
 }
 
+.modal-box .section-head { padding-right: 44px; }
+
 .modal-close {
   position: absolute;
   top: 14px;
@@ -1235,6 +1301,8 @@ footer {
   .form-row,
   .payment-methods { grid-template-columns: 1fr; }
   .checkout-summary { position: static; }
+  .room-option { flex-wrap: wrap; }
+  .modal-box.checkout-panel { padding: 20px; }
   .showcase,
   .panel { width: calc(100% - 28px); margin: 34px auto; }
   .deal-card { grid-template-columns: 130px 1fr; }

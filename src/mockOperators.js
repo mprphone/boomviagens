@@ -34,7 +34,9 @@ function smartParse(input = {}) {
   const nights = Number(input.nights || (prompt.match(/(\d+)\s*(noite|noites|dias)/)?.[1]) || 7);
   const origin = input.origin || (text.includes('porto') ? 'Porto' : 'Lisboa');
   const board = input.board || (text.includes('tudo incluido') || text.includes('all inclusive') ? 'Tudo incluído' : 'Qualquer regime');
-  return { destination, budget, adults, children, nights, origin, board, checkin: input.checkin || '', prompt: input.prompt || '' };
+  const checkin = input.checkin || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const checkout = new Date(new Date(`${checkin}T00:00:00Z`).getTime() + nights * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  return { destination, budget, adults, children, nights, origin, board, checkin, checkout, prompt: input.prompt || '' };
 }
 
 function searchOffers(input, margins) {
@@ -55,7 +57,7 @@ function searchOffers(input, margins) {
     const dynamicAdj = (index % 3) * 22;
     const cost = Math.max(120, (o.base + originAdj + childAdj + dynamicAdj) * paxFactor * nightsFactor);
     const priced = applyMargin(cost, o.destination, margins);
-    const result = { ...o, ...priced, nights: parsed.nights, adults: parsed.adults, children: parsed.children, origin: parsed.origin };
+    const result = { ...o, ...priced, nights: parsed.nights, adults: parsed.adults, children: parsed.children, origin: parsed.origin, checkin: parsed.checkin, checkout: parsed.checkout };
     result.score = computeScore(result, parsed);
     result.label = index === 0 ? 'Recomendado Boom' : result.finalPrice <= parsed.budget ? 'Dentro do orçamento' : 'Acima do orçamento';
     result.trace = `Operador: ${o.operator}; regra margem: ${result.marginRule}; custo ${result.costPrice}€; margem ${result.marginValue}€`;

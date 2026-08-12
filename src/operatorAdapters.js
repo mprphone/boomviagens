@@ -1,6 +1,21 @@
 const { TourDiezClient } = require('./tourdiezClient');
 const { applyMargin, computeScore } = require('./pricing');
 
+// Codigos de regime tal como devolvidos pela TourDiez/Sirio (ex.: DE, MP,
+// PC, TI). Mapeados para portugues; codigo desconhecido mostra-se tal como
+// veio da API em vez de arriscar uma traducao errada.
+const MEAL_PLAN_LABELS = {
+  SA: 'Sem refeições', RO: 'Sem refeições',
+  DE: 'Pequeno-almoço incluído', AD: 'Alojamento e pequeno-almoço', BB: 'Alojamento e pequeno-almoço',
+  MP: 'Meia pensão', HB: 'Meia pensão',
+  PC: 'Pensão completa', FB: 'Pensão completa',
+  TI: 'Tudo incluído', AI: 'Tudo incluído'
+};
+
+function mealPlanLabel(code) {
+  return MEAL_PLAN_LABELS[String(code || '').toUpperCase()] || code || 'Regime conforme operador';
+}
+
 class OperatorAdapter {
   constructor(name) {
     this.name = name;
@@ -102,41 +117,80 @@ class TourDiezAdapter extends OperatorAdapter {
     return [];
   }
 
+  // Cada hotel pode ter varios quartos/regimes (distributions) com precos
+  // diferentes. Extrai todas as opcoes reais em vez de mostrar so a mais
+  // barata - o cliente escolhe no checkout, como num site de reservas a
+  // serio. Se o bloco nao tiver <distribution> aninhado (fallback generico
+  // do availabilityBlocks), trata o proprio bloco como opcao unica.
+  roomOptionsFromBlock(block, destination, margins) {
+    const distMatches = [...String(block).matchAll(/<distribution\b[\s\S]*?<\/distribution>/gi)];
+    const source = distMatches.length ? distMatches.map(m => m[0]) : [block];
+    const options = source.map(distXml => {
+      const rawPrice = this.findNumber(distXml, ['pvp', 'price', 'amount', 'total', 'totalPrice', 'finalPrice']);
+      if (!rawPrice) return null;
+      const priced = applyMargin(rawPrice, destination, margins);
+      const mealPlan = this.tag(distXml, 'mealPlan');
+      const roomName = this.tag(distXml, 'name') || 'Quarto standard';
+      return {
+        idDistributions: this.tag(distXml, 'idDistributions'),
+        roomCode: this.tag(distXml, 'code'),
+        roomName,
+        mealPlan,
+        mealPlanLabel: mealPlanLabel(mealPlan),
+        // Convencao observada nos dados reais da TourDiez: quartos com "NO
+        // REEMBOLSABLE" no nome sao tarifa nao reembolsavel; os restantes
+        // sao a tarifa flexivel do operador. Testar so o nome do quarto (nao
+        // o bloco XML inteiro) - o bloco tem sempre "xmlns" no seu markup,
+        // que contem "ns" e dava falso positivo em todas as opcoes.
+        freeCancellation: !/non refundable|no reembols/i.test(roomName),
+        ...priced
+      };
+    }).filter(Boolean);
+    options.sort((a, b) => a.finalPrice - b.finalPrice);
+    return options;
+  }
+
   normalizeAvailabilityOffers(response, parsed = {}, margins = []) {
     const blocks = this.availabilityBlocks(response.responseXml);
     const offers = blocks.slice(0, 12).map((block, index) => {
-      const rawPrice = this.findNumber(block, ['pvp', 'price', 'amount', 'total', 'totalPrice', 'finalPrice']);
-      if (!rawPrice) return null;
       const hotel = this.tag(block, 'name') || this.tag(block, 'accomodationName') || this.tag(block, 'hotelName') || `Hotel TourDiez ${index + 1}`;
       // Preferir a cidade real devolvida pela API: o destino pesquisado pelo
       // cliente (ex.: "Madeira") pode nao corresponder ao inventario real
       // disponivel no operador (ex.: sandbox de testes so tem Torremolinos).
       const destination = this.tag(block, 'cityName') || this.tag(block, 'city') || parsed.destination || 'Destino TourDiez';
-      const board = this.tag(block, 'mealPlan') || this.tag(block, 'board') || this.tag(block, 'regime') || 'Regime conforme operador';
-      const priced = applyMargin(rawPrice, destination, margins);
+      const roomOptions = this.roomOptionsFromBlock(block, destination, margins);
+      if (!roomOptions.length) return null;
+      const cheapest = roomOptions[0];
       const offer = {
-        id: `tdz-live-${this.tag(block, 'code') || index + 1}-${this.tag(block, 'idDistributions') || index + 1}`,
+        id: `tdz-live-${this.tag(block, 'code') || index + 1}`,
         operator: 'TourDiez',
         destination,
         country: this.tag(block, 'country') || '',
         hotel,
-        board,
+        board: cheapest.mealPlanLabel,
         nights: Number(parsed.nights || 7),
         adults: Number(parsed.adults || 2),
         children: Number(parsed.children || 0),
         origin: parsed.origin || 'Lisboa',
+        checkin: parsed.checkin || '',
+        checkout: parsed.checkout || '',
         rating: Number(this.tag(block, 'category') || 4) || 4,
-        freeCancellation: !/NS|non refundable|no reembols/i.test(block),
+        freeCancellation: cheapest.freeCancellation,
         themes: ['preco real', 'operador'],
         available: true,
         operatorReliability: 9,
         live: true,
+        roomOptions,
         tourdiez: {
           idOperation: this.tag(block, 'IdOperation') || this.tag(response.responseXml, 'IdOperation'),
           code: this.tag(block, 'code'),
-          idDistributions: this.tag(block, 'idDistributions')
+          idDistributions: cheapest.idDistributions
         },
-        ...priced
+        costPrice: cheapest.costPrice,
+        marginRule: cheapest.marginRule,
+        marginPercent: cheapest.marginPercent,
+        marginValue: cheapest.marginValue,
+        finalPrice: cheapest.finalPrice
       };
       offer.score = computeScore(offer, parsed);
       offer.label = index === 0 ? 'Preco real TourDiez' : 'Disponivel TourDiez';

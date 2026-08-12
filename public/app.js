@@ -1,5 +1,7 @@
 const $ = sel => document.querySelector(sel);
 const money = n => `${Number(n || 0).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} EUR`;
+const shortDate = iso => iso ? new Date(`${iso}T00:00:00`).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+const dateRange = (checkin, checkout) => (checkin && checkout) ? `${shortDate(checkin)} → ${shortDate(checkout)}` : '';
 let currentOffer = null;
 let lastPayment = null;
 let lastReservation = null;
@@ -71,18 +73,21 @@ function renderResults(data) {
   const statusText = status.source === 'tourdiez'
     ? 'Precos reais confirmados pela TourDiez neste momento.'
     : 'A mostrar alternativas enquanto o operador real nao responde.';
-  $('#parsedBox').innerHTML = `<b>Pedido interpretado:</b> ${data.parsed.destination}, ${data.parsed.nights} noites, ${data.parsed.adults} adultos, ${data.parsed.children} criancas, saida ${data.parsed.origin}, orcamento ${money(data.parsed.budget)}.<br><b>Fonte:</b> ${statusText}`;
+  const tripDates = dateRange(data.parsed.checkin, data.parsed.checkout);
+  $('#parsedBox').innerHTML = `<b>Pedido interpretado:</b> ${data.parsed.destination}${tripDates ? `, ${tripDates}` : ''}, ${data.parsed.nights} noites, ${data.parsed.adults} adultos, ${data.parsed.children} criancas, saida ${data.parsed.origin}, orcamento ${money(data.parsed.budget)}.<br><b>Fonte:</b> ${statusText}`;
   $('#results').innerHTML = data.results.map((r, i) => {
     const story = destinationContent[r.destination];
     const videoQuery = encodeURIComponent(`${r.destination} ${r.hotel} video`);
     const liveBadge = r.live ? '<span class="pill live">Preco real</span>' : '<span class="pill">Simulacao</span>';
+    const roomChoices = r.roomOptions?.length > 1 ? `<span class="pill">${r.roomOptions.length} opcoes de quarto</span>` : '';
     return `
     <article class="card ${i === 0 ? 'recommended' : ''}">
       <div class="meta">${liveBadge}<span class="pill">${r.label}</span><span class="pill">Score ${r.score}/100</span><span class="pill">${r.operator}</span></div>
       <h3>${r.hotel}</h3>
       <div>${r.destination}${r.country ? `, ${r.country}` : ''}</div>
+      ${dateRange(r.checkin, r.checkout) ? `<div class="muted small">${dateRange(r.checkin, r.checkout)}</div>` : ''}
       <div class="price">${money(r.finalPrice)}</div>
-      <div class="meta"><span class="pill">${r.board}</span><span class="pill">${r.nights} noites</span><span class="pill">${r.freeCancellation ? 'cancelamento flexivel' : 'tarifa restrita'}</span></div>
+      <div class="meta"><span class="pill">${r.board}</span><span class="pill">${r.nights} noites</span><span class="pill">${r.freeCancellation ? 'cancelamento flexivel' : 'tarifa restrita'}</span>${roomChoices}</div>
       ${story ? `<p class="muted">${story}</p>` : ''}
       <ul class="recommend-list">${recommendationBullets(r).map(b => `<li>${b}</li>`).join('')}</ul>
       <a class="ghost video-link" target="_blank" rel="noopener" href="https://www.youtube.com/results?search_query=${videoQuery}">Ver videos deste destino</a>
@@ -231,22 +236,61 @@ function setCheckoutStep(step) {
 }
 
 function renderCheckoutSummary(offer) {
+  const trip = dateRange(offer.checkin, offer.checkout);
   $('#checkoutSummary').innerHTML = `
     <div class="meta">${offer.live ? '<span class="pill live">Preco real</span>' : '<span class="pill">Simulacao</span>'}</div>
     <h3>${offer.hotel}</h3>
     <p class="muted">${offer.destination}${offer.country ? `, ${offer.country}` : ''}</p>
+    ${trip ? `<div class="summary-dates">${trip}</div>` : ''}
     <ul class="summary-facts">
       <li>${offer.board}</li>
       <li>${offer.nights} noites</li>
       <li>${offer.adults} adultos${offer.children ? ` + ${offer.children} criancas` : ''}</li>
       <li>${offer.freeCancellation ? 'Cancelamento flexivel' : 'Tarifa nao reembolsavel'}</li>
     </ul>
-    <div class="summary-total"><span>Total</span><strong>${money(offer.finalPrice)}</strong></div>
+    <div class="summary-total"><span>Total</span><strong id="summaryTotalValue">${money(offer.finalPrice)}</strong></div>
     <p class="muted small">${offer.live ? 'Preco obtido diretamente no operador.' : 'Preco demonstrativo - a equipa confirma disponibilidade real antes de emitir documentos.'}</p>`;
 }
 
+function roomOptionCard(offer, option, i) {
+  const active = option.idDistributions === offer.tourdiez?.idDistributions;
+  return `
+    <label class="room-option ${active ? 'is-selected' : ''}">
+      <input type="radio" name="roomOption" value="${i}" ${active ? 'checked' : ''} />
+      <span class="room-option-main">
+        <b>${option.roomName}</b>
+        <span class="room-option-tags">
+          <span class="pill">${option.mealPlanLabel}</span>
+          <span class="pill ${option.freeCancellation ? 'live' : ''}">${option.freeCancellation ? 'Cancelamento flexivel' : 'Nao reembolsavel'}</span>
+        </span>
+      </span>
+      <span class="room-option-price">${money(option.finalPrice)}</span>
+    </label>`;
+}
+
+function applyRoomOption(offer, option) {
+  offer.finalPrice = option.finalPrice;
+  offer.costPrice = option.costPrice;
+  offer.marginRule = option.marginRule;
+  offer.marginPercent = option.marginPercent;
+  offer.marginValue = option.marginValue;
+  offer.board = option.mealPlanLabel;
+  offer.freeCancellation = option.freeCancellation;
+  offer.tourdiez = { ...offer.tourdiez, idDistributions: option.idDistributions, code: option.roomCode || offer.tourdiez?.code };
+}
+
 function renderCheckoutStep1() {
+  const hasChoices = currentOffer.roomOptions?.length > 1;
+  const roomSection = hasChoices ? `
+    <div class="room-options-block">
+      <h3>Escolha o quarto e o regime</h3>
+      <p class="muted small">${currentOffer.roomOptions.length} opcoes disponiveis diretamente no operador para estas datas.</p>
+      <div class="room-options" id="roomOptions">
+        ${currentOffer.roomOptions.map((o, i) => roomOptionCard(currentOffer, o, i)).join('')}
+      </div>
+    </div>` : '';
   $('#checkoutMain').innerHTML = `
+    ${roomSection}
     <form id="checkoutForm" class="checkout-form">
       <h3>Dados do titular da reserva</h3>
       <div class="form-row">
@@ -265,6 +309,16 @@ function renderCheckoutStep1() {
       <button class="btn wide" type="submit">Continuar para pagamento</button>
       <p class="trust-note">Ligacao encriptada. Os seus dados servem apenas para tratar esta reserva.</p>
     </form>`;
+  if (hasChoices) {
+    document.querySelectorAll('#roomOptions input[name="roomOption"]').forEach(input => {
+      input.addEventListener('change', () => {
+        applyRoomOption(currentOffer, currentOffer.roomOptions[Number(input.value)]);
+        document.querySelectorAll('#roomOptions .room-option').forEach(el => el.classList.remove('is-selected'));
+        input.closest('.room-option').classList.add('is-selected');
+        renderCheckoutSummary(currentOffer);
+      });
+    });
+  }
   $('#checkoutForm').addEventListener('submit', onCheckoutSubmit);
 }
 
@@ -309,19 +363,37 @@ function renderCheckoutStep3(data) {
       <h3>Reserva registada com sucesso</h3>
       <p class="muted">Referencia interna <b>${data.reservation.id}</b> - estado atual: <b>${statusLabel(data.reservation.status)}</b>.</p>
       <p class="secure-box">A nossa equipa esta a validar disponibilidade e preco com o operador. Assim que confirmado, recebe email com o voucher e todos os detalhes.</p>
-      <button class="ghost" type="button" onclick="location.hash='#pesquisa'">Nova pesquisa</button>
+      <button class="ghost" type="button" id="checkoutDone">Fechar e fazer nova pesquisa</button>
     </div>`;
+  $('#checkoutDone').onclick = () => { closeCheckoutModal(); location.hash = '#pesquisa'; };
+}
+
+function openCheckoutModal() {
+  $('#checkoutModal').hidden = false;
+  document.body.style.overflow = 'hidden';
+}
+
+function closeCheckoutModal() {
+  $('#checkoutModal').hidden = true;
+  document.body.style.overflow = '';
 }
 
 window.selectOffer = function(offer) {
   currentOffer = offer;
   closeResultsModal();
-  $('#checkoutPanel').hidden = false;
+  openCheckoutModal();
   renderCheckoutSummary(offer);
   setCheckoutStep(1);
   renderCheckoutStep1();
-  location.hash = '#checkoutPanel';
 };
+
+$('#closeCheckoutModal').onclick = closeCheckoutModal;
+$('#checkoutModal').addEventListener('click', e => {
+  if (e.target.id === 'checkoutModal') closeCheckoutModal();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !$('#checkoutModal').hidden) closeCheckoutModal();
+});
 
 $('#closeResultsModal').onclick = closeResultsModal;
 $('#resultsModal').addEventListener('click', e => {

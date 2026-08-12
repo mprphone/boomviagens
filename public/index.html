@@ -182,26 +182,29 @@
       </div>
     </div>
 
-    <section class="panel checkout-panel" id="checkoutPanel" hidden>
-      <div class="section-head">
-        <div>
-          <p class="eyebrow">Checkout seguro</p>
-          <h2>Finalizar reserva</h2>
+    <div id="checkoutModal" class="modal-overlay" hidden>
+      <div class="modal-box panel checkout-panel">
+        <button type="button" id="closeCheckoutModal" class="modal-close" aria-label="Fechar">&times;</button>
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Checkout seguro</p>
+            <h2>Finalizar reserva</h2>
+          </div>
+          <span class="badge green">Ambiente de teste - sem cobranca real</span>
         </div>
-        <span class="badge green">Ambiente de teste - sem cobranca real</span>
-      </div>
 
-      <ol class="stepper" id="checkoutStepper">
-        <li class="stepper-step" data-step="1"><span class="stepper-dot">1</span><span class="stepper-label">Dados</span></li>
-        <li class="stepper-step" data-step="2"><span class="stepper-dot">2</span><span class="stepper-label">Pagamento</span></li>
-        <li class="stepper-step" data-step="3"><span class="stepper-dot">3</span><span class="stepper-label">Confirmacao</span></li>
-      </ol>
+        <ol class="stepper" id="checkoutStepper">
+          <li class="stepper-step" data-step="1"><span class="stepper-dot">1</span><span class="stepper-label">Dados</span></li>
+          <li class="stepper-step" data-step="2"><span class="stepper-dot">2</span><span class="stepper-label">Pagamento</span></li>
+          <li class="stepper-step" data-step="3"><span class="stepper-dot">3</span><span class="stepper-label">Confirmacao</span></li>
+        </ol>
 
-      <div class="checkout-grid">
-        <div id="checkoutMain" class="checkout-main"></div>
-        <aside id="checkoutSummary" class="checkout-summary"></aside>
+        <div class="checkout-grid">
+          <div id="checkoutMain" class="checkout-main"></div>
+          <aside id="checkoutSummary" class="checkout-summary"></aside>
+        </div>
       </div>
-    </section>
+    </div>
 
     <section id="areaCliente" class="panel">
       <div class="section-head">
