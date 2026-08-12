@@ -41,14 +41,6 @@ function setAdminState(authenticated) {
   if (!authenticated) $('#adminLoginMessage').textContent = 'Entre para ver reservas, leads, margens e logs.';
 }
 
-function openResultsModal() {
-  $('#resultsModal').hidden = false;
-}
-
-function closeResultsModal() {
-  $('#resultsModal').hidden = true;
-}
-
 const destinationContent = {
   'Punta Cana': 'Praias de areia branca e mar turquesa nas Caraibas. Tudo incluido pensado para relaxar sem preocupacoes, com voos diretos disponiveis.',
   'Riviera Maya': 'Costa do Mexico entre recifes de coral, cenotes e cultura maia. Ideal para quem quer praia e aventura no mesmo destino.',
@@ -58,42 +50,157 @@ const destinationContent = {
   'Madeira': 'Natureza atlantica, levadas e gastronomia portuguesa sem saida de euros nem de fronteiras.'
 };
 
-function recommendationBullets(r) {
-  const bullets = [];
-  bullets.push(r.freeCancellation ? 'Cancelamento flexivel disponivel' : 'Tarifa com preco mais baixo, sem reembolso');
-  bullets.push(r.operatorReliability >= 9 ? 'Operador com historico de fiabilidade muito elevado' : r.operatorReliability >= 7 ? 'Operador com boa fiabilidade' : 'Operador parceiro Boomviagens');
-  if (r.rating) bullets.push(`Hospedes avaliam este hotel em ${r.rating}/5`);
-  bullets.push(r.label === 'Recomendado Boom' ? 'Escolha da equipa Boom para este pedido' : r.finalPrice <= (r.budget || Infinity) ? 'Dentro do orcamento indicado' : 'Acima do orcamento indicado, mas com excelente relacao qualidade/preco');
-  return bullets;
+// Nomes tal como vem do sistema do operador sao codigos internos em
+// espanhol, em maiusculas (ex.: "DOBLE NO REEMBOLSABLE") - parecem erro de
+// integracao, nao texto para o cliente ver. Traduz os padroes conhecidos;
+// para codigos desconhecidos (ex.: "DOBLE EPKT"), poe em capitalizacao
+// normal em vez de adivinhar uma traducao que pode estar errada.
+const KNOWN_ROOM_NAMES = {
+  'DOBLE NO REEMBOLSABLE': 'Quarto duplo - tarifa não reembolsável',
+  'DOBLE OFERTA': 'Quarto duplo - oferta promocional',
+  'DOBLE STANDARD': 'Quarto duplo standard'
+};
+
+function humanizeRoomName(raw) {
+  const key = String(raw || '').trim().toUpperCase();
+  if (!key) return '';
+  if (KNOWN_ROOM_NAMES[key]) return KNOWN_ROOM_NAMES[key];
+  return key.toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase());
 }
 
-function renderResults(data) {
-  $('#resultCount').textContent = `${data.results.length} opcoes`;
+function applyRoomOption(offer, option) {
+  offer.finalPrice = option.finalPrice;
+  offer.costPrice = option.costPrice;
+  offer.marginRule = option.marginRule;
+  offer.marginPercent = option.marginPercent;
+  offer.marginValue = option.marginValue;
+  offer.board = option.mealPlanLabel;
+  offer.freeCancellation = option.freeCancellation;
+  offer.tourdiez = { ...offer.tourdiez, idDistributions: option.idDistributions, code: option.roomCode || offer.tourdiez?.code };
+}
+
+let currentSearchResults = [];
+let activeFilters = { stars: new Set(), boards: new Set() };
+
+function offerRateOptions(offer) {
+  return offer.roomOptions?.length ? offer.roomOptions : [{
+    idDistributions: null, roomName: '', mealPlanLabel: offer.board,
+    freeCancellation: offer.freeCancellation, finalPrice: offer.finalPrice
+  }];
+}
+
+function computeFilterOptions(results) {
+  const stars = new Set();
+  const boards = new Set();
+  results.forEach(r => {
+    stars.add(Math.max(1, Math.min(5, Math.round(r.rating || 4))));
+    offerRateOptions(r).forEach(o => boards.add(o.mealPlanLabel));
+  });
+  return { stars: [...stars].sort((a, b) => b - a), boards: [...boards].sort() };
+}
+
+function passesFilters(offer) {
+  const starVal = Math.max(1, Math.min(5, Math.round(offer.rating || 4)));
+  const starsOk = !activeFilters.stars.size || activeFilters.stars.has(starVal);
+  const boardsOk = !activeFilters.boards.size || offerRateOptions(offer).some(o => activeFilters.boards.has(o.mealPlanLabel));
+  return starsOk && boardsOk;
+}
+
+function renderFilters(results) {
+  const { stars, boards } = computeFilterOptions(results);
+  const el = $('#resultsFilters');
+  if (stars.length <= 1 && boards.length <= 1) { el.hidden = true; el.innerHTML = ''; return; }
+  el.hidden = false;
+  el.innerHTML = `
+    <h3>Filtrar resultados</h3>
+    ${stars.length > 1 ? `
+    <div class="filter-group">
+      <p class="field-label">Categoria do hotel</p>
+      ${stars.map(s => `<label class="filter-check"><input type="checkbox" data-filter="stars" value="${s}" ${activeFilters.stars.has(s) ? 'checked' : ''} /> ${'★'.repeat(s)}</label>`).join('')}
+    </div>` : ''}
+    ${boards.length > 1 ? `
+    <div class="filter-group">
+      <p class="field-label">Regime alimentar</p>
+      ${boards.map(b => `<label class="filter-check"><input type="checkbox" data-filter="boards" value="${b}" ${activeFilters.boards.has(b) ? 'checked' : ''} /> ${b}</label>`).join('')}
+    </div>` : ''}`;
+  el.querySelectorAll('input[type="checkbox"]').forEach(input => {
+    input.addEventListener('change', () => {
+      const set = activeFilters[input.dataset.filter];
+      const val = input.dataset.filter === 'stars' ? Number(input.value) : input.value;
+      if (input.checked) set.add(val); else set.delete(val);
+      renderResultsList();
+    });
+  });
+}
+
+function rateLine(hotelIndex, rateIndex, option) {
+  const name = [humanizeRoomName(option.roomName), option.mealPlanLabel].filter(Boolean).join(' · ');
+  return `
+    <div class="rate-line">
+      <span class="rate-line-name">${name}</span>
+      <span class="rate-line-tag">${option.freeCancellation ? 'Cancelamento flexível' : 'Não reembolsável'}</span>
+      <span class="rate-line-price">${money(option.finalPrice)}</span>
+      <button type="button" class="btn mini-action" onclick="reserveRate(${hotelIndex}, ${rateIndex})">Reservar</button>
+    </div>`;
+}
+
+function renderHotelRow(offer, hotelIndex) {
+  const options = offerRateOptions(offer).map((o, i) => ({ ...o, __rateIndex: offer.roomOptions?.length ? i : null }));
+  const sorted = [...options].sort((a, b) => a.finalPrice - b.finalPrice);
+  const visible = sorted.slice(0, 3);
+  const rest = sorted.slice(3);
+  const stars = '★'.repeat(Math.max(1, Math.min(5, Math.round(offer.rating || 4))));
+  const trip = dateRange(offer.checkin, offer.checkout);
+  return `
+    <article class="hotel-row">
+      <div class="hotel-row-media" aria-hidden="true">🏨</div>
+      <div class="hotel-row-info">
+        <div class="meta">${offer.live ? '<span class="pill live">Preço real</span>' : '<span class="pill">Simulação</span>'}</div>
+        <h3>${offer.hotel}</h3>
+        <div class="hotel-row-stars">${stars}</div>
+        <p class="muted small">${offer.destination}${offer.country ? `, ${offer.country}` : ''}${trip ? ` · ${trip}` : ''}</p>
+      </div>
+      <div class="hotel-row-rates">
+        ${visible.map(o => rateLine(hotelIndex, o.__rateIndex, o)).join('')}
+        ${rest.length ? `
+        <button type="button" class="ghost mini-action rate-expand-toggle" data-hotel="${hotelIndex}" data-more-label="+${rest.length} opções">+${rest.length} opções</button>
+        <div class="rate-line-extra" data-hotel="${hotelIndex}" hidden>${rest.map(o => rateLine(hotelIndex, o.__rateIndex, o)).join('')}</div>` : ''}
+      </div>
+    </article>`;
+}
+
+function renderResultsList() {
+  const filtered = currentSearchResults.filter(passesFilters);
+  $('#resultCount').textContent = filtered.length === currentSearchResults.length
+    ? `${filtered.length} opcoes`
+    : `${filtered.length} de ${currentSearchResults.length} opcoes`;
+  $('#results').innerHTML = filtered.length
+    ? filtered.map(r => renderHotelRow(r, currentSearchResults.indexOf(r))).join('')
+    : '<p class="muted">Sem resultados para estes filtros.</p>';
+}
+
+$('#results').addEventListener('click', e => {
+  const btn = e.target.closest('.rate-expand-toggle');
+  if (!btn) return;
+  const extra = document.querySelector(`.rate-line-extra[data-hotel="${btn.dataset.hotel}"]`);
+  if (!extra) return;
+  extra.hidden = !extra.hidden;
+  btn.textContent = extra.hidden ? btn.dataset.moreLabel : 'Mostrar menos';
+});
+
+function renderResultsPage(data) {
+  currentSearchResults = data.results;
+  activeFilters = { stars: new Set(), boards: new Set() };
   const status = data.operatorStatus || {};
   const statusText = status.source === 'tourdiez'
     ? 'Precos reais confirmados pela TourDiez neste momento.'
     : 'A mostrar alternativas enquanto o operador real nao responde.';
   const tripDates = dateRange(data.parsed.checkin, data.parsed.checkout);
-  $('#parsedBox').innerHTML = `<b>Pedido interpretado:</b> ${data.parsed.destination}${tripDates ? `, ${tripDates}` : ''}, ${data.parsed.nights} noites, ${data.parsed.adults} adultos, ${data.parsed.children} criancas, saida ${data.parsed.origin}, orcamento ${money(data.parsed.budget)}.<br><b>Fonte:</b> ${statusText}`;
-  $('#results').innerHTML = data.results.map((r, i) => {
-    const story = destinationContent[r.destination];
-    const videoQuery = encodeURIComponent(`${r.destination} ${r.hotel} video`);
-    const liveBadge = r.live ? '<span class="pill live">Preco real</span>' : '<span class="pill">Simulacao</span>';
-    const roomChoices = r.roomOptions?.length > 1 ? `<span class="pill">${r.roomOptions.length} opcoes de quarto</span>` : '';
-    return `
-    <article class="card ${i === 0 ? 'recommended' : ''}">
-      <div class="meta">${liveBadge}<span class="pill">${r.label}</span><span class="pill">Score ${r.score}/100</span><span class="pill">${r.operator}</span></div>
-      <h3>${r.hotel}</h3>
-      <div>${r.destination}${r.country ? `, ${r.country}` : ''}</div>
-      ${dateRange(r.checkin, r.checkout) ? `<div class="muted small">${dateRange(r.checkin, r.checkout)}</div>` : ''}
-      <div class="price">${money(r.finalPrice)}</div>
-      <div class="meta"><span class="pill">${r.board}</span><span class="pill">${r.nights} noites</span><span class="pill">${r.freeCancellation ? 'cancelamento flexivel' : 'tarifa restrita'}</span>${roomChoices}</div>
-      ${story ? `<p class="muted">${story}</p>` : ''}
-      <ul class="recommend-list">${recommendationBullets(r).map(b => `<li>${b}</li>`).join('')}</ul>
-      <a class="ghost video-link" target="_blank" rel="noopener" href="https://www.youtube.com/results?search_query=${videoQuery}">Ver videos deste destino</a>
-      <button class="btn" onclick='selectOffer(${JSON.stringify(r).replaceAll("'", "&apos;")})'>Continuar para reserva</button>
-    </article>`;
-  }).join('');
+  $('#resultsRecapTitle').textContent = data.parsed.destination;
+  $('#resultsRecapDetails').textContent = `${tripDates ? tripDates + ' · ' : ''}${data.parsed.nights} noites · ${data.parsed.adults} adultos${data.parsed.children ? ` + ${data.parsed.children} criancas` : ''} · saida ${data.parsed.origin} · orcamento ${money(data.parsed.budget)}`;
+  $('#parsedBox').innerHTML = `<b>Fonte:</b> ${statusText}`;
+  renderFilters(data.results);
+  renderResultsList();
 }
 
 function dealToPrompt(deal) {
@@ -235,45 +342,8 @@ function setCheckoutStep(step) {
   });
 }
 
-// Sugestao de upgrade calculada a partir dos precos reais das outras
-// opcoes do mesmo quarto - nunca inventa desconto/vantagem, so mostra a
-// diferenca real para (1) ganhar cancelamento gratuito ou, se ja tem,
-// (2) o proximo regime acima dentro do mesmo quarto.
-function upgradeSuggestion(offer) {
-  const options = offer.roomOptions;
-  if (!options || options.length < 2) return null;
-  const currentId = offer.tourdiez?.idDistributions;
-  const current = options.find(o => o.idDistributions === currentId);
-  if (!current) return null;
-  const sameRoom = options.filter(o => o.roomCode === current.roomCode).sort((a, b) => a.finalPrice - b.finalPrice);
-
-  if (!current.freeCancellation) {
-    const flexible = sameRoom.find(o => o.freeCancellation && o.mealPlan === current.mealPlan);
-    if (flexible) return { option: flexible, text: `Cancelamento gratuito por mais ${money(flexible.finalPrice - current.finalPrice)}` };
-  }
-  const idx = sameRoom.findIndex(o => o.idDistributions === currentId);
-  const next = sameRoom.slice(idx + 1).find(o => o.freeCancellation === current.freeCancellation);
-  if (next) return { option: next, text: `${next.mealPlanLabel} por mais ${money(next.finalPrice - current.finalPrice)}` };
-  return null;
-}
-
-window.applySuggestedOption = function(idDistributions) {
-  const option = currentOffer.roomOptions.find(o => o.idDistributions === idDistributions);
-  if (!option) return;
-  applyRoomOption(currentOffer, option);
-  const index = currentOffer.roomOptions.indexOf(option);
-  const input = document.querySelector(`#roomOptions input[name="roomOption"][value="${index}"]`);
-  if (input) {
-    input.checked = true;
-    document.querySelectorAll('#roomOptions .rate-chip').forEach(el => el.classList.remove('is-selected'));
-    input.closest('.rate-chip').classList.add('is-selected');
-  }
-  renderCheckoutSummary(currentOffer);
-};
-
 function renderCheckoutSummary(offer) {
   const trip = dateRange(offer.checkin, offer.checkout);
-  const suggestion = upgradeSuggestion(offer);
   $('#checkoutSummary').innerHTML = `
     <div class="meta">${offer.live ? '<span class="pill live">Preco real</span>' : '<span class="pill">Simulacao</span>'}</div>
     <h3>${offer.hotel}</h3>
@@ -286,81 +356,7 @@ function renderCheckoutSummary(offer) {
       <li>${offer.freeCancellation ? 'Cancelamento flexivel' : 'Tarifa nao reembolsavel'}</li>
     </ul>
     <div class="summary-total"><span>Total</span><strong id="summaryTotalValue">${money(offer.finalPrice)}</strong></div>
-    ${suggestion ? `
-    <div class="upgrade-suggestion">
-      <span class="upgrade-suggestion-icon">✨</span>
-      <div class="upgrade-suggestion-body"><b>Sugestão</b><p>${suggestion.text}</p></div>
-      <button type="button" class="ghost mini-action" onclick="applySuggestedOption('${suggestion.option.idDistributions}')">Aplicar</button>
-    </div>` : ''}
     <p class="muted small">${offer.live ? 'Preco obtido diretamente no operador.' : 'Preco demonstrativo - a equipa confirma disponibilidade real antes de emitir documentos.'}</p>`;
-}
-
-// Nomes tal como vem do sistema do operador sao codigos internos em
-// espanhol, em maiusculas (ex.: "DOBLE NO REEMBOLSABLE") - parecem erro de
-// integracao, nao texto para o cliente ver. Traduz os padroes conhecidos;
-// para codigos desconhecidos (ex.: "DOBLE EPKT"), poe em capitalizacao
-// normal em vez de adivinhar uma traducao que pode estar errada.
-const KNOWN_ROOM_NAMES = {
-  'DOBLE NO REEMBOLSABLE': 'Quarto duplo - tarifa não reembolsável',
-  'DOBLE OFERTA': 'Quarto duplo - oferta promocional',
-  'DOBLE STANDARD': 'Quarto duplo standard'
-};
-
-function humanizeRoomName(raw) {
-  const key = String(raw || '').trim().toUpperCase();
-  if (KNOWN_ROOM_NAMES[key]) return KNOWN_ROOM_NAMES[key];
-  return key.toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase());
-}
-
-// Agrupa por tipo de quarto: em vez de uma lista longa e repetitiva com uma
-// linha por combinacao quarto+regime, mostra um cartao por quarto com os
-// regimes disponiveis dentro - mais facil de comparar, menos scroll.
-function groupRoomOptions(options) {
-  const groups = [];
-  const byKey = new Map();
-  options.forEach((option, index) => {
-    const key = option.roomCode || option.roomName;
-    if (!byKey.has(key)) {
-      const group = { roomName: humanizeRoomName(option.roomName), items: [] };
-      byKey.set(key, group);
-      groups.push(group);
-    }
-    byKey.get(key).items.push({ option, index });
-  });
-  return groups;
-}
-
-function rateChip(offer, item) {
-  const { option, index } = item;
-  const active = option.idDistributions === offer.tourdiez?.idDistributions;
-  return `
-    <label class="rate-chip ${active ? 'is-selected' : ''}">
-      <input type="radio" name="roomOption" value="${index}" ${active ? 'checked' : ''} />
-      <span class="rate-chip-plan">${option.mealPlanLabel}</span>
-      <span class="rate-chip-cancel">${option.freeCancellation ? 'Cancelamento flexível' : 'Não reembolsável'}</span>
-      <span class="rate-chip-price">${money(option.finalPrice)}</span>
-    </label>`;
-}
-
-function roomGroupCard(offer, group) {
-  return `
-    <div class="room-group">
-      <div class="room-group-title">${group.roomName}</div>
-      <div class="room-group-rates">
-        ${group.items.map(item => rateChip(offer, item)).join('')}
-      </div>
-    </div>`;
-}
-
-function applyRoomOption(offer, option) {
-  offer.finalPrice = option.finalPrice;
-  offer.costPrice = option.costPrice;
-  offer.marginRule = option.marginRule;
-  offer.marginPercent = option.marginPercent;
-  offer.marginValue = option.marginValue;
-  offer.board = option.mealPlanLabel;
-  offer.freeCancellation = option.freeCancellation;
-  offer.tourdiez = { ...offer.tourdiez, idDistributions: option.idDistributions, code: option.roomCode || offer.tourdiez?.code };
 }
 
 function passengerFields(offer) {
@@ -392,6 +388,7 @@ function passengerFields(offer) {
             </select>
           </label>
           <label>Número do documento <input name="passengerDocNumber_${i}" /></label>
+          <label>País do documento <input name="passengerDocCountry_${i}" placeholder="Portugal" /></label>
           <label>Validade do documento <input name="passengerDocExpiry_${i}" type="date" /></label>
         </div>
       </div>`);
@@ -400,25 +397,17 @@ function passengerFields(offer) {
 }
 
 function renderCheckoutStep1() {
-  const hasChoices = currentOffer.roomOptions?.length > 1;
-  const roomGroups = hasChoices ? groupRoomOptions(currentOffer.roomOptions) : [];
-  const roomSection = hasChoices ? `
-    <div class="room-options-block">
-      <h3>Escolha o quarto e o regime</h3>
-      <p class="muted small">${roomGroups.length} tipos de quarto disponiveis diretamente no operador para estas datas.</p>
-      <div class="room-options" id="roomOptions">
-        ${roomGroups.map(group => roomGroupCard(currentOffer, group)).join('')}
-      </div>
-    </div>` : '';
   $('#checkoutMain').innerHTML = `
-    ${roomSection}
     <form id="checkoutForm" class="checkout-form">
-      <h3>Dados do titular da reserva</h3>
+      <h3>Dados de faturacao</h3>
       <div class="form-row">
         <label>Nome completo <input name="name" value="Cliente Teste" required /></label>
         <label>Email <input type="email" name="email" value="cliente@exemplo.pt" required /></label>
       </div>
-      <label>Telefone <input name="phone" value="+351900000000" /></label>
+      <div class="form-row">
+        <label>Telefone <input name="phone" value="+351900000000" /></label>
+        <label>Contribuinte (NIF) <input name="nif" pattern="[0-9]{9}" maxlength="9" placeholder="opcional" /></label>
+      </div>
       <label class="field-label">Passageiros</label>
       <div class="legal-notice">
         <span class="legal-notice-icon">⚠️</span>
@@ -437,16 +426,6 @@ function renderCheckoutStep1() {
       <button class="btn wide" type="submit">Continuar para pagamento</button>
       <p class="trust-note">Ligacao encriptada. Os seus dados servem apenas para tratar esta reserva.</p>
     </form>`;
-  if (hasChoices) {
-    document.querySelectorAll('#roomOptions input[name="roomOption"]').forEach(input => {
-      input.addEventListener('change', () => {
-        applyRoomOption(currentOffer, currentOffer.roomOptions[Number(input.value)]);
-        document.querySelectorAll('#roomOptions .rate-chip').forEach(el => el.classList.remove('is-selected'));
-        input.closest('.rate-chip').classList.add('is-selected');
-        renderCheckoutSummary(currentOffer);
-      });
-    });
-  }
   $('#checkoutForm').addEventListener('submit', onCheckoutSubmit);
 }
 
@@ -493,7 +472,12 @@ function renderCheckoutStep3(data) {
       <p class="secure-box">A nossa equipa esta a validar disponibilidade e preco com o operador. Assim que confirmado, recebe email com o voucher e todos os detalhes.</p>
       <button class="ghost" type="button" id="checkoutDone">Fechar e fazer nova pesquisa</button>
     </div>`;
-  $('#checkoutDone').onclick = () => { closeCheckoutModal(); location.hash = '#pesquisa'; };
+  $('#checkoutDone').onclick = () => {
+    closeCheckoutModal();
+    $('#reviewPage').hidden = true;
+    $('#resultsPage').hidden = true;
+    document.querySelector('.hero').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 }
 
 function openCheckoutModal() {
@@ -506,30 +490,116 @@ function closeCheckoutModal() {
   document.body.style.overflow = '';
 }
 
-window.selectOffer = function(offer) {
-  currentOffer = offer;
-  closeResultsModal();
-  openCheckoutModal();
-  renderCheckoutSummary(offer);
-  setCheckoutStep(1);
-  renderCheckoutStep1();
-};
-
 $('#closeCheckoutModal').onclick = closeCheckoutModal;
 $('#checkoutModal').addEventListener('click', e => {
   if (e.target.id === 'checkoutModal') closeCheckoutModal();
 });
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && !$('#checkoutModal').hidden) closeCheckoutModal();
+  if (e.key === 'Escape' && !$('#passportModal').hidden) closePassportModal();
 });
 
-$('#closeResultsModal').onclick = closeResultsModal;
-$('#resultsModal').addEventListener('click', e => {
-  if (e.target.id === 'resultsModal') closeResultsModal();
-});
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && !$('#resultsModal').hidden) closeResultsModal();
-});
+// Passo "Confirme a sua viagem": mostra o que foi escolhido antes de pedir
+// dados pessoais - resumo, sugestao de upgrade (mesma logica que ja usavamos
+// no checkout, so que agora o quarto ja fica fechado antes de chegar aqui).
+function upgradeSuggestion(offer) {
+  const options = offer.roomOptions;
+  if (!options || options.length < 2) return null;
+  const currentId = offer.tourdiez?.idDistributions;
+  const current = options.find(o => o.idDistributions === currentId);
+  if (!current) return null;
+  const sameRoom = options.filter(o => o.roomCode === current.roomCode).sort((a, b) => a.finalPrice - b.finalPrice);
+
+  if (!current.freeCancellation) {
+    const flexible = sameRoom.find(o => o.freeCancellation && o.mealPlan === current.mealPlan);
+    if (flexible) return { option: flexible, text: `Cancelamento gratuito por mais ${money(flexible.finalPrice - current.finalPrice)}` };
+  }
+  const idx = sameRoom.findIndex(o => o.idDistributions === currentId);
+  const next = sameRoom.slice(idx + 1).find(o => o.freeCancellation === current.freeCancellation);
+  if (next) return { option: next, text: `${next.mealPlanLabel} por mais ${money(next.finalPrice - current.finalPrice)}` };
+  return null;
+}
+
+window.applyReviewSuggestion = function(idDistributions) {
+  const option = currentOffer.roomOptions.find(o => o.idDistributions === idDistributions);
+  if (!option) return;
+  applyRoomOption(currentOffer, option);
+  renderReview(currentOffer);
+};
+
+function renderReview(offer) {
+  const trip = dateRange(offer.checkin, offer.checkout);
+  const suggestion = upgradeSuggestion(offer);
+  const story = destinationContent[offer.destination];
+  $('#reviewContent').innerHTML = `
+    <div class="review-grid">
+      <div class="review-card">
+        <div class="meta">${offer.live ? '<span class="pill live">Preço real</span>' : '<span class="pill">Simulação</span>'}</div>
+        <h3>${offer.hotel}</h3>
+        <p class="muted">${offer.destination}${offer.country ? `, ${offer.country}` : ''}</p>
+        ${trip ? `<div class="summary-dates">${trip}</div>` : ''}
+        <ul class="summary-facts">
+          <li>${offer.board}</li>
+          <li>${offer.nights} noites</li>
+          <li>${offer.adults} adultos${offer.children ? ` + ${offer.children} criancas` : ''}</li>
+          <li>${offer.freeCancellation ? 'Cancelamento flexível' : 'Tarifa não reembolsável'}</li>
+        </ul>
+        ${story ? `<p class="muted">${story}</p>` : ''}
+        ${suggestion ? `
+        <div class="upgrade-suggestion">
+          <span class="upgrade-suggestion-icon">✨</span>
+          <div class="upgrade-suggestion-body"><b>Sugestão</b><p>${suggestion.text}</p></div>
+          <button type="button" class="ghost mini-action" onclick="applyReviewSuggestion('${suggestion.option.idDistributions}')">Aplicar</button>
+        </div>` : ''}
+      </div>
+      <aside class="review-price">
+        <span>Total</span>
+        <strong>${money(offer.finalPrice)}</strong>
+        <p class="muted small">${offer.live ? 'Preço obtido diretamente no operador.' : 'Preço demonstrativo - a equipa confirma disponibilidade real antes de emitir documentos.'}</p>
+        <button type="button" class="btn wide" id="continueToDataBtn">Continuar reserva</button>
+      </aside>
+    </div>`;
+  $('#continueToDataBtn').onclick = openPassportModal;
+}
+
+function showReview(offer) {
+  currentOffer = offer;
+  renderReview(offer);
+  $('#reviewPage').hidden = false;
+  $('#reviewPage').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+window.reserveRate = function(hotelIndex, rateIndex) {
+  const source = currentSearchResults[hotelIndex];
+  if (!source) return;
+  const offer = { ...source };
+  if (rateIndex != null && offer.roomOptions?.[rateIndex]) applyRoomOption(offer, offer.roomOptions[rateIndex]);
+  showReview(offer);
+};
+
+function openPassportModal() { $('#passportModal').hidden = false; }
+function closePassportModal() { $('#passportModal').hidden = true; }
+
+$('#passportModalClose').onclick = closePassportModal;
+$('#passportModal').addEventListener('click', e => { if (e.target.id === 'passportModal') closePassportModal(); });
+$('#passportModalAccept').onclick = () => {
+  closePassportModal();
+  openCheckoutModal();
+  renderCheckoutSummary(currentOffer);
+  setCheckoutStep(1);
+  renderCheckoutStep1();
+};
+
+$('#backToResultsBtn').onclick = () => {
+  $('#reviewPage').hidden = true;
+  $('#resultsPage').scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
+$('#newSearchBtn').onclick = () => {
+  $('#resultsPage').hidden = true;
+  $('#reviewPage').hidden = true;
+  document.querySelector('.hero').scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
 
 // Etapas mostradas enquanto a pesquisa real corre (TourDiez + margens).
 // Um resultado instantaneo sem nenhum feedback parece falso, mesmo quando o
@@ -559,9 +629,14 @@ function renderSearchLoading() {
 
 $('#searchForm').addEventListener('submit', async e => {
   e.preventDefault();
-  openResultsModal();
+  $('#reviewPage').hidden = true;
+  $('#resultsPage').hidden = false;
+  $('#resultsPage').scrollIntoView({ behavior: 'smooth', block: 'start' });
   $('#parsedBox').innerHTML = '';
+  $('#resultsFilters').hidden = true;
   $('#resultCount').textContent = 'A procurar...';
+  $('#resultsRecapTitle').textContent = 'A procurar as melhores opcoes...';
+  $('#resultsRecapDetails').textContent = '';
   const stopLoading = renderSearchLoading();
   const minDelay = new Promise(resolve => setTimeout(resolve, 1300));
   try {
@@ -570,7 +645,7 @@ $('#searchForm').addEventListener('submit', async e => {
       minDelay
     ]);
     stopLoading();
-    renderResults(data);
+    renderResultsPage(data);
     refreshAdmin();
   } catch (err) {
     stopLoading();
@@ -598,6 +673,7 @@ async function onCheckoutSubmit(e) {
     nationality: f[`passengerNationality_${i}`] || '',
     documentType: f[`passengerDocType_${i}`] || '',
     documentNumber: f[`passengerDocNumber_${i}`] || '',
+    documentCountry: f[`passengerDocCountry_${i}`] || '',
     documentExpiry: f[`passengerDocExpiry_${i}`] || ''
   }));
   try {
@@ -605,7 +681,7 @@ async function onCheckoutSubmit(e) {
       method: 'POST',
       body: JSON.stringify({
         offer: currentOffer,
-        customer: { name: f.name, email: f.email, phone: f.phone, passengers },
+        customer: { name: f.name, email: f.email, phone: f.phone, nif: f.nif, passengers },
         paymentMethod: f.paymentMethod,
         idempotencyKey: `${currentOffer.id}-${f.email}-${Date.now()}`
       })

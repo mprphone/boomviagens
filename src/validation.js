@@ -32,6 +32,12 @@ function phone(value) {
   return cleaned;
 }
 
+function nif(value) {
+  const cleaned = optionalText(value, 9).replace(/\D/g, '');
+  if (cleaned && !/^\d{9}$/.test(cleaned)) throw new Error('NIF invalido');
+  return cleaned;
+}
+
 function searchPayload(body = {}) {
   return {
     prompt: optionalText(body.prompt, 1000),
@@ -53,6 +59,7 @@ function customerPayload(body = {}) {
     name: requiredText(body.name || 'Cliente', 'Nome', 120),
     email: email(body.email),
     phone: phone(body.phone),
+    nif: nif(body.nif),
     passengers: Array.isArray(body.passengers) ? body.passengers.slice(0, 12).map(passengerPayload) : []
   };
 }
@@ -67,6 +74,7 @@ function passengerPayload(body = {}) {
     nationality: optionalText(body.nationality, 60),
     documentType: ['CC', 'PASSPORT'].includes(body.documentType) ? body.documentType : '',
     documentNumber: optionalText(body.documentNumber, 80),
+    documentCountry: optionalText(body.documentCountry, 60),
     documentExpiry: optionalText(body.documentExpiry, 30)
   };
 }

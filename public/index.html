@@ -177,18 +177,49 @@
       </div>
     </section>
 
-    <div id="resultsModal" class="modal-overlay" hidden>
-      <div class="modal-box panel">
-        <button type="button" id="closeResultsModal" class="modal-close" aria-label="Fechar">&times;</button>
-        <div class="section-head">
-          <div>
-            <p class="eyebrow">Resultados</p>
-            <h2>Melhor preco e recomendacao</h2>
-          </div>
-          <span id="resultCount" class="badge">0 opcoes</span>
+    <section id="resultsPage" class="panel results-page" hidden>
+      <div class="results-recap">
+        <div>
+          <p class="eyebrow">Resultados</p>
+          <h2 id="resultsRecapTitle">Melhor preco e recomendacao</h2>
+          <p class="muted" id="resultsRecapDetails"></p>
         </div>
-        <div id="parsedBox" class="parsed"></div>
-        <div id="results" class="cards"></div>
+        <div class="results-recap-actions">
+          <span id="resultCount" class="badge">0 opcoes</span>
+          <button type="button" class="ghost" id="newSearchBtn">Nova pesquisa</button>
+        </div>
+      </div>
+      <div id="parsedBox" class="parsed"></div>
+      <div class="results-layout">
+        <aside class="results-filters" id="resultsFilters" hidden></aside>
+        <div id="results" class="results-list"></div>
+      </div>
+    </section>
+
+    <section id="reviewPage" class="panel" hidden>
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Confirme a sua viagem</p>
+          <h2>Resumo da reserva</h2>
+        </div>
+        <button type="button" class="ghost" id="backToResultsBtn">Alterar quarto</button>
+      </div>
+      <div id="reviewContent"></div>
+    </section>
+
+    <div id="passportModal" class="modal-overlay" hidden>
+      <div class="modal-box panel passport-modal">
+        <p class="eyebrow">Informacao importante</p>
+        <h2>Antes de continuar</h2>
+        <ul>
+          <li>Os nomes dos passageiros tem de ser inseridos exatamente como constam no documento de identificacao (Cartao de Cidadao ou Passaporte).</li>
+          <li>Se ainda nao tiver os documentos disponiveis, pode inserir os nomes conforme constam no Cartao de Cidadao.</li>
+          <li>Nomes incorretos podem implicar custos adicionais cobrados pelo operador para correcao posterior.</li>
+        </ul>
+        <div class="passport-modal-actions">
+          <button type="button" class="ghost" id="passportModalClose">Fechar</button>
+          <button type="button" class="btn" id="passportModalAccept">Li e aceito, continuar</button>
+        </div>
       </div>
     </div>
 
