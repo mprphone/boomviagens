@@ -103,7 +103,17 @@
           <textarea name="prompt" rows="3">Quero 7 noites nas Caraibas em agosto, tudo incluido, para 2 adultos, ate 2500 euros, saida do Porto.</textarea>
         </label>
         <div class="search-grid">
-          <label>Destino <input name="destination" placeholder="Punta Cana" /></label>
+          <label>Destino <input name="destination" placeholder="Punta Cana" list="destinationSuggestions" autocomplete="off" /></label>
+          <datalist id="destinationSuggestions">
+            <option value="Punta Cana"></option>
+            <option value="Riviera Maya"></option>
+            <option value="Sal"></option>
+            <option value="Boa Vista"></option>
+            <option value="Maldivas"></option>
+            <option value="Disneyland Paris"></option>
+            <option value="Madeira"></option>
+            <option value="Torremolinos"></option>
+          </datalist>
           <label>Aeroporto <select name="origin"><option>Lisboa</option><option selected>Porto</option><option>Faro</option></select></label>
           <label>Data <input name="checkin" type="date" /></label>
           <label>Noites <input name="nights" type="number" value="7" min="1" /></label>

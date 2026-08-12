@@ -366,19 +366,37 @@ function applyRoomOption(offer, option) {
 function passengerFields(offer) {
   const adults = offer.adults || 1;
   const children = offer.children || 0;
-  const rows = [];
+  const cards = [];
   for (let i = 0; i < adults + children; i++) {
     const isChild = i >= adults;
     const label = isChild ? `Criança ${i - adults + 1}` : `Adulto ${i + 1}`;
-    rows.push(`
-      <div class="passenger-row">
-        <span class="passenger-label">${label}</span>
-        <input name="passengerName_${i}" placeholder="Nome" ${i === 0 ? 'value="Cliente Teste"' : ''} required />
-        <input name="passengerSurname_${i}" placeholder="Apelido" />
-        ${isChild ? `<input name="passengerBirthdate_${i}" type="date" title="Data de nascimento" />` : ''}
+    cards.push(`
+      <div class="passenger-card">
+        <div class="passenger-card-title">${label}</div>
+        <div class="passenger-card-grid">
+          <label>Nome <input name="passengerName_${i}" ${i === 0 ? 'value="Cliente Teste"' : ''} required /></label>
+          <label>Apelido <input name="passengerSurname_${i}" /></label>
+          <label>Data de nascimento <input name="passengerBirthdate_${i}" type="date" /></label>
+          <label>Género
+            <select name="passengerGender_${i}">
+              <option value="">Prefiro não indicar</option>
+              <option value="F">Feminino</option>
+              <option value="M">Masculino</option>
+            </select>
+          </label>
+          <label>Nacionalidade <input name="passengerNationality_${i}" placeholder="Portuguesa" /></label>
+          <label>Tipo de documento
+            <select name="passengerDocType_${i}">
+              <option value="CC">Cartão de Cidadão</option>
+              <option value="PASSPORT">Passaporte</option>
+            </select>
+          </label>
+          <label>Número do documento <input name="passengerDocNumber_${i}" /></label>
+          <label>Validade do documento <input name="passengerDocExpiry_${i}" type="date" /></label>
+        </div>
       </div>`);
   }
-  return rows.join('');
+  return cards.join('');
 }
 
 function renderCheckoutStep1() {
@@ -401,8 +419,13 @@ function renderCheckoutStep1() {
         <label>Email <input type="email" name="email" value="cliente@exemplo.pt" required /></label>
       </div>
       <label>Telefone <input name="phone" value="+351900000000" /></label>
-      <label class="field-label">Passageiros (nomes tal como no documento de identificação)</label>
+      <label class="field-label">Passageiros</label>
+      <div class="legal-notice">
+        <span class="legal-notice-icon">⚠️</span>
+        <p>Os nomes têm de corresponder exatamente ao documento de identificação (Cartão de Cidadão ou Passaporte). Correções depois da confirmação podem implicar custos adicionais cobrados pelo operador.</p>
+      </div>
       <div class="passenger-list">${passengerFields(currentOffer)}</div>
+      <label class="consent"><input type="checkbox" required /><span>Confirmo que os nomes e dados dos passageiros estão corretos e coincidem com o documento de identificação que vão usar na viagem.</span></label>
       <label class="field-label">Metodo de pagamento</label>
       <div class="payment-methods" role="radiogroup" aria-label="Metodo de pagamento">
         <label class="payment-option"><input type="radio" name="paymentMethod" value="MB WAY" checked /><span class="payment-option-icon">\u{1F4F1}</span><span>MB WAY</span></label>
@@ -570,7 +593,12 @@ async function onCheckoutSubmit(e) {
     name: f[`passengerName_${i}`] || '',
     surname: f[`passengerSurname_${i}`] || '',
     type: i < adults ? 'ADT' : 'CHD',
-    birthdate: f[`passengerBirthdate_${i}`] || ''
+    birthdate: f[`passengerBirthdate_${i}`] || '',
+    gender: f[`passengerGender_${i}`] || '',
+    nationality: f[`passengerNationality_${i}`] || '',
+    documentType: f[`passengerDocType_${i}`] || '',
+    documentNumber: f[`passengerDocNumber_${i}`] || '',
+    documentExpiry: f[`passengerDocExpiry_${i}`] || ''
   }));
   try {
     const data = await api('/api/checkout', {

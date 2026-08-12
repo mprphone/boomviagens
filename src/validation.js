@@ -63,7 +63,11 @@ function passengerPayload(body = {}) {
     surname: optionalText(body.surname, 120),
     type: ['ADT', 'CHD', 'INF'].includes(body.type) ? body.type : 'ADT',
     birthdate: optionalText(body.birthdate, 30),
-    documentNumber: optionalText(body.documentNumber, 80)
+    gender: ['M', 'F'].includes(body.gender) ? body.gender : '',
+    nationality: optionalText(body.nationality, 60),
+    documentType: ['CC', 'PASSPORT'].includes(body.documentType) ? body.documentType : '',
+    documentNumber: optionalText(body.documentNumber, 80),
+    documentExpiry: optionalText(body.documentExpiry, 30)
   };
 }
 

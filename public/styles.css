@@ -878,24 +878,43 @@ textarea:focus {
 .passenger-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   margin-bottom: 4px;
 }
 
-.passenger-row {
-  display: grid;
-  grid-template-columns: 84px 1fr 1fr auto;
-  align-items: center;
-  gap: 8px;
+.passenger-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  background: #fff;
 }
 
-.passenger-label {
-  color: var(--muted);
-  font-size: 12px;
+.passenger-card-title {
+  margin-bottom: 10px;
+  color: var(--ink-soft);
+  font-size: 13px;
   font-weight: 700;
 }
 
-.passenger-row input[type="date"] { width: 150px; }
+.passenger-card-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.legal-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border: 1px solid #f0d3ae;
+  border-radius: var(--radius-sm);
+  background: #fdf6ea;
+}
+
+.legal-notice-icon { font-size: 15px; line-height: 1.4; }
+.legal-notice p { margin: 0; color: var(--ink-soft); font-size: 12.5px; line-height: 1.45; }
 
 .consent {
   flex-direction: row;
@@ -1401,7 +1420,7 @@ footer {
   .checkout-summary { position: static; }
   .rate-chip { flex-wrap: wrap; }
   .rate-chip-price { text-align: left; }
-  .passenger-row { grid-template-columns: 1fr; }
+  .passenger-card-grid { grid-template-columns: 1fr 1fr; }
   .modal-box.checkout-panel { padding: 20px; }
   .showcase,
   .panel { width: calc(100% - 28px); margin: 34px auto; }

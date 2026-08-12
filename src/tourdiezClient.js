@@ -20,6 +20,17 @@ function toDDMMYYYY(isoDate) {
   return `${day}${month}${year}`;
 }
 
+// Idade real do passageiro a partir da data de nascimento - importa para o
+// operador porque alguns quartos tem restricao de idade (ex.: "MAYORES DE
+// 60 ANOS" visto nos dados reais da TourDiez). Devolve null se nao houver
+// data de nascimento valida, para o chamador poder usar o valor por omissao.
+function computeAge(birthdateIso) {
+  const date = new Date(birthdateIso);
+  if (Number.isNaN(date.getTime())) return null;
+  const years = (Date.now() - date.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+  return Math.max(0, Math.floor(years));
+}
+
 function roomXml(tag, room) {
   if (!room) return '';
   const childAges = room.childAges || [];
@@ -134,8 +145,8 @@ class TourDiezClient {
 
   confirmXml(params = {}) {
     const clients = (params.clients || []).map(c => `<client>
-      <age>${esc(c.age ?? 30)}</age>
-      <dni>${esc(c.dni || '')}</dni>
+      <age>${esc(c.age ?? computeAge(c.birthdate) ?? 30)}</age>
+      <dni>${esc(c.dni || c.documentNumber || '')}</dni>
       <name>${esc(c.name)}</name>
       <firstSurname>${esc(c.surname || c.firstSurname || '')}</firstSurname>
       <secondSurname>${esc(c.secondSurname || '')}</secondSurname>
