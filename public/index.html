@@ -186,19 +186,21 @@
       <div class="section-head">
         <div>
           <p class="eyebrow">Checkout seguro</p>
-          <h2>Reserva de teste</h2>
+          <h2>Finalizar reserva</h2>
         </div>
-        <span class="badge green">pagamento + aprovacao interna</span>
+        <span class="badge green">Ambiente de teste - sem cobranca real</span>
       </div>
-      <div id="selectedOffer" class="selected-offer"></div>
-      <form id="checkoutForm" class="grid-form">
-        <label>Nome <input name="name" value="Cliente Teste" required /></label>
-        <label>Email <input name="email" value="cliente@exemplo.pt" required /></label>
-        <label>Telefone <input name="phone" value="+351900000000" /></label>
-        <label>Metodo de pagamento <select name="paymentMethod"><option>MB WAY</option><option>Referencia Multibanco</option><option>Cartao</option></select></label>
-        <button class="btn wide" type="submit">Criar reserva e pagamento</button>
-      </form>
-      <div id="paymentBox"></div>
+
+      <ol class="stepper" id="checkoutStepper">
+        <li class="stepper-step" data-step="1"><span class="stepper-dot">1</span><span class="stepper-label">Dados</span></li>
+        <li class="stepper-step" data-step="2"><span class="stepper-dot">2</span><span class="stepper-label">Pagamento</span></li>
+        <li class="stepper-step" data-step="3"><span class="stepper-dot">3</span><span class="stepper-label">Confirmacao</span></li>
+      </ol>
+
+      <div class="checkout-grid">
+        <div id="checkoutMain" class="checkout-main"></div>
+        <aside id="checkoutSummary" class="checkout-summary"></aside>
+      </div>
     </section>
 
     <section id="areaCliente" class="panel">

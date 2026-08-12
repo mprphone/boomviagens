@@ -2,6 +2,7 @@ const $ = sel => document.querySelector(sel);
 const money = n => `${Number(n || 0).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} EUR`;
 let currentOffer = null;
 let lastPayment = null;
+let lastReservation = null;
 let adminAuthenticated = false;
 
 async function api(path, options = {}) {
@@ -79,7 +80,7 @@ function renderResults(data) {
     <article class="card ${i === 0 ? 'recommended' : ''}">
       <div class="meta">${liveBadge}<span class="pill">${r.label}</span><span class="pill">Score ${r.score}/100</span><span class="pill">${r.operator}</span></div>
       <h3>${r.hotel}</h3>
-      <div>${r.destination}, ${r.country}</div>
+      <div>${r.destination}${r.country ? `, ${r.country}` : ''}</div>
       <div class="price">${money(r.finalPrice)}</div>
       <div class="meta"><span class="pill">${r.board}</span><span class="pill">${r.nights} noites</span><span class="pill">${r.freeCancellation ? 'cancelamento flexivel' : 'tarifa restrita'}</span></div>
       ${story ? `<p class="muted">${story}</p>` : ''}
@@ -221,20 +222,104 @@ window.searchDeal = function(deal) {
   form.requestSubmit();
 };
 
+function setCheckoutStep(step) {
+  document.querySelectorAll('#checkoutStepper .stepper-step').forEach(el => {
+    const n = Number(el.dataset.step);
+    el.classList.toggle('is-active', n === step);
+    el.classList.toggle('is-done', n < step);
+  });
+}
+
+function renderCheckoutSummary(offer) {
+  $('#checkoutSummary').innerHTML = `
+    <div class="meta">${offer.live ? '<span class="pill live">Preco real</span>' : '<span class="pill">Simulacao</span>'}</div>
+    <h3>${offer.hotel}</h3>
+    <p class="muted">${offer.destination}${offer.country ? `, ${offer.country}` : ''}</p>
+    <ul class="summary-facts">
+      <li>${offer.board}</li>
+      <li>${offer.nights} noites</li>
+      <li>${offer.adults} adultos${offer.children ? ` + ${offer.children} criancas` : ''}</li>
+      <li>${offer.freeCancellation ? 'Cancelamento flexivel' : 'Tarifa nao reembolsavel'}</li>
+    </ul>
+    <div class="summary-total"><span>Total</span><strong>${money(offer.finalPrice)}</strong></div>
+    <p class="muted small">${offer.live ? 'Preco obtido diretamente no operador.' : 'Preco demonstrativo - a equipa confirma disponibilidade real antes de emitir documentos.'}</p>`;
+}
+
+function renderCheckoutStep1() {
+  $('#checkoutMain').innerHTML = `
+    <form id="checkoutForm" class="checkout-form">
+      <h3>Dados do titular da reserva</h3>
+      <div class="form-row">
+        <label>Nome completo <input name="name" value="Cliente Teste" required /></label>
+        <label>Email <input type="email" name="email" value="cliente@exemplo.pt" required /></label>
+      </div>
+      <label>Telefone <input name="phone" value="+351900000000" /></label>
+      <label class="field-label">Metodo de pagamento</label>
+      <div class="payment-methods" role="radiogroup" aria-label="Metodo de pagamento">
+        <label class="payment-option"><input type="radio" name="paymentMethod" value="MB WAY" checked /><span class="payment-option-icon">\u{1F4F1}</span><span>MB WAY</span></label>
+        <label class="payment-option"><input type="radio" name="paymentMethod" value="Referência Multibanco" /><span class="payment-option-icon">\u{1F3E7}</span><span>Multibanco</span></label>
+        <label class="payment-option"><input type="radio" name="paymentMethod" value="Cartão" /><span class="payment-option-icon">\u{1F4B3}</span><span>Cartão</span></label>
+      </div>
+      <label class="consent"><input type="checkbox" required /><span>Li e aceito os <a href="#legal">Termos e Condicoes</a> e a <a href="#legal">Politica de Privacidade</a>.</span></label>
+      <div id="checkoutFormError"></div>
+      <button class="btn wide" type="submit">Continuar para pagamento</button>
+      <p class="trust-note">Ligacao encriptada. Os seus dados servem apenas para tratar esta reserva.</p>
+    </form>`;
+  $('#checkoutForm').addEventListener('submit', onCheckoutSubmit);
+}
+
+function paymentInstructions(method, payment) {
+  if (method.includes('MB WAY')) {
+    return `<div class="payment-method-box">
+      <div class="payment-method-icon">\u{1F4F1}</div>
+      <div><b>Confirme na app MB WAY</b><p class="muted">Vai receber um pedido de pagamento de ${money(payment.amount)} para aprovar na app associada ao seu numero.</p></div>
+    </div>`;
+  }
+  if (method.includes('Multibanco')) {
+    return `<div class="mb-slip">
+        <div class="mb-slip-row"><span>Entidade</span><strong>12345</strong></div>
+        <div class="mb-slip-row"><span>Referencia</span><strong>${payment.reference}</strong></div>
+        <div class="mb-slip-row"><span>Valor</span><strong>${money(payment.amount)}</strong></div>
+      </div>
+      <p class="muted small">Valida ate ${new Date(payment.expiresAt).toLocaleString('pt-PT')}.</p>`;
+  }
+  return `<div class="payment-method-box">
+    <div class="payment-method-icon">\u{1F4B3}</div>
+    <div><b>Pagamento com cartao</b><p class="muted">Seria redirecionado para um gateway seguro (Stripe/SIBS) para introduzir os dados do cartao.</p></div>
+  </div>`;
+}
+
+function renderCheckoutStep2(data) {
+  $('#checkoutMain').innerHTML = `
+    <div class="payment-step">
+      <h3>Pagamento - ${data.payment.method}</h3>
+      ${paymentInstructions(data.payment.method, data.payment)}
+      <div class="secure-box">Reserva <b>${data.reservation.id}</b> criada. Ainda sem emissao final ate o pagamento e a disponibilidade serem validados.</div>
+      <div id="checkoutPaymentError"></div>
+      <button class="btn wide" id="confirmPayment" type="button">Confirmar pagamento (simulado)</button>
+      <p class="trust-note">Ambiente de testes: este pagamento e simulado. Em producao liga a SIBS, Easypay, Ifthenpay, EuPago ou Stripe.</p>
+    </div>`;
+  $('#confirmPayment').onclick = onConfirmPayment;
+}
+
+function renderCheckoutStep3(data) {
+  $('#checkoutMain').innerHTML = `
+    <div class="confirmation-state">
+      <div class="confirmation-icon">✓</div>
+      <h3>Reserva registada com sucesso</h3>
+      <p class="muted">Referencia interna <b>${data.reservation.id}</b> - estado atual: <b>${statusLabel(data.reservation.status)}</b>.</p>
+      <p class="secure-box">A nossa equipa esta a validar disponibilidade e preco com o operador. Assim que confirmado, recebe email com o voucher e todos os detalhes.</p>
+      <button class="ghost" type="button" onclick="location.hash='#pesquisa'">Nova pesquisa</button>
+    </div>`;
+}
+
 window.selectOffer = function(offer) {
   currentOffer = offer;
   closeResultsModal();
   $('#checkoutPanel').hidden = false;
-  $('#selectedOffer').innerHTML = `
-    <div class="checkout-steps">
-      <span class="active">1 Dados</span>
-      <span>2 Pagamento seguro</span>
-      <span>3 Confirmacao</span>
-    </div>
-    <b>${offer.hotel}</b><br>
-    ${offer.destination} - ${offer.board} - ${offer.nights} noites<br>
-    <b>Total a pagar:</b> ${money(offer.finalPrice)}<br>
-    <small>${offer.live ? 'Preco obtido diretamente no operador.' : 'Preco demonstrativo. A equipa confirma disponibilidade real antes de emitir documentos.'}</small>`;
+  renderCheckoutSummary(offer);
+  setCheckoutStep(1);
+  renderCheckoutStep1();
   location.hash = '#checkoutPanel';
 };
 
@@ -259,11 +344,15 @@ $('#searchForm').addEventListener('submit', async e => {
   }
 });
 
-$('#checkoutForm').addEventListener('submit', async e => {
+async function onCheckoutSubmit(e) {
   e.preventDefault();
-  if (!currentOffer) return alert('Escolha uma oferta primeiro.');
-  const f = formToJson(e.target);
-  $('#paymentBox').innerHTML = '<div class="secure-box">A criar reserva segura. Ainda nao sera feita emissao final sem validacao.</div>';
+  if (!currentOffer) return;
+  const form = e.target;
+  const f = formToJson(form);
+  const btn = form.querySelector('button[type="submit"]');
+  btn.disabled = true;
+  btn.textContent = 'A criar reserva...';
+  $('#checkoutFormError').innerHTML = '';
   try {
     const data = await api('/api/checkout', {
       method: 'POST',
@@ -275,39 +364,31 @@ $('#checkoutForm').addEventListener('submit', async e => {
       })
     });
     lastPayment = data.payment;
-    $('#paymentBox').innerHTML = `
-      <div class="checkout-steps">
-        <span>1 Dados</span>
-        <span class="active">2 Pagamento seguro</span>
-        <span>3 Confirmacao</span>
-      </div>
-      <h3>Pagamento preparado</h3>
-      <p><b>Reserva:</b> ${data.reservation.id}<br><b>Referencia:</b> ${data.payment.reference}<br><b>Valor:</b> ${money(data.payment.amount)}<br><b>Metodo:</b> ${data.payment.method}</p>
-      <p class="muted">Em producao este passo liga a SIBS, Easypay, Ifthenpay, EuPago ou Stripe. Neste momento estamos a simular o pagamento para testar o fluxo.</p>
-      <button class="btn" id="confirmPayment">Confirmar pagamento de teste</button>`;
-    $('#confirmPayment').onclick = confirmPayment;
+    lastReservation = data.reservation;
+    setCheckoutStep(2);
+    renderCheckoutStep2(data);
     refreshAdmin();
   } catch (err) {
-    $('#paymentBox').innerHTML = `<p class="error">${err.message}</p>`;
+    btn.disabled = false;
+    btn.textContent = 'Continuar para pagamento';
+    $('#checkoutFormError').innerHTML = `<p class="error">${err.message}</p>`;
   }
-});
+}
 
-async function confirmPayment() {
-  $('#paymentBox').innerHTML += '<p>A validar preco e disponibilidade antes da confirmacao final...</p>';
+async function onConfirmPayment() {
+  const btn = $('#confirmPayment');
+  btn.disabled = true;
+  btn.textContent = 'A validar...';
+  $('#checkoutPaymentError').innerHTML = '';
   try {
     const data = await api('/api/payment/confirm', { method: 'POST', body: JSON.stringify({ paymentId: lastPayment.id }) });
-    $('#paymentBox').innerHTML = `
-      <div class="checkout-steps">
-        <span>1 Dados</span>
-        <span>2 Pagamento seguro</span>
-        <span class="active">3 Confirmacao</span>
-      </div>
-      <h3>Pedido recebido</h3>
-      <p><b>Reserva:</b> ${data.reservation.id}<br><b>Estado:</b> ${statusLabel(data.reservation.status)}<br><b>Validacao:</b> ${data.reservation.operatorValidation}</p>
-      <p class="secure-box">A sua reserva ficou registada. Quando o operador estiver ligado com disponibilidade real, a confirmacao final e documentos seguem automaticamente apos pagamento.</p>`;
+    setCheckoutStep(3);
+    renderCheckoutStep3(data);
     refreshAdmin();
   } catch (err) {
-    $('#paymentBox').innerHTML += `<p class="error">${err.message}</p>`;
+    btn.disabled = false;
+    btn.textContent = 'Confirmar pagamento (simulado)';
+    $('#checkoutPaymentError').innerHTML = `<p class="error">${err.message}</p>`;
   }
 }
 
