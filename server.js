@@ -337,6 +337,26 @@ async function handleApi(req, res) {
       return json(res, 200, { ok: true, margin: saved });
     }
 
+    // Calendario de precos por dia no campo Data (like gurudasviagens.pt).
+    // Usa sempre a mesma formula de estimativa local (nao a TourDiez em
+    // direto) - 60 chamadas reais por cada vez que se abre o calendario
+    // seria pesado para a sandbox do operador e lento para o utilizador.
+    // Os precos sao genuinamente calculados pelo motor de precos, so nao
+    // sao o preco confirmado ao vivo - o proprio calendario diz isso.
+    if (method === 'POST' && url.pathname === '/api/price-calendar') {
+      const limited = rateLimit(req, res, 'price-calendar', 30, 60 * 1000);
+      if (limited) return limited;
+      const body = searchPayload(await parseBody(req));
+      const db = await readDb();
+      const days = [];
+      for (let i = 1; i <= 60; i++) {
+        const iso = new Date(Date.now() + i * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+        const { results } = searchOffers({ ...body, checkin: iso }, db.margins);
+        days.push({ date: iso, price: results[0]?.finalPrice || null });
+      }
+      return json(res, 200, { ok: true, days });
+    }
+
     if (method === 'POST' && url.pathname === '/api/search') {
       const limited = rateLimit(req, res, 'search', 60, 60 * 1000);
       if (limited) return limited;

@@ -103,20 +103,10 @@
           <textarea name="prompt" rows="3">Quero 7 noites nas Caraibas em agosto, tudo incluido, para 2 adultos, ate 2500 euros, saida do Porto.</textarea>
         </label>
         <div class="search-grid">
-          <label>Destino <input name="destination" placeholder="Punta Cana" list="destinationSuggestions" autocomplete="off" /></label>
-          <datalist id="destinationSuggestions">
-            <option value="Punta Cana"></option>
-            <option value="Riviera Maya"></option>
-            <option value="Sal"></option>
-            <option value="Boa Vista"></option>
-            <option value="Maldivas"></option>
-            <option value="Disneyland Paris"></option>
-            <option value="Madeira"></option>
-            <option value="Torremolinos"></option>
-          </datalist>
+          <label>Destino <input name="destination" id="destinationInput" placeholder="Punta Cana" autocomplete="off" /></label>
           <label>Aeroporto <select name="origin"><option>Lisboa</option><option selected>Porto</option><option>Faro</option></select></label>
-          <label>Data <input name="checkin" type="date" /></label>
-          <label>Noites <input name="nights" type="number" value="7" min="1" /></label>
+          <label>Data <input name="checkin" id="checkinInput" type="text" readonly placeholder="Escolher data" autocomplete="off" /></label>
+          <label>Noites <input name="nights" id="nightsInput" type="number" value="7" min="1" /></label>
           <label>Adultos <input name="adults" type="number" value="2" min="1" /></label>
           <label>Criancas <input name="children" type="number" value="0" min="0" /></label>
           <label>Orcamento <input name="budget" type="number" value="2500" /></label>
@@ -317,6 +307,9 @@
       <p>Rodape preparado para RNAVT, Livro de Reclamacoes, Termos, Privacidade, Cookies e condicoes de viagem. Substituir os campos INSERIR_RNAVT pelos dados finais da empresa.</p>
     </section>
   </main>
+
+  <div class="suggest-panel" id="destinationSuggest" hidden></div>
+  <div class="calendar-panel" id="calendarPanel" hidden></div>
 
   <aside class="chat">
     <div class="chat-head">Chat Boom</div>
