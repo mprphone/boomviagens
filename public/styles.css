@@ -765,42 +765,63 @@ textarea:focus {
 .room-options {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
   margin-top: 14px;
 }
 
-.room-option {
-  display: flex;
-  align-items: center;
-  gap: 14px;
+.room-group {
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  padding: 12px 14px;
+  padding: 14px;
   background: #fff;
+}
+
+.room-group-title {
+  margin-bottom: 10px;
+  color: var(--ink);
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.room-group-rates {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rate-chip {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  padding: 9px 12px;
+  background: #f9fbfd;
   cursor: pointer;
   transition: border-color .15s ease, background .15s ease;
 }
 
-.room-option:hover { border-color: #a9d4e6; }
-.room-option.is-selected { border-color: var(--blue); background: #eaf4fb; }
-.room-option input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.rate-chip:hover { border-color: #a9d4e6; }
+.rate-chip.is-selected { border-color: var(--blue); background: #eaf4fb; }
+.rate-chip input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 
-.room-option-main {
-  display: flex;
-  flex: 1 1 auto;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 12px;
-  min-width: 0;
+.rate-chip-plan { flex: 1 1 auto; min-width: 0; font-size: 13px; font-weight: 700; color: var(--ink-soft); }
+.rate-chip.is-selected .rate-chip-plan { color: var(--blue-dark); }
+
+.rate-chip-cancel {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
 }
 
-.room-option-main b { flex: 1 1 100%; font-size: 13.5px; }
-.room-option-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-
-.room-option-price {
+.rate-chip-price {
   flex: 0 0 auto;
+  min-width: 76px;
+  text-align: right;
   font-family: var(--font-display);
-  font-size: 16px;
+  font-size: 14.5px;
   font-weight: 800;
   color: var(--ink);
 }
@@ -1301,7 +1322,8 @@ footer {
   .form-row,
   .payment-methods { grid-template-columns: 1fr; }
   .checkout-summary { position: static; }
-  .room-option { flex-wrap: wrap; }
+  .rate-chip { flex-wrap: wrap; }
+  .rate-chip-price { text-align: left; }
   .modal-box.checkout-panel { padding: 20px; }
   .showcase,
   .panel { width: calc(100% - 28px); margin: 34px auto; }

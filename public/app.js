@@ -252,20 +252,61 @@ function renderCheckoutSummary(offer) {
     <p class="muted small">${offer.live ? 'Preco obtido diretamente no operador.' : 'Preco demonstrativo - a equipa confirma disponibilidade real antes de emitir documentos.'}</p>`;
 }
 
-function roomOptionCard(offer, option, i) {
+// Nomes tal como vem do sistema do operador sao codigos internos em
+// espanhol, em maiusculas (ex.: "DOBLE NO REEMBOLSABLE") - parecem erro de
+// integracao, nao texto para o cliente ver. Traduz os padroes conhecidos;
+// para codigos desconhecidos (ex.: "DOBLE EPKT"), poe em capitalizacao
+// normal em vez de adivinhar uma traducao que pode estar errada.
+const KNOWN_ROOM_NAMES = {
+  'DOBLE NO REEMBOLSABLE': 'Quarto duplo - tarifa não reembolsável',
+  'DOBLE OFERTA': 'Quarto duplo - oferta promocional',
+  'DOBLE STANDARD': 'Quarto duplo standard'
+};
+
+function humanizeRoomName(raw) {
+  const key = String(raw || '').trim().toUpperCase();
+  if (KNOWN_ROOM_NAMES[key]) return KNOWN_ROOM_NAMES[key];
+  return key.toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase());
+}
+
+// Agrupa por tipo de quarto: em vez de uma lista longa e repetitiva com uma
+// linha por combinacao quarto+regime, mostra um cartao por quarto com os
+// regimes disponiveis dentro - mais facil de comparar, menos scroll.
+function groupRoomOptions(options) {
+  const groups = [];
+  const byKey = new Map();
+  options.forEach((option, index) => {
+    const key = option.roomCode || option.roomName;
+    if (!byKey.has(key)) {
+      const group = { roomName: humanizeRoomName(option.roomName), items: [] };
+      byKey.set(key, group);
+      groups.push(group);
+    }
+    byKey.get(key).items.push({ option, index });
+  });
+  return groups;
+}
+
+function rateChip(offer, item) {
+  const { option, index } = item;
   const active = option.idDistributions === offer.tourdiez?.idDistributions;
   return `
-    <label class="room-option ${active ? 'is-selected' : ''}">
-      <input type="radio" name="roomOption" value="${i}" ${active ? 'checked' : ''} />
-      <span class="room-option-main">
-        <b>${option.roomName}</b>
-        <span class="room-option-tags">
-          <span class="pill">${option.mealPlanLabel}</span>
-          <span class="pill ${option.freeCancellation ? 'live' : ''}">${option.freeCancellation ? 'Cancelamento flexivel' : 'Nao reembolsavel'}</span>
-        </span>
-      </span>
-      <span class="room-option-price">${money(option.finalPrice)}</span>
+    <label class="rate-chip ${active ? 'is-selected' : ''}">
+      <input type="radio" name="roomOption" value="${index}" ${active ? 'checked' : ''} />
+      <span class="rate-chip-plan">${option.mealPlanLabel}</span>
+      <span class="rate-chip-cancel">${option.freeCancellation ? 'Cancelamento flexível' : 'Não reembolsável'}</span>
+      <span class="rate-chip-price">${money(option.finalPrice)}</span>
     </label>`;
+}
+
+function roomGroupCard(offer, group) {
+  return `
+    <div class="room-group">
+      <div class="room-group-title">${group.roomName}</div>
+      <div class="room-group-rates">
+        ${group.items.map(item => rateChip(offer, item)).join('')}
+      </div>
+    </div>`;
 }
 
 function applyRoomOption(offer, option) {
@@ -281,12 +322,13 @@ function applyRoomOption(offer, option) {
 
 function renderCheckoutStep1() {
   const hasChoices = currentOffer.roomOptions?.length > 1;
+  const roomGroups = hasChoices ? groupRoomOptions(currentOffer.roomOptions) : [];
   const roomSection = hasChoices ? `
     <div class="room-options-block">
       <h3>Escolha o quarto e o regime</h3>
-      <p class="muted small">${currentOffer.roomOptions.length} opcoes disponiveis diretamente no operador para estas datas.</p>
+      <p class="muted small">${roomGroups.length} tipos de quarto disponiveis diretamente no operador para estas datas.</p>
       <div class="room-options" id="roomOptions">
-        ${currentOffer.roomOptions.map((o, i) => roomOptionCard(currentOffer, o, i)).join('')}
+        ${roomGroups.map(group => roomGroupCard(currentOffer, group)).join('')}
       </div>
     </div>` : '';
   $('#checkoutMain').innerHTML = `
@@ -313,8 +355,8 @@ function renderCheckoutStep1() {
     document.querySelectorAll('#roomOptions input[name="roomOption"]').forEach(input => {
       input.addEventListener('change', () => {
         applyRoomOption(currentOffer, currentOffer.roomOptions[Number(input.value)]);
-        document.querySelectorAll('#roomOptions .room-option').forEach(el => el.classList.remove('is-selected'));
-        input.closest('.room-option').classList.add('is-selected');
+        document.querySelectorAll('#roomOptions .rate-chip').forEach(el => el.classList.remove('is-selected'));
+        input.closest('.rate-chip').classList.add('is-selected');
         renderCheckoutSummary(currentOffer);
       });
     });
