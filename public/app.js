@@ -614,9 +614,7 @@ function renderCheckoutStep3(data) {
     </div>`;
   $('#checkoutDone').onclick = () => {
     closeCheckoutModal();
-    $('#reviewPage').hidden = true;
-    $('#resultsPage').hidden = true;
-    document.querySelector('.hero').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    goHome();
   };
 }
 
@@ -735,11 +733,33 @@ $('#backToResultsBtn').onclick = () => {
   $('#resultsPage').scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
 
-$('#newSearchBtn').onclick = () => {
+$('#newSearchBtn').onclick = goHome;
+
+document.querySelectorAll('.main-nav a[href="#pesquisa"]:not([data-destino]):not([data-soon])').forEach(link => {
+  link.addEventListener('click', e => {
+    e.preventDefault();
+    goHome();
+  });
+});
+
+// A pagina de resultados/revisao deve aparecer sozinha, sem a homepage por
+// baixo a fazer ruido visual - por isso hero/novidades/inspiracoes ficam
+// escondidos enquanto se navega na pesquisa, e voltam quando se sai dela.
+const HOME_SECTIONS = ['pesquisa', 'novidades', 'inspiracoes'];
+
+function goHome() {
+  HOME_SECTIONS.forEach(id => { const el = document.getElementById(id); if (el) el.hidden = false; });
   $('#resultsPage').hidden = true;
   $('#reviewPage').hidden = true;
   document.querySelector('.hero').scrollIntoView({ behavior: 'smooth', block: 'start' });
-};
+}
+
+function goToResults() {
+  HOME_SECTIONS.forEach(id => { const el = document.getElementById(id); if (el) el.hidden = true; });
+  $('#reviewPage').hidden = true;
+  $('#resultsPage').hidden = false;
+  $('#resultsPage').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 
 // Etapas mostradas enquanto a pesquisa real corre (TourDiez + margens).
 // Um resultado instantaneo sem nenhum feedback parece falso, mesmo quando o
@@ -769,9 +789,7 @@ function renderSearchLoading() {
 
 $('#searchForm').addEventListener('submit', async e => {
   e.preventDefault();
-  $('#reviewPage').hidden = true;
-  $('#resultsPage').hidden = false;
-  $('#resultsPage').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  goToResults();
   $('#parsedBox').innerHTML = '';
   $('#resultsFilters').hidden = true;
   $('#resultCount').textContent = 'A procurar...';
