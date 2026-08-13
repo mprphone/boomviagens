@@ -77,7 +77,10 @@ module.exports = function registerPublicRoutes(router, ctx) {
         operatorStatus = { source: 'demo_fallback', message: 'TourDiez indisponivel neste momento; a mostrar alternativas demo.', error: e.message };
       }
     }
-    const lead = { id: id('lead'), createdAt: now(), search: { ...parsed, name: body.name, email: body.email, operatorStatus }, source: body.source || 'site', status: 'PROPOSAL_SENT', topResult: results[0] };
+    // O estagio arranca em PROPOSTA_ENVIADA porque todo o lead recebe logo
+    // a seguir um email de proposta automatico (ver mais abaixo) - nao ha
+    // um estagio "so pesquisou, sem proposta" neste fluxo.
+    const lead = { id: id('lead'), createdAt: now(), search: { ...parsed, name: body.name, email: body.email, operatorStatus }, source: body.source || 'site', status: 'PROPOSTA_ENVIADA', topResult: results[0] };
     const email = proposalEmail({ customer: { name: body.name || 'Cliente' }, results, search: parsed });
     await updateDb(d => {
       ensureCollections(d);

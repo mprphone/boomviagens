@@ -48,6 +48,71 @@ module.exports = function registerAdminRoutes(router, ctx) {
     });
   }, { admin: true });
 
+  // Vista de resumo para o novo backoffice (public/backoffice/). So numeros
+  // e listas derivados diretamente dos dados que ja existem - nada de
+  // metricas inventadas (probabilidade de fecho, contagem de visualizacoes
+  // de proposta, etc.) que exigiriam tracking que este site nao tem.
+  router.get('/api/admin/crm/overview', async (req, res) => {
+    const db = ensureCollections(await readDb());
+    const todayStr = now().slice(0, 10);
+    const inSevenDays = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    const interessesHoje = db.leads.filter(l => l.createdAt?.slice(0, 10) === todayStr).length;
+    const propostasAguardamResposta = db.leads.filter(l => leadStage(l) === 'PROPOSTA_ENVIADA').length;
+    const reservasConfirmadas = db.reservations.filter(r => r.status === 'CONFIRMED').length;
+    const pagamentosPendentes = db.payments.filter(p => p.status === 'PENDING');
+    const proximasPartidas = db.reservations.filter(r => {
+      if (r.status !== 'CONFIRMED' || !r.offer?.checkin) return false;
+      const checkin = new Date(`${r.offer.checkin}T00:00:00`);
+      return checkin >= new Date() && checkin <= inSevenDays;
+    });
+
+    const funil = LEAD_STAGES.map(stage => {
+      const leads = db.leads.filter(l => leadStage(l) === stage);
+      const potentialValue = leads.reduce((sum, l) => sum + (l.topResult?.finalPrice || l.search?.budget || 0), 0);
+      return { stage, label: leadStageLabel(stage), count: leads.length, potentialValue };
+    });
+
+    const interessesRecentes = db.leads.slice(0, 8).map(l => ({
+      id: l.id,
+      destination: l.search?.destination || '',
+      name: l.search?.name || '',
+      email: l.search?.email || '',
+      budget: l.search?.budget || 0,
+      createdAt: l.createdAt,
+      stage: leadStage(l),
+      stageLabel: leadStageLabel(leadStage(l))
+    }));
+
+    const proximasViagens = db.reservations
+      .filter(r => r.status === 'CONFIRMED' && r.offer?.checkin)
+      .sort((a, b) => new Date(a.offer.checkin) - new Date(b.offer.checkin))
+      .slice(0, 8)
+      .map(r => ({
+        id: r.id,
+        customerName: r.customer?.name || '',
+        destination: r.offer?.destination || '',
+        checkin: r.offer.checkin,
+        adults: r.offer?.adults || 0,
+        children: r.offer?.children || 0
+      }));
+
+    return json(res, 200, {
+      ok: true,
+      company: db.company,
+      kpis: {
+        interessesHoje,
+        propostasAguardamResposta,
+        reservasConfirmadas,
+        pagamentosPendentes: { count: pagamentosPendentes.length, valor: pagamentosPendentes.reduce((sum, p) => sum + (p.amount || 0), 0) },
+        proximasPartidas: proximasPartidas.length
+      },
+      funil,
+      interessesRecentes,
+      proximasViagens
+    });
+  }, { admin: true });
+
   router.get('/api/admin/margins', async (req, res) => {
     return json(res, 200, { margins: (await readDb()).margins });
   }, { admin: true });

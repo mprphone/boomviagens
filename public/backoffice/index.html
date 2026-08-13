@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Backoffice - Boomviagens</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/backoffice/css/shell.css" />
+  <link rel="stylesheet" href="/backoffice/css/dashboard.css" />
+  <link rel="stylesheet" href="/backoffice/css/pipeline.css" />
+</head>
+<body>
+  <div id="loginGate" class="login-gate">
+    <form id="loginForm" class="login-card">
+      <p class="login-eyebrow">boomviagens.pt</p>
+      <h1>Backoffice</h1>
+      <p class="muted">Acesso reservado à equipa Boomviagens.</p>
+      <label>Utilizador <input name="username" autocomplete="username" required /></label>
+      <label>Password <input name="password" type="password" autocomplete="current-password" required /></label>
+      <button class="btn wide" type="submit">Entrar</button>
+      <p id="loginMessage" class="login-message"></p>
+    </form>
+  </div>
+
+  <div id="appShell" class="app-shell" hidden>
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <span class="sidebar-brand-mark">Boom<em>viagens</em></span>
+        <span class="sidebar-brand-tag">Backoffice</span>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button type="button" class="nav-item is-active" data-view="resumo">
+          <span class="nav-item-icon">🏠</span>Resumo
+        </button>
+
+        <p class="nav-section-title">Comercial</p>
+        <button type="button" class="nav-item" data-view="interesses">
+          <span class="nav-item-icon">🔥</span>Interesses
+        </button>
+        <button type="button" class="nav-item is-disabled" disabled>
+          <span class="nav-item-icon">📑</span>Propostas<span class="soon-badge">em breve</span>
+        </button>
+        <button type="button" class="nav-item is-disabled" disabled>
+          <span class="nav-item-icon">✈️</span>Reservas<span class="soon-badge">em breve</span>
+        </button>
+        <button type="button" class="nav-item is-disabled" disabled>
+          <span class="nav-item-icon">👥</span>Clientes<span class="soon-badge">em breve</span>
+        </button>
+
+        <p class="nav-section-title">Financeiro</p>
+        <button type="button" class="nav-item is-disabled" disabled>
+          <span class="nav-item-icon">💳</span>Pagamentos<span class="soon-badge">em breve</span>
+        </button>
+        <button type="button" class="nav-item is-disabled" disabled>
+          <span class="nav-item-icon">🏢</span>Fornecedores<span class="soon-badge">em breve</span>
+        </button>
+
+        <p class="nav-section-title">Análises</p>
+        <button type="button" class="nav-item is-disabled" disabled>
+          <span class="nav-item-icon">📊</span>Comercial<span class="soon-badge">em breve</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <a class="sidebar-footer-link" href="/">← Voltar ao site</a>
+        <button type="button" id="logoutBtn" class="sidebar-footer-link sidebar-footer-btn">Terminar sessão</button>
+      </div>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <h1 id="pageTitle">Resumo Geral</h1>
+        <span id="companyBadge" class="badge"></span>
+      </header>
+
+      <main class="content">
+        <section id="view-resumo" class="view"></section>
+        <section id="view-interesses" class="view" hidden></section>
+      </main>
+    </div>
+  </div>
+
+  <script type="module" src="/backoffice/js/main.js"></script>
+</body>
+</html>

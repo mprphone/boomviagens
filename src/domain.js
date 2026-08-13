@@ -4,7 +4,7 @@
 const crypto = require('crypto');
 
 const RESERVATION_STATUSES = ['NEW_LEAD', 'PROPOSAL_SENT', 'PENDING_PAYMENT', 'PAYMENT_RECEIVED', 'IN_VALIDATION', 'HUMAN_REVIEW', 'CONFIRMED', 'CANCELLED', 'OPERATOR_ERROR'];
-const LEAD_STAGES = ['NOVA', 'EM_CONSULTA', 'FECHADA', 'PERDIDA'];
+const LEAD_STAGES = ['NOVA', 'EM_CONSULTA', 'PROPOSTA_ENVIADA', 'RESERVADO', 'PERDIDA'];
 const DOCUMENT_TYPES = ['PASSPORT', 'INSURANCE', 'OTHER'];
 
 function id(prefix) {
@@ -65,7 +65,7 @@ function statusLabel(status) {
 }
 
 function leadStageLabel(stage) {
-  return ({ NOVA: 'Nova', EM_CONSULTA: 'Em consulta', FECHADA: 'Fechada', PERDIDA: 'Perdida' })[stage] || 'Nova';
+  return ({ NOVA: 'Novo interesse', EM_CONSULTA: 'Em consulta', PROPOSTA_ENVIADA: 'Proposta enviada', RESERVADO: 'Reservado', PERDIDA: 'Perdido' })[stage] || 'Novo interesse';
 }
 
 function leadStage(lead) {

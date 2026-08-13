@@ -7,7 +7,8 @@ const path = require('path');
 function createStaticServer(publicDir) {
   return function serveStatic(req, res) {
     const parsed = new URL(req.url, `http://${req.headers.host}`);
-    const filePath = path.normalize(path.join(publicDir, parsed.pathname === '/' ? 'index.html' : parsed.pathname));
+    const pathname = parsed.pathname.endsWith('/') ? `${parsed.pathname}index.html` : parsed.pathname;
+    const filePath = path.normalize(path.join(publicDir, pathname));
     if (!filePath.startsWith(publicDir)) { res.writeHead(403); return res.end('Forbidden'); }
     fs.readFile(filePath, (err, data) => {
       if (err) { res.writeHead(404); return res.end('Not found'); }
