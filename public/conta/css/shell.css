@@ -139,6 +139,10 @@ button:focus-visible,
     radial-gradient(circle at 80% 80%, rgba(2, 132, 199, .12), transparent 45%),
     var(--bg);
 }
+/* Sem isto, [hidden] (display:none do UA stylesheet) perde para a regra
+   acima na mesma especificidade - o ecra de login ficava por cima da app
+   depois do login, so visivel se se fizesse scroll 100vh para baixo. */
+.login-gate[hidden] { display: none; }
 
 .login-card {
   width: min(380px, 100%);
@@ -150,6 +154,10 @@ button:focus-visible,
   background: #fff;
   box-shadow: var(--shadow);
 }
+/* Sem isto, o formulario de codigo (comeca com hidden no HTML) ficava
+   lado a lado com o de email dentro do .login-gate flex, em vez de
+   escondido - dois cartoes espremidos lado a lado, texto todo partido. */
+.login-card[hidden] { display: none; }
 
 .login-eyebrow {
   margin: 0;
@@ -170,6 +178,7 @@ button:focus-visible,
   display: flex;
   min-height: 100vh;
 }
+.app-shell[hidden] { display: none; }
 
 .sidebar {
   display: flex;

@@ -137,6 +137,10 @@ button:focus-visible,
     radial-gradient(circle at 80% 80%, rgba(2, 132, 199, .3), transparent 45%),
     var(--sidebar-bg);
 }
+/* Sem isto, [hidden] (display:none do UA stylesheet) perde para a regra
+   acima na mesma especificidade - o ecra de login ficava por cima da app
+   depois do login, so visivel se se fizesse scroll 100vh para baixo. */
+.login-gate[hidden] { display: none; }
 
 .login-card {
   width: min(380px, 100%);
@@ -148,6 +152,7 @@ button:focus-visible,
   background: #fff;
   box-shadow: var(--shadow);
 }
+.login-card[hidden] { display: none; }
 
 .login-eyebrow {
   margin: 0;
@@ -167,6 +172,7 @@ button:focus-visible,
   display: flex;
   min-height: 100vh;
 }
+.app-shell[hidden] { display: none; }
 
 .sidebar {
   display: flex;
