@@ -98,6 +98,8 @@ O adapter envia `POST` com:
 
 Isto segue a estrutura da documentação TourDiez/Sirio enviada. Como os endpoints/credenciais definitivos não foram enviados, o modo predefinido é `mock`.
 
+Para ligar outro fornecedor (Hotelbeds, Travelgate, Duffel, ...), ver `docs/OPERATOR_ADAPTERS.md` - explica o contrato de `OperatorAdapter`, a forma exata de "offer" que o resto da aplicação espera e o passo a passo.
+
 ---
 
 ## Onde configurar margens

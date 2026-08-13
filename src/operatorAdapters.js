@@ -16,27 +16,86 @@ function mealPlanLabel(code) {
   return MEAL_PLAN_LABELS[String(code || '').toUpperCase()] || code || 'Regime conforme operador';
 }
 
+/**
+ * Contrato que qualquer fornecedor novo (Hotelbeds, Travelgate, Duffel,
+ * W2M real, etc.) tem de implementar para entrar no motor de pesquisa e
+ * checkout. Ver docs/OPERATOR_ADAPTERS.md para o guia completo (forma
+ * exata da "offer" que o resto da aplicacao espera, como registar o
+ * adapter, passo a passo para adicionar um fornecedor).
+ *
+ * So estes quatro metodos fazem parte do contrato - tudo o resto que a
+ * TourDiezAdapter tem a mais (tag/findNumber/availabilityBlocks/...) e
+ * especifico do formato XML da TourDiez, nao algo que um adapter novo
+ * precise de copiar.
+ *
+ * De proposito NAO existem classes stub para outros fornecedores
+ * (HotelbedsAdapter, DuffelAdapter, ...) - um adapter sem credenciais
+ * nem sandbox para testar contra e codigo morto que nunca vai ser
+ * validado. Escreve-se um adapter novo quando ha um contrato/sandbox
+ * real para o testar, seguindo este mesmo padrao.
+ */
 class OperatorAdapter {
+  /** @param {string} name Nome curto e unico do fornecedor (ex.: "TourDiez"). Usado por OperatorRegistry#getForOffer para escolher o adapter certo a partir de offer.operator - ver docs/OPERATOR_ADAPTERS.md. */
   constructor(name) {
     this.name = name;
   }
 
+  /**
+   * Pesquisa disponibilidade no fornecedor. Chamado a partir de
+   * liveOffers()/equivalente (nao ha uma chamada generica a search() no
+   * resto da app - cada adapter expoe o metodo de alto nivel que lhe faz
+   * sentido, ex.: TourDiezAdapter#liveOffers).
+   * @param {object} params Parametros de pesquisa especificos do fornecedor (destino/cidade, datas, pax, etc.).
+   * @returns {Promise<object>} Resposta em bruto do fornecedor - forma livre, cada adapter decide o que faz sentido devolver aqui.
+   */
   async search() {
     throw new Error(`${this.name}: pesquisa nao implementada`);
   }
 
+  /**
+   * Revalida preco/disponibilidade de uma oferta antes de a confirmar -
+   * chamado em POST /api/checkout (src/routes/checkoutRoutes.js) logo
+   * apos o pagamento simulado ser marcado como pago.
+   * @param {{ offer: object, reservation: object }} args A oferta tal como guardada na reserva, e a reserva completa.
+   * @returns {Promise<{ ok: boolean, operator: string, offerId: string, priceStillValid: boolean, availabilityStillValid: boolean, raw: object, needsHumanReview?: boolean }>}
+   *   priceStillValid/availabilityStillValid decidem se a reserva passa a
+   *   IN_VALIDATION (ambos true) ou HUMAN_REVIEW (algum false) - ver
+   *   checkoutRoutes.js. Usa normalizeValue() abaixo para a forma base.
+   */
   async value() {
     throw new Error(`${this.name}: valorizacao nao implementada`);
   }
 
+  /**
+   * Confirma a reserva definitivamente no fornecedor - chamado a partir
+   * de POST /api/admin/reservations/approve (src/routes/adminRoutes.js),
+   * so depois de o pagamento estar confirmado (PAID) e nunca automatico.
+   * @param {{ reservation: object, payment: object }} args
+   * @returns {Promise<{ ok: boolean, operator: string, locator: string, raw: object, needsHumanReview?: boolean }>}
+   *   `locator` e obrigatorio - fica guardado em reservation.operatorLocator
+   *   e e o que se mostra ao cliente como referencia da viagem.
+   */
   async confirm() {
     throw new Error(`${this.name}: confirmacao nao implementada`);
   }
 
+  /**
+   * Cancela uma reserva confirmada no fornecedor. Parte do contrato mas
+   * ainda sem nenhuma rota a chamar isto (nao existe ainda um botao
+   * "cancelar no operador" no backoffice) - implementar quando essa
+   * funcionalidade for pedida.
+   * @param {object} params
+   * @returns {Promise<object>}
+   */
   async cancel() {
     throw new Error(`${this.name}: cancelamento nao implementado`);
   }
 
+  /**
+   * Forma minima e valida de uma resposta de value() quando nao ha nada
+   * de especial a validar - adapters podem usar isto como base e so
+   * substituir os campos que precisam (ver TourDiezAdapter#value).
+   */
   normalizeValue(response, offer) {
     return {
       ok: true,
@@ -265,11 +324,26 @@ class TourDiezAdapter extends OperatorAdapter {
   }
 }
 
+/**
+ * Guarda a lista de adapters ligados (server.js cria um so:
+ * `new OperatorRegistry([tourdiezAdapter])`) e escolhe qual usar para
+ * cada oferta em checkout/aprovacao.
+ */
 class OperatorRegistry {
   constructor(adapters = []) {
     this.adapters = adapters;
   }
 
+  /**
+   * Escolhe o adapter cujo `name` aparece (case-insensitive, substring)
+   * dentro de `offer.operator` - por isso o `operator` de uma oferta tem
+   * de conter o nome exato passado ao construtor do adapter (ex.: uma
+   * oferta Hotelbeds real teria de ter operator a incluir "Hotelbeds").
+   * As ofertas demo em src/mockOperators.js usam nomes tipo "TourDiez
+   * Demo"/"W2M Demo" que nao correspondem a nenhum adapter real, por
+   * isso caem sempre no fallback (`this.adapters[0]`) - aceitavel porque
+   * ofertas demo nunca chegam a bater num operador de verdade.
+   */
   getForOffer(offer = {}) {
     const operator = String(offer.operator || '').toLowerCase();
     return this.adapters.find(adapter => operator.includes(adapter.name.toLowerCase())) || this.adapters[0];

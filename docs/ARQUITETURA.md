@@ -16,6 +16,9 @@
 - Tabelas: clientes, passageiros, leads, propostas, pesquisas, operadores, ofertas, reservas, pagamentos, emails, logs_api, regras_margem.
 
 ## Operadores
+
+> Nota: esta secção é o esboço inicial de arquitetura, anterior à implementação real. Os nomes de campos abaixo já não correspondem à forma de "offer" realmente usada no código - ver `docs/OPERATOR_ADAPTERS.md` para o contrato atual e exato.
+
 Cada operador deve ter adapter próprio:
 
 ```text
