@@ -1,0 +1,39 @@
+/* Vista "Clientes": lista pesquisavel, cada cliente expande para notas
+   internas e o resumo dos seus leads/reservas. */
+
+.customer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.customer-row {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  background: var(--card);
+}
+
+.customer-summary { cursor: pointer; font-size: 13px; line-height: 1.55; }
+.customer-summary b { font-size: 13.5px; }
+.customer-summary .muted { font-size: 12px; }
+
+.customer-detail {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+}
+
+.customer-detail[hidden] { display: none; }
+.customer-detail textarea {
+  width: 100%;
+  min-height: 68px;
+  border: 1px solid #d7dee7;
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font: inherit;
+  resize: vertical;
+  margin-bottom: 8px;
+}
+
+.customer-detail-line { margin-top: 8px; font-size: 12.5px; color: var(--ink-soft); }

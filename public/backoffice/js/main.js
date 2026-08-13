@@ -5,10 +5,14 @@ import { $, api } from './utils.js';
 import { wireLogin } from './auth.js';
 import { renderResumo } from './dashboard.js';
 import { renderInteresses } from './pipeline.js';
+import { renderReservas } from './reservations.js';
+import { renderClientes } from './customers.js';
 
 const VIEWS = {
   resumo: { title: 'Resumo Geral', render: renderResumo },
-  interesses: { title: 'Interesses', render: renderInteresses }
+  interesses: { title: 'Interesses', render: renderInteresses },
+  reservas: { title: 'Reservas', render: renderReservas },
+  clientes: { title: 'Clientes', render: renderClientes }
 };
 
 function switchView(name) {

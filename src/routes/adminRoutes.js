@@ -172,7 +172,7 @@ module.exports = function registerAdminRoutes(router, ctx) {
   router.get('/api/admin/reservations', async (req, res) => {
     const db = ensureCollections(await readDb());
     const reservations = db.reservations.map(r => ({ ...r, missingDocuments: missingDocumentsFor(r, db.documents) }));
-    return json(res, 200, { ok: true, reservations });
+    return json(res, 200, { ok: true, reservations, statuses: RESERVATION_STATUSES.map(value => ({ value, label: statusLabel(value) })) });
   }, { admin: true });
 
   router.post('/api/admin/reservations/update', async (req, res) => {
