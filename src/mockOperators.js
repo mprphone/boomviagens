@@ -34,7 +34,14 @@ function smartParse(input = {}) {
   const nights = Number(input.nights || (prompt.match(/(\d+)\s*(noite|noites|dias)/)?.[1]) || 7);
   const origin = input.origin || (text.includes('porto') ? 'Porto' : 'Lisboa');
   const board = input.board || (text.includes('tudo incluido') || text.includes('all inclusive') ? 'Tudo incluído' : 'Qualquer regime');
-  const checkin = input.checkin || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  // input.checkin vem de texto livre (campo readonly preenchido pelo
+  // calendario, mas a API publica /api/search aceita qualquer string) - se
+  // nao for uma data valida, ignora-o em vez de deixar o Date invalido
+  // rebentar mais abaixo com "Invalid time value".
+  const validCheckin = /^\d{4}-\d{2}-\d{2}$/.test(input.checkin || '') && !Number.isNaN(new Date(`${input.checkin}T00:00:00Z`).getTime())
+    ? input.checkin
+    : null;
+  const checkin = validCheckin || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const checkout = new Date(new Date(`${checkin}T00:00:00Z`).getTime() + nights * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   return { destination, budget, adults, children, nights, origin, board, checkin, checkout, prompt: input.prompt || '' };
 }
