@@ -670,6 +670,14 @@ function renderReview(offer) {
   const suggestion = upgradeSuggestion(offer);
   const story = destinationContent[offer.destination];
   $('#reviewContent').innerHTML = `
+    <div class="flight-card">
+      <div class="flight-card-icon">✈️</div>
+      <div class="flight-card-body">
+        <b>Voos</b>
+        <p>Voos não encontrados. Ainda não temos nenhuma fonte de voos ligada a este site - só reservamos alojamento através da TourDiez. Saída indicada: <b>${offer.origin || 'a confirmar'}</b>. Se precisar de voo, a nossa equipa trata disso separadamente depois de confirmar o hotel.</p>
+      </div>
+      <span class="pill">Não disponível</span>
+    </div>
     <div class="review-grid">
       <div class="review-card">
         <div class="meta">${offer.live ? '<span class="pill live">Preço real</span>' : '<span class="pill">Simulação</span>'}</div>
