@@ -83,7 +83,16 @@ function clientIp(req) {
   return String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'local').split(',')[0].trim();
 }
 
+const LOOPBACK_IPS = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1', 'local']);
+
+// Em desenvolvimento local, o mesmo IP e partilhado entre uso real e
+// testes automaticos (deste assistente incluido) - isso ja esgotou o
+// limite varias vezes sem ter nada a ver com credenciais erradas. No
+// Vercel os pedidos nunca vem de loopback (chegam via proxy com um IP
+// publico real em x-forwarded-for), por isso isto nao abre nenhuma
+// excecao em producao.
 function rateLimit(req, res, scope, limit, windowMs) {
+  if (LOOPBACK_IPS.has(clientIp(req))) return null;
   const key = `${scope}:${clientIp(req)}`;
   const current = rateBuckets.get(key) || { count: 0, resetAt: Date.now() + windowMs };
   if (current.resetAt < Date.now()) {
@@ -93,7 +102,11 @@ function rateLimit(req, res, scope, limit, windowMs) {
   current.count += 1;
   rateBuckets.set(key, current);
   if (current.count > limit) {
-    return json(res, 429, { ok: false, error: 'Demasiados pedidos. Tente novamente dentro de momentos.' });
+    // Nao depender do valor de retorno de json() aqui - devolver
+    // explicitamente true garante que o `if (limited) return limited;`
+    // nas rotas para mesmo que json() alguma vez volte a mudar.
+    json(res, 429, { ok: false, error: 'Demasiados pedidos. Tente novamente dentro de momentos.' });
+    return true;
   }
   return null;
 }

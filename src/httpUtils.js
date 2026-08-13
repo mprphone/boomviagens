@@ -4,6 +4,12 @@ function json(res, status, data) {
   const body = JSON.stringify(data, null, 2);
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
   res.end(body);
+  // Sem isto, json(...) devolve undefined (falsy) mesmo depois de ja ter
+  // enviado a resposta - qualquer chamador que faca `if (json(...))
+  // return` (ex.: rateLimit) nunca curto-circuitava, continuava a
+  // executar e tentava enviar uma segunda resposta na mesma ligacao,
+  // rebentando o processo inteiro com ERR_HTTP_HEADERS_SENT.
+  return true;
 }
 
 function unauthorized(res) {

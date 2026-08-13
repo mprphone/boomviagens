@@ -71,6 +71,13 @@ async function handleApi(req, res) {
     if (route.admin && !auth.sessionUser(req)) return json(res, 401, { ok: false, error: 'Autenticação necessária' });
     return await route.handler(req, res, url);
   } catch (e) {
+    // Se a resposta ja foi enviada (ex.: um bug que tenta responder duas
+    // vezes), escrever aqui outra vez rebenta com ERR_HTTP_HEADERS_SENT -
+    // e esse erro, por nao ter mais nenhum try/catch a apanha-lo, derruba
+    // o processo Node inteiro. Isto ja aconteceu na pratica (ver o bug do
+    // rateLimit corrigido em src/auth.js/httpUtils.js) - esta guarda fica
+    // como rede de seguranca para qualquer bug semelhante no futuro.
+    if (res.headersSent) { console.error('Erro depois da resposta ja enviada:', e); return; }
     return json(res, 500, { ok: false, error: e.message, stack: process.env.NODE_ENV === 'development' ? e.stack : undefined });
   }
 }
