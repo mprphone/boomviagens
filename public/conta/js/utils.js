@@ -31,7 +31,7 @@ export function statusLabel(status) {
     CONFIRMED: 'Confirmada',
     CANCELLED: 'Cancelada',
     OPERATOR_ERROR: 'Erro no operador',
-    HUMAN_REVIEW: 'Em verificação pela equipa'
+    HUMAN_REVIEW: 'Pendente de intervenção humana'
   })[status] || status;
 }
 

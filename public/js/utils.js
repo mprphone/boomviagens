@@ -9,7 +9,7 @@ export const $ = sel => document.querySelector(sel);
 // executa no browser de um admin autenticado assim que ele abrir o painel.
 export const esc = str => String(str ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 
-export const money = n => `${Number(n || 0).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} EUR`;
+export const money = n => `${Number(n || 0).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 export const shortDate = iso => iso ? new Date(`${iso}T00:00:00`).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
 export const dateRange = (checkin, checkout) => (checkin && checkout) ? `${shortDate(checkin)} → ${shortDate(checkout)}` : '';
 
@@ -30,10 +30,10 @@ export function statusLabel(status) {
     PROPOSAL_SENT: 'Proposta enviada',
     PENDING_PAYMENT: 'Em pagamento',
     PAYMENT_RECEIVED: 'Pagamento recebido',
-    IN_VALIDATION: 'Em validacao',
-    HUMAN_REVIEW: 'Intervencao humana',
+    IN_VALIDATION: 'Em validação',
     CONFIRMED: 'Confirmada',
     CANCELLED: 'Cancelada',
-    OPERATOR_ERROR: 'Erro operador'
+    OPERATOR_ERROR: 'Erro no operador',
+    HUMAN_REVIEW: 'Pendente de intervenção humana'
   })[status] || status;
 }

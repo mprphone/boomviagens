@@ -9,7 +9,7 @@
 const crypto = require('crypto');
 
 module.exports = function registerCustomerRoutes(router, ctx) {
-  const { json, parseBody, readDb, updateDb, customerPayload, validateEmail, rateLimit, domain, cleanText, fileStorage } = ctx;
+  const { json, unauthorized, parseBody, readDb, updateDb, customerPayload, validateEmail, rateLimit, domain, cleanText, fileStorage } = ctx;
   const { ensureCollections, audit, id, now, missingDocumentsFor, DOCUMENT_TYPES } = domain;
   const { signToken, verifyToken, customerSessionEmail, setCustomerSessionCookie, clearCustomerSessionCookie, safeEqual, CUSTOMER_CODE_TTL_MS, SESSION_TTL_MS } = ctx.auth;
 
@@ -77,7 +77,7 @@ module.exports = function registerCustomerRoutes(router, ctx) {
 
   router.get('/api/customer/reservations', async (req, res) => {
     const customerEmail = customerSessionEmail(req);
-    if (!customerEmail) return json(res, 401, { ok: false, error: 'Autenticação necessária' });
+    if (!customerEmail) return unauthorized(res);
     const db = ensureCollections(await readDb());
     const reservations = db.reservations
       .filter(r => r.customer?.email === customerEmail)
@@ -91,7 +91,7 @@ module.exports = function registerCustomerRoutes(router, ctx) {
 
   router.get('/api/customer/profile', async (req, res) => {
     const customerEmail = customerSessionEmail(req);
-    if (!customerEmail) return json(res, 401, { ok: false, error: 'Autenticação necessária' });
+    if (!customerEmail) return unauthorized(res);
     const db = ensureCollections(await readDb());
     const customer = db.customers.find(c => c.email === customerEmail) || { email: customerEmail };
     return json(res, 200, { ok: true, customer });
@@ -102,7 +102,7 @@ module.exports = function registerCustomerRoutes(router, ctx) {
   // de outro so por enviar um email diferente no body.
   router.post('/api/customer/profile', async (req, res) => {
     const customerEmail = customerSessionEmail(req);
-    if (!customerEmail) return json(res, 401, { ok: false, error: 'Autenticação necessária' });
+    if (!customerEmail) return unauthorized(res);
     const body = await parseBody(req);
     const updates = {
       name: cleanText(body.name, 120),
@@ -131,7 +131,7 @@ module.exports = function registerCustomerRoutes(router, ctx) {
 
   router.get('/api/customer/documents', async (req, res, url) => {
     const customerEmail = customerSessionEmail(req);
-    if (!customerEmail) return json(res, 401, { ok: false, error: 'Autenticação necessária' });
+    if (!customerEmail) return unauthorized(res);
     const reservationId = cleanText(url.searchParams.get('reservationId'), 120);
     const db = ensureCollections(await readDb());
     if (!ownReservationOrNull(db, reservationId, customerEmail)) return json(res, 404, { ok: false, error: 'Reserva não encontrada' });
@@ -142,7 +142,7 @@ module.exports = function registerCustomerRoutes(router, ctx) {
 
   router.post('/api/customer/documents/upload', async (req, res) => {
     const customerEmail = customerSessionEmail(req);
-    if (!customerEmail) return json(res, 401, { ok: false, error: 'Autenticação necessária' });
+    if (!customerEmail) return unauthorized(res);
     const body = await parseBody(req);
     const reservationId = cleanText(body.reservationId, 120);
     const type = cleanText(body.type, 20);
@@ -174,7 +174,7 @@ module.exports = function registerCustomerRoutes(router, ctx) {
 
   router.post('/api/customer/documents/delete', async (req, res) => {
     const customerEmail = customerSessionEmail(req);
-    if (!customerEmail) return json(res, 401, { ok: false, error: 'Autenticação necessária' });
+    if (!customerEmail) return unauthorized(res);
     const body = await parseBody(req);
     const documentId = cleanText(body.documentId, 120);
     const db = ensureCollections(await readDb());

@@ -56,11 +56,11 @@ function statusLabel(status) {
     PROPOSAL_SENT: 'Proposta enviada',
     PENDING_PAYMENT: 'Em pagamento',
     PAYMENT_RECEIVED: 'Pagamento recebido',
-    IN_VALIDATION: 'Em validacao',
+    IN_VALIDATION: 'Em validação',
     CONFIRMED: 'Confirmada',
     CANCELLED: 'Cancelada',
     OPERATOR_ERROR: 'Erro no operador',
-    HUMAN_REVIEW: 'Pendente de intervencao humana'
+    HUMAN_REVIEW: 'Pendente de intervenção humana'
   })[status] || status;
 }
 

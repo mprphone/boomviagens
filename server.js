@@ -4,7 +4,7 @@ const path = require('path');
 
 const { createRouter } = require('./src/http/router');
 const { createStaticServer } = require('./src/staticServer');
-const { json, parseBody } = require('./src/httpUtils');
+const { json, unauthorized, parseBody } = require('./src/httpUtils');
 const auth = require('./src/auth');
 const domain = require('./src/domain');
 const { readDb, updateDb } = require('./src/storage');
@@ -30,6 +30,7 @@ const operators = new OperatorRegistry([tourdiezAdapter]);
 // require() de dependencias.
 const ctx = {
   json,
+  unauthorized,
   parseBody,
   readDb,
   updateDb,
