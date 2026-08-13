@@ -9,6 +9,7 @@ const { proposalEmail, reservationEmail, loginCodeEmail } = require('./src/email
 const { OperatorRegistry, TourDiezAdapter } = require('./src/operatorAdapters');
 const { cleanText, searchPayload, customerPayload, paymentMethod, numberInRange, email: validateEmail } = require('./src/validation');
 const fileStorage = require('./src/fileStorage');
+const { normalize } = require('./src/pricing');
 
 const SESSION_SECRET = process.env.SESSION_SECRET || crypto.createHash('sha256').update(`${process.env.ADMIN_PASSWORD || 'admin123'}::boomviagens-session-fallback`).digest('hex');
 if (!process.env.SESSION_SECRET) {
@@ -371,9 +372,22 @@ async function handleApi(req, res) {
         try {
           const live = await tourdiezAdapter.liveOffers(parsed, db.margins);
           operatorLog = { type: 'SEARCH_TOURDIEZ_AVAIL', payload: { params: live.params, offers: live.offers.length, statusCode: live.raw.statusCode } };
-          if (live.offers.length) {
+          // A sandbox da TourDiez so tem stock de teste numa cidade fixa
+          // (Torremolinos), seja qual for o destino pesquisado. Mostrar essas
+          // ofertas como se fossem "resultados para Disneyland Paris" (por
+          // exemplo) e enganador - so substitui os resultados demo quando a
+          // cidade devolvida tem mesmo a ver com o que foi pesquisado.
+          const searchedDest = normalize(parsed.destination || '');
+          const foundDest = normalize(live.offers[0]?.destination || '');
+          const relatedMatch = live.offers.length && searchedDest && foundDest && (searchedDest.includes(foundDest) || foundDest.includes(searchedDest));
+          if (relatedMatch) {
             results = live.offers;
             operatorStatus = { source: 'tourdiez', message: 'Precos reais TourDiez.' };
+          } else if (live.offers.length) {
+            operatorStatus = {
+              source: 'demo_fallback',
+              message: `A TourDiez nao tem disponibilidade real para "${parsed.destination}" neste momento (o operador so confirma stock de teste em ${live.offers[0].destination}); a mostrar alternativas demo para o destino pedido.`
+            };
           } else {
             operatorStatus = { source: 'demo_fallback', message: 'TourDiez respondeu sem precos convertiveis; a mostrar alternativas demo.' };
           }

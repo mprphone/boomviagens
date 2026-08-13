@@ -332,9 +332,9 @@ function renderResultsPage(data) {
   currentSearchResults = data.results;
   activeFilters = { stars: new Set(), boards: new Set() };
   const status = data.operatorStatus || {};
-  const statusText = status.source === 'tourdiez'
+  const statusText = status.message || (status.source === 'tourdiez'
     ? 'Precos reais confirmados pela TourDiez neste momento.'
-    : 'A mostrar alternativas enquanto o operador real nao responde.';
+    : 'A mostrar alternativas enquanto o operador real nao responde.');
   const tripDates = dateRange(data.parsed.checkin, data.parsed.checkout);
   $('#resultsRecapTitle').textContent = data.parsed.destination;
   $('#resultsRecapDetails').textContent = `${tripDates ? tripDates + ' · ' : ''}${data.parsed.nights} noites · ${data.parsed.adults} adultos${data.parsed.children ? ` + ${data.parsed.children} criancas` : ''} · saida ${data.parsed.origin} · orcamento ${money(data.parsed.budget)}`;
