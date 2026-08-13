@@ -97,6 +97,15 @@ input:focus, select:focus {
 .btn:hover { background: var(--accent-dark); transform: translateY(-1px); }
 .btn.wide { width: 100%; }
 
+.btn:focus-visible,
+.ghost:focus-visible,
+a:focus-visible,
+button:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .ghost {
   background: var(--accent-bg);
   color: var(--accent-dark);

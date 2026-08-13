@@ -71,11 +71,21 @@ async function toggleDetail(email) {
       <button class="ghost mini-action customer-save-notes">Guardar notas</button>
       <div class="customer-detail-line"><b>Interesses:</b> ${data.leads.map(l => `${esc(l.search?.destination)} (${esc(LEAD_STAGE_LABELS[l.status] || 'Novo interesse')})`).join(', ') || 'nenhum'}</div>
       <div class="customer-detail-line"><b>Reservas:</b> ${data.reservations.map(r => esc(r.id)).join(', ') || 'nenhuma'}</div>`;
-    detailEl.querySelector('.customer-save-notes').onclick = async () => {
+    detailEl.querySelector('.customer-save-notes').onclick = async ev => {
+      const btn = ev.target;
       const notes = detailEl.querySelector('.customer-notes').value;
+      btn.disabled = true;
+      const originalLabel = btn.textContent;
+      btn.textContent = 'A guardar...';
       try {
         await api('/api/admin/customers/notes', { method: 'POST', body: JSON.stringify({ email, notes }) });
-      } catch (err) { alert(err.message); }
+        btn.textContent = 'Guardado ✓';
+        setTimeout(() => { btn.textContent = originalLabel; btn.disabled = false; }, 1500);
+      } catch (err) {
+        alert(err.message);
+        btn.textContent = originalLabel;
+        btn.disabled = false;
+      }
     };
   } catch (err) {
     detailEl.innerHTML = `<p class="error">${esc(err.message)}</p>`;

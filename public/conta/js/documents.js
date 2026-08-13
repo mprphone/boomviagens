@@ -55,13 +55,16 @@ export async function renderDocumentos() {
       const fileInput = block.querySelector('.doc-file-input');
       const file = fileInput.files[0];
       if (!file) return;
-      const fileBase64 = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result.split(',')[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
+      const submitBtn = ev.target.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'A anexar...';
       try {
+        const fileBase64 = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result.split(',')[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
         await api('/api/customer/documents/upload', {
           method: 'POST',
           body: JSON.stringify({
@@ -76,7 +79,11 @@ export async function renderDocumentos() {
         fileInput.value = '';
         passengerInput.value = '';
         await loadDocs(reservationId);
-      } catch (err) { alert(err.message); }
+      } catch (err) {
+        alert(err.message);
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Anexar';
+      }
     };
   });
 }

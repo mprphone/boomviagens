@@ -102,6 +102,18 @@ textarea:focus {
 .btn:hover { background: var(--blue-dark); transform: translateY(-1px); box-shadow: 0 14px 26px rgba(0, 119, 182, .26); }
 .ghost:hover { background: #e4eef5; transform: translateY(-1px); }
 
+/* So os campos de formulario tinham foco visivel personalizado - botoes,
+   links e cartoes clicaveis ficavam sem nenhuma indicacao clara ao
+   navegar por teclado (Tab). */
+.btn:focus-visible,
+.ghost:focus-visible,
+a:focus-visible,
+button:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
 .ghost {
   background: #eef3f8;
   color: var(--blue-dark);

@@ -30,7 +30,9 @@ export async function renderDados() {
 
   $('#profileForm').addEventListener('submit', async e => {
     e.preventDefault();
+    const btn = e.target.querySelector('button[type="submit"]');
     const msg = $('#profileMessage');
+    btn.disabled = true;
     msg.textContent = 'A guardar...';
     try {
       await api('/api/customer/profile', {
@@ -40,6 +42,8 @@ export async function renderDados() {
       msg.textContent = 'Dados guardados.';
     } catch (err) {
       msg.textContent = err.message;
+    } finally {
+      btn.disabled = false;
     }
   });
 }

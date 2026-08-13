@@ -163,13 +163,16 @@ function renderDocuments(reservationId, panel, documents) {
     const fileInput = panel.querySelector('.doc-file-input');
     const file = fileInput.files[0];
     if (!file) return;
-    const fileBase64 = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result.split(',')[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
+    const submitBtn = ev.target.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'A anexar...';
     try {
+      const fileBase64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
       await api('/api/admin/documents/upload', {
         method: 'POST',
         body: JSON.stringify({
@@ -182,6 +185,10 @@ function renderDocuments(reservationId, panel, documents) {
         })
       });
       await refreshKeepingDocsOpen(reservationId);
-    } catch (err) { alert(err.message); }
+    } catch (err) {
+      alert(err.message);
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Anexar';
+    }
   };
 }

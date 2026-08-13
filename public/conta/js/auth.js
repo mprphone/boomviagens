@@ -11,7 +11,9 @@ export function wireLogin(onSuccess) {
   $('#loginEmailForm').addEventListener('submit', async e => {
     e.preventDefault();
     const email = e.target.email.value.trim();
+    const btn = e.target.querySelector('button[type="submit"]');
     const msg = $('#loginEmailMessage');
+    btn.disabled = true;
     msg.textContent = 'A gerar código...';
     msg.classList.remove('is-error');
     try {
@@ -24,13 +26,17 @@ export function wireLogin(onSuccess) {
     } catch (err) {
       msg.textContent = err.message;
       msg.classList.add('is-error');
+    } finally {
+      btn.disabled = false;
     }
   });
 
   $('#loginCodeForm').addEventListener('submit', async e => {
     e.preventDefault();
     const code = e.target.code.value.trim();
+    const btn = e.target.querySelector('button[type="submit"]');
     const msg = $('#loginCodeMessage');
+    btn.disabled = true;
     msg.textContent = 'A validar...';
     msg.classList.remove('is-error');
     try {
@@ -39,6 +45,7 @@ export function wireLogin(onSuccess) {
     } catch (err) {
       msg.textContent = err.message;
       msg.classList.add('is-error');
+      btn.disabled = false;
     }
   });
 

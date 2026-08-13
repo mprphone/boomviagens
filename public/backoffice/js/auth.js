@@ -8,6 +8,9 @@ export function wireLogin(onSuccess) {
   $('#loginForm').addEventListener('submit', async e => {
     e.preventDefault();
     const f = Object.fromEntries(new FormData(e.target).entries());
+    const btn = e.target.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.textContent = 'A entrar...';
     $('#loginMessage').textContent = 'A validar credenciais...';
     try {
       await api('/api/admin/login', { method: 'POST', body: JSON.stringify(f) });
@@ -15,6 +18,8 @@ export function wireLogin(onSuccess) {
       onSuccess();
     } catch (err) {
       $('#loginMessage').textContent = err.message;
+      btn.disabled = false;
+      btn.textContent = 'Entrar';
     }
   });
 
