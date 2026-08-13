@@ -8,6 +8,14 @@ module.exports = function registerAdminRoutes(router, ctx) {
   const { ensureCollections, audit, addOperatorLog, missingDocumentsFor, statusLabel, leadStage, leadStageLabel, id, now, RESERVATION_STATUSES, LEAD_STAGES, DOCUMENT_TYPES } = domain;
   const { sessionUser, signToken, safeEqual, setSessionCookie, clearSessionCookie, rateLimit, SESSION_TTL_MS } = ctx.auth;
 
+  // Impede que um duplo clique em "Aprovar no operador" chame
+  // adapter.confirm() duas vezes para a mesma reserva - isso enviaria um
+  // pedido de confirmacao a mais para o operador real, nao e so um
+  // problema interno de dados a dobrar. So protege contra pedidos
+  // simultaneos dentro deste mesmo processo, que e o cenario real (o
+  // mesmo admin, no mesmo browser, a clicar duas vezes depressa).
+  const approvalsInProgress = new Set();
+
   router.get('/api/admin/session', async (req, res) => {
     const user = sessionUser(req);
     return json(res, 200, { ok: true, authenticated: Boolean(user), user });
@@ -145,6 +153,9 @@ module.exports = function registerAdminRoutes(router, ctx) {
   router.post('/api/admin/reservations/approve', async (req, res) => {
     const body = await parseBody(req);
     const reservationId = cleanText(body.reservationId, 120);
+    if (approvalsInProgress.has(reservationId)) {
+      return json(res, 409, { ok: false, error: 'Esta reserva já está a ser aprovada - aguarde um momento.' });
+    }
     const db = ensureCollections(await readDb());
     const reservation = db.reservations.find(r => r.id === reservationId);
     if (!reservation) return json(res, 404, { ok: false, error: 'Reserva nao encontrada' });
@@ -152,25 +163,30 @@ module.exports = function registerAdminRoutes(router, ctx) {
     if (!payment || payment.status !== 'PAID') return json(res, 409, { ok: false, error: 'A reserva ainda nao tem pagamento confirmado' });
     if (reservation.status === 'CONFIRMED') return json(res, 200, { ok: true, reservation, payment, alreadyConfirmed: true });
 
-    const adapter = operators.getForOffer(reservation.offer);
-    const confirmation = await adapter.confirm({ reservation, payment });
-    let resultPayload = null;
+    approvalsInProgress.add(reservationId);
+    try {
+      const adapter = operators.getForOffer(reservation.offer);
+      const confirmation = await adapter.confirm({ reservation, payment });
+      let resultPayload = null;
 
-    await updateDb(d => {
-      ensureCollections(d);
-      const r = d.reservations.find(x => x.id === reservation.id);
-      const p = d.payments.find(x => x.id === payment.id);
-      r.status = 'CONFIRMED';
-      r.confirmedAt = now();
-      r.operatorLocator = confirmation.locator;
-      r.operatorConfirmation = confirmation.raw?.mock ? 'MOCK_CONFIRM_OK' : 'CONFIRM_SENT';
-      const email = reservationEmail({ reservation: r, payment: p });
-      d.emails.unshift({ id: id('email'), createdAt: now(), to: r.customer?.email || 'cliente@exemplo.pt', status: 'GERADO_DEMO', ...email });
-      addOperatorLog(d, 'CONFIRM', confirmation);
-      audit(d, sessionUser(req), 'RESERVATION_APPROVED', { reservationId: r.id, operatorLocator: r.operatorLocator });
-      resultPayload = { reservation: r, payment: p, confirmation };
-    });
-    return json(res, 200, { ok: true, ...resultPayload });
+      await updateDb(d => {
+        ensureCollections(d);
+        const r = d.reservations.find(x => x.id === reservation.id);
+        const p = d.payments.find(x => x.id === payment.id);
+        r.status = 'CONFIRMED';
+        r.confirmedAt = now();
+        r.operatorLocator = confirmation.locator;
+        r.operatorConfirmation = confirmation.raw?.mock ? 'MOCK_CONFIRM_OK' : 'CONFIRM_SENT';
+        const email = reservationEmail({ reservation: r, payment: p });
+        d.emails.unshift({ id: id('email'), createdAt: now(), to: r.customer?.email || 'cliente@exemplo.pt', status: 'GERADO_DEMO', ...email });
+        addOperatorLog(d, 'CONFIRM', confirmation);
+        audit(d, sessionUser(req), 'RESERVATION_APPROVED', { reservationId: r.id, operatorLocator: r.operatorLocator });
+        resultPayload = { reservation: r, payment: p, confirmation };
+      });
+      return json(res, 200, { ok: true, ...resultPayload });
+    } finally {
+      approvalsInProgress.delete(reservationId);
+    }
   }, { admin: true });
 
   router.get('/api/admin/reservations', async (req, res) => {
