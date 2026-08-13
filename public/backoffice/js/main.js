@@ -47,6 +47,13 @@ document.querySelectorAll('.nav-item[data-view]').forEach(btn => {
 
 wireLogin(showApp);
 
+// Verificacao de sessao ao carregar a pagina, em paralelo com o
+// utilizador poder ja estar a preencher o formulario. Se o login pelo
+// formulario for mais rapido, esta resposta chega depois a dizer
+// "nao autenticado" (foi pedida antes do cookie de sessao existir) -
+// sem a guarda abaixo, isso reverte a app de volta para o ecra de
+// login mesmo depois de um login bem sucedido.
 api('/api/admin/session').then(data => {
-  if (data.authenticated) showApp(); else showLogin();
-}).catch(() => showLogin());
+  if (data.authenticated) showApp();
+  else if ($('#appShell').hidden) showLogin();
+}).catch(() => { if ($('#appShell').hidden) showLogin(); });

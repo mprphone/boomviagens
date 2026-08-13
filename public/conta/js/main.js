@@ -74,6 +74,12 @@ document.querySelectorAll('.nav-item[data-view]').forEach(btn => {
 
 wireLogin(showApp);
 
+// Ver o comentario equivalente em public/backoffice/js/main.js: sem
+// esta guarda, esta verificacao de sessao feita ao carregar a pagina
+// pode chegar depois de um login bem sucedido pelo formulario (login
+// por codigo demora mais que uma verificacao simples) e reverter a app
+// de volta para o ecra de login.
 api('/api/customer/session').then(data => {
-  if (data.authenticated) showApp(); else showLogin();
-}).catch(() => showLogin());
+  if (data.authenticated) showApp();
+  else if ($('#appShell').hidden) showLogin();
+}).catch(() => { if ($('#appShell').hidden) showLogin(); });
