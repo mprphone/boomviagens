@@ -35,7 +35,9 @@ module.exports = function registerCustomerRoutes(router, ctx) {
   });
 
   router.post('/api/customer/login/request', async (req, res) => {
-    const limited = rateLimit(req, res, 'customer-login-request', 5, 15 * 60 * 1000);
+    // Ver nota equivalente em adminRoutes.js: este limite e partilhado
+    // por IP entre testes automaticos e uso real em desenvolvimento local.
+    const limited = rateLimit(req, res, 'customer-login-request', 15, 15 * 60 * 1000);
     if (limited) return limited;
     const { loginCodeEmail } = ctx;
     const body = await parseBody(req);
@@ -52,7 +54,7 @@ module.exports = function registerCustomerRoutes(router, ctx) {
   });
 
   router.post('/api/customer/login/verify', async (req, res) => {
-    const limited = rateLimit(req, res, 'customer-login-verify', 10, 15 * 60 * 1000);
+    const limited = rateLimit(req, res, 'customer-login-verify', 25, 15 * 60 * 1000);
     if (limited) return limited;
     const body = await parseBody(req);
     const customerEmail = validateEmail(body.email);

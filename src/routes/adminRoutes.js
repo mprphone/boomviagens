@@ -14,7 +14,11 @@ module.exports = function registerAdminRoutes(router, ctx) {
   });
 
   router.post('/api/admin/login', async (req, res) => {
-    const limited = rateLimit(req, res, 'admin-login', 10, 15 * 60 * 1000);
+    // 30/15min (nao 10) porque este limite e partilhado por IP - em
+    // desenvolvimento local, testes automaticos e o login real do
+    // utilizador vem todos do mesmo localhost e esgotavam a quota um do
+    // outro.
+    const limited = rateLimit(req, res, 'admin-login', 30, 15 * 60 * 1000);
     if (limited) return limited;
     const body = await parseBody(req);
     const expectedUser = process.env.ADMIN_USERNAME || 'admin';

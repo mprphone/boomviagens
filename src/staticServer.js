@@ -14,7 +14,10 @@ function createStaticServer(publicDir) {
       if (err) { res.writeHead(404); return res.end('Not found'); }
       const ext = path.extname(filePath).toLowerCase();
       const types = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml' };
-      res.writeHead(200, { 'Content-Type': types[ext] || 'application/octet-stream' });
+      // Sem isto o browser pode servir HTML/JS/CSS antigos do cache sem
+      // pedir nada ao servidor - ja causou confusao real (pagina a
+      // mostrar uma seccao que ja tinha sido removida do codigo).
+      res.writeHead(200, { 'Content-Type': types[ext] || 'application/octet-stream', 'Cache-Control': 'no-store' });
       res.end(data);
     });
   };
