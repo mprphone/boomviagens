@@ -1,5 +1,6 @@
-/* Componentes usados em varias paginas: modais genericos, chat
-   flutuante e rodape. */
+/* Componentes usados em varias paginas: modais genericos e rodape.
+   (O assistente de chat vive em home.css - so aparece na homepage,
+   numa coluna lateral fixa, nao como bolha flutuante.) */
 
 .modal-overlay {
   position: fixed;
@@ -46,39 +47,6 @@
 
 .legal p { color: var(--muted); }
 
-.chat {
-  position: fixed;
-  right: 22px;
-  bottom: 22px;
-  z-index: 40;
-  width: 320px;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: #fff;
-  box-shadow: var(--shadow-lg);
-}
-
-.chat-head {
-  padding: 13px 16px;
-  background: var(--ink);
-  color: #fff;
-  font-family: var(--font-display);
-  font-weight: 700;
-}
-
-.chat-messages {
-  height: 170px;
-  overflow: auto;
-  padding: 14px;
-  font-size: 13.5px;
-  line-height: 1.5;
-}
-
-.chat form { display: flex; border-top: 1px solid var(--line); }
-.chat input { border: 0; border-radius: 0; }
-.chat button { border: 0; background: var(--blue); color: #fff; font-weight: 700; padding: 0 14px; }
-
 footer {
   border-top: 1px solid var(--line);
   padding: 40px 28px 24px;
@@ -90,7 +58,7 @@ footer {
   display: grid;
   grid-template-columns: 1.4fr 1fr 1fr 1fr;
   gap: 24px;
-  max-width: 1280px;
+  max-width: 1440px;
   margin: 0 auto 24px;
 }
 
@@ -102,7 +70,7 @@ footer {
 .footer-col a:hover { color: var(--blue); }
 
 .footer-bottom {
-  max-width: 1280px;
+  max-width: 1440px;
   margin: 0 auto;
   padding-top: 18px;
   border-top: 1px solid var(--line);
@@ -112,5 +80,4 @@ footer {
 
 @media (max-width: 760px) {
   .footer-grid { grid-template-columns: 1fr; }
-  .chat { position: static; width: auto; margin: 22px 14px; }
 }

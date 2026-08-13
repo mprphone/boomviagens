@@ -6,7 +6,7 @@
 
 import { $ } from './utils.js';
 
-const HOME_SECTIONS = ['pesquisa', 'novidades', 'inspiracoes'];
+const HOME_SECTIONS = ['pesquisa', 'homeShowcase'];
 
 export function goHome() {
   HOME_SECTIONS.forEach(id => { const el = document.getElementById(id); if (el) el.hidden = false; });

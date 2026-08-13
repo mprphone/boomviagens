@@ -129,55 +129,89 @@
       </div>
     </section>
 
-    <section id="novidades" class="showcase">
-      <div class="showcase-head">
-        <div>
-          <p class="eyebrow">Novidades via API</p>
-          <h2>Last call</h2>
-        </div>
-        <a href="#pesquisa">Ver mais</a>
-      </div>
-      <div id="dealsGrid" class="deals-grid"></div>
-    </section>
+    <div class="home-layout" id="homeShowcase">
+      <div class="home-main">
+        <section id="novidades" class="showcase">
+          <div class="showcase-head">
+            <div>
+              <p class="eyebrow">Novidades via API</p>
+              <h2>Last call</h2>
+            </div>
+            <a href="#pesquisa">Ver mais</a>
+          </div>
+          <div id="dealsGrid" class="deals-grid"></div>
+        </section>
 
-    <section id="inspiracoes" class="showcase">
-      <div class="showcase-head">
-        <div>
-          <p class="eyebrow">Inspiracao</p>
-          <h2>Historias para a sua proxima viagem</h2>
+        <section id="inspiracoes" class="showcase">
+          <div class="showcase-head">
+            <div>
+              <p class="eyebrow">Inspiracao</p>
+              <h2>Historias para a sua proxima viagem</h2>
+            </div>
+          </div>
+          <div class="inspire-grid">
+            <article class="inspire-card" style="background-image:url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=900&q=80')">
+              <div class="inspire-body">
+                <h3>Punta Cana</h3>
+                <p>Praias de areia branca nas Caraibas, tudo incluido, sem preocupacoes.</p>
+                <button type="button" class="btn" onclick="inspireSearch('Punta Cana')">Quero ir</button>
+              </div>
+            </article>
+            <article class="inspire-card" style="background-image:url('https://images.unsplash.com/photo-1573843981267-be1999ff37cd?auto=format&fit=crop&w=900&q=80')">
+              <div class="inspire-body">
+                <h3>Maldivas</h3>
+                <p>Vilas sobre a agua e snorkeling a porta do quarto. O destino de lua de mel.</p>
+                <button type="button" class="btn" onclick="inspireSearch('Maldivas')">Quero ir</button>
+              </div>
+            </article>
+            <article class="inspire-card" style="background-image:url('https://images.unsplash.com/photo-1499856871958-5b9627545d1a?auto=format&fit=crop&w=900&q=80')">
+              <div class="inspire-body">
+                <h3>Disneyland Paris</h3>
+                <p>A magia Disney a poucas horas de aviao, ideal para familias.</p>
+                <button type="button" class="btn" onclick="inspireSearch('Disneyland Paris')">Quero ir</button>
+              </div>
+            </article>
+            <article class="inspire-card" style="background-image:url('https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=80')">
+              <div class="inspire-body">
+                <h3>Madeira</h3>
+                <p>Natureza atlantica e gastronomia portuguesa sem saida de euros.</p>
+                <button type="button" class="btn" onclick="inspireSearch('Madeira')">Quero ir</button>
+              </div>
+            </article>
+          </div>
+        </section>
+      </div>
+
+      <aside class="home-sidebar">
+        <div class="assistant-panel">
+          <div class="assistant-head">
+            <span class="assistant-head-icon">💬</span>
+            <div>
+              <b>Chat Boom</b>
+              <span>Respostas automáticas locais, sem IA externa</span>
+            </div>
+          </div>
+          <div id="chatMessages" class="assistant-messages"><p><b>Boom:</b> Ola! Diga-me o destino, datas, orcamento e passageiros.</p></div>
+          <form id="chatForm"><input name="message" placeholder="Ex: quero Caraibas em agosto" /><button>Enviar</button></form>
         </div>
-      </div>
-      <div class="inspire-grid">
-        <article class="inspire-card" style="background-image:url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=900&q=80')">
-          <div class="inspire-body">
-            <h3>Punta Cana</h3>
-            <p>Praias de areia branca nas Caraibas, tudo incluido, sem preocupacoes.</p>
-            <button type="button" class="btn" onclick="inspireSearch('Punta Cana')">Quero ir</button>
+
+        <div class="trust-panel">
+          <h3>Porque reservar com a Boomviagens</h3>
+          <div class="trust-item">
+            <span class="trust-item-icon">⚖️</span>
+            <div><b>Comparação real</b><span>O motor pontua preço, avaliação, cancelamento e regime em cada pesquisa.</span></div>
           </div>
-        </article>
-        <article class="inspire-card" style="background-image:url('https://images.unsplash.com/photo-1573843981267-be1999ff37cd?auto=format&fit=crop&w=900&q=80')">
-          <div class="inspire-body">
-            <h3>Maldivas</h3>
-            <p>Vilas sobre a agua e snorkeling a porta do quarto. O destino de lua de mel.</p>
-            <button type="button" class="btn" onclick="inspireSearch('Maldivas')">Quero ir</button>
+          <div class="trust-item">
+            <span class="trust-item-icon">🔎</span>
+            <div><b>Margem transparente</b><span>A margem comercial é uma regra configurável, nunca escondida no preço.</span></div>
           </div>
-        </article>
-        <article class="inspire-card" style="background-image:url('https://images.unsplash.com/photo-1499856871958-5b9627545d1a?auto=format&fit=crop&w=900&q=80')">
-          <div class="inspire-body">
-            <h3>Disneyland Paris</h3>
-            <p>A magia Disney a poucas horas de aviao, ideal para familias.</p>
-            <button type="button" class="btn" onclick="inspireSearch('Disneyland Paris')">Quero ir</button>
+          <div class="trust-item">
+            <span class="trust-item-icon">✅</span>
+            <div><b>Confirmação humana</b><span>A nossa equipa revalida preço e disponibilidade antes de confirmar no operador.</span></div>
           </div>
-        </article>
-        <article class="inspire-card" style="background-image:url('https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=80')">
-          <div class="inspire-body">
-            <h3>Madeira</h3>
-            <p>Natureza atlantica e gastronomia portuguesa sem saida de euros.</p>
-            <button type="button" class="btn" onclick="inspireSearch('Madeira')">Quero ir</button>
-          </div>
-        </article>
-      </div>
-    </section>
+        </div>
+      </aside>
+    </div>
 
     <section id="resultsPage" class="panel results-page" hidden>
       <div class="results-recap">
@@ -258,12 +292,6 @@
 
   <div class="suggest-panel" id="destinationSuggest" hidden></div>
   <div class="calendar-panel" id="calendarPanel" hidden></div>
-
-  <aside class="chat">
-    <div class="chat-head">Chat Boom</div>
-    <div id="chatMessages" class="chat-messages"><p><b>Boom:</b> Ola! Diga-me o destino, datas, orcamento e passageiros.</p></div>
-    <form id="chatForm"><input name="message" placeholder="Ex: quero Caraibas em agosto" /><button>Enviar</button></form>
-  </aside>
 
   <footer>
     <div class="footer-grid">

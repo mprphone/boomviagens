@@ -13,7 +13,7 @@ main { width: 100%; }
   flex-direction: column;
   align-items: center;
   gap: 26px;
-  padding: 72px max(48px, calc((100vw - 1440px) / 2)) 44px;
+  padding: 72px max(48px, calc((100vw - 1680px) / 2)) 44px;
   overflow: hidden;
   background:
     linear-gradient(180deg, rgba(9, 22, 40, .62) 0%, rgba(9, 22, 40, .74) 60%, rgba(9, 22, 40, .82) 100%),

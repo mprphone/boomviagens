@@ -151,7 +151,7 @@ textarea:focus {
 .badge.green { background: #e6f7ef; color: #0b7a4f; }
 
 .panel {
-  width: min(1280px, calc(100% - 48px));
+  width: min(1440px, calc(100% - 48px));
   margin: 44px auto;
   border: 1px solid var(--line);
   border-radius: var(--radius);

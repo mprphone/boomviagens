@@ -1,8 +1,28 @@
-/* Seccoes da homepage por baixo do hero: destaques (Last call) e
-   cartoes de inspiracao por destino. */
+/* Seccoes da homepage por baixo do hero: layout em duas colunas (Last
+   call + Inspiracao a esquerda, assistente de chat + confianca a
+   direita, fixos ao rolar) para aproveitar melhor ecras largos. */
+
+.home-layout {
+  width: min(1440px, calc(100% - 48px));
+  margin: 48px auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 36px;
+  align-items: start;
+}
+
+/* .home-layout { display:grid } tem a mesma especificidade da regra
+   [hidden] { display:none } do UA, e regras de autor ganham sempre -
+   sem isto, esconder #homeShowcase nao faz nada (mesmo bug ja
+   corrigido antes em .rate-line-extra e .modal-overlay). */
+.home-layout[hidden] { display: none; }
+
+.home-main { min-width: 0; }
+.home-main .showcase { width: 100%; margin: 0 0 48px; }
+.home-main .showcase:last-child { margin-bottom: 0; }
 
 .showcase {
-  width: min(1280px, calc(100% - 48px));
+  width: min(1440px, calc(100% - 48px));
   margin: 44px auto;
 }
 
@@ -46,23 +66,26 @@
   border-radius: var(--radius);
   background: #fff;
   box-shadow: var(--shadow-sm);
-  transition: box-shadow .18s ease, transform .18s ease;
+  transition: box-shadow .2s ease, transform .2s ease, border-color .2s ease;
 }
 
-.deal-card:hover { box-shadow: var(--shadow); transform: translateY(-2px); }
+.deal-card:hover { box-shadow: var(--shadow); transform: translateY(-3px); border-color: #c9dceb; }
 
 .deal-card img {
   width: 100%;
   height: 100%;
   min-height: 172px;
   object-fit: cover;
+  transition: transform .35s ease;
 }
+
+.deal-card:hover img { transform: scale(1.05); }
 
 .deal-body {
   display: flex;
   flex-direction: column;
   gap: 7px;
-  padding: 15px;
+  padding: 16px;
 }
 
 .deal-tag {
@@ -117,7 +140,7 @@
   display: block;
   color: var(--green);
   font-family: var(--font-display);
-  font-size: 19px;
+  font-size: 20px;
   font-weight: 800;
 }
 
@@ -137,47 +160,127 @@
   position: relative;
   display: flex;
   align-items: flex-end;
-  min-height: 270px;
+  min-height: 300px;
   overflow: hidden;
   border-radius: var(--radius);
   background-size: cover;
   background-position: center;
   box-shadow: var(--shadow-sm);
-  transition: box-shadow .18s ease, transform .18s ease;
+  transition: box-shadow .2s ease, transform .2s ease;
 }
 
-.inspire-card:hover { box-shadow: var(--shadow); transform: translateY(-2px); }
+.inspire-card:hover { box-shadow: var(--shadow); transform: translateY(-3px); }
 
 .inspire-card::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(9, 20, 36, 0) 38%, rgba(9, 20, 36, .88) 100%);
+  background: linear-gradient(180deg, rgba(9, 20, 36, 0) 32%, rgba(9, 20, 36, .92) 100%);
+  transition: opacity .2s ease;
 }
+
+.inspire-card:hover::before { opacity: .88; }
 
 .inspire-body {
   position: relative;
   z-index: 1;
   display: grid;
   gap: 8px;
-  padding: 18px;
+  padding: 20px;
   color: #fff;
 }
 
-.inspire-body h3 { margin: 0; font-family: var(--font-display); font-size: 19px; font-weight: 700; }
+.inspire-body h3 { margin: 0; font-family: var(--font-display); font-size: 20px; font-weight: 700; }
 .inspire-body p { margin: 0; font-size: 13px; line-height: 1.4; color: rgba(255, 255, 255, .88); }
 .inspire-body .btn { justify-self: start; min-height: 34px; padding: 8px 14px; font-size: 12px; }
+
+/* Assistente de chat, agora fixo numa coluna lateral (nao mais uma
+   bolha flutuante) - so aparece na homepage, junto de Last call e
+   Inspiracao, para aproveitar a largura do ecra em vez de flutuar por
+   cima do conteudo. */
+.home-sidebar {
+  position: sticky;
+  top: 100px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.assistant-panel {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.assistant-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px;
+  background: linear-gradient(135deg, var(--ink) 0%, #1c2c47 100%);
+  color: #fff;
+}
+
+.assistant-head-icon { font-size: 19px; }
+.assistant-head b { display: block; font-family: var(--font-display); font-size: 14.5px; }
+.assistant-head span { display: block; margin-top: 1px; font-size: 11px; color: rgba(255, 255, 255, .68); }
+
+.assistant-messages {
+  height: 300px;
+  overflow-y: auto;
+  padding: 16px 18px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  background: #fbfdfe;
+}
+
+.assistant-messages p { margin: 0 0 12px; }
+.assistant-messages p:last-child { margin-bottom: 0; }
+
+.assistant-panel form { display: flex; border-top: 1px solid var(--line); }
+.assistant-panel input { border: 0; border-radius: 0; padding: 12px 14px; }
+.assistant-panel input:focus { box-shadow: none; }
+.assistant-panel button { border: 0; background: var(--blue); color: #fff; font-weight: 700; padding: 0 18px; cursor: pointer; }
+.assistant-panel button:hover { background: var(--blue-dark); }
+
+.trust-panel {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 22px;
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+}
+
+.trust-panel h3 { font-family: var(--font-display); font-size: 14.5px; margin: 0 0 16px; }
+
+.trust-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.trust-item:last-child { margin-bottom: 0; }
+.trust-item-icon { font-size: 17px; line-height: 1.3; }
+.trust-item b { display: block; font-size: 12.5px; }
+.trust-item span { display: block; margin-top: 2px; font-size: 11.5px; color: var(--muted); line-height: 1.5; }
 
 @media (max-width: 1180px) {
   .deals-grid,
   .inspire-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .home-layout { grid-template-columns: 1fr; }
+  .home-sidebar { position: static; grid-template-columns: 1fr 1fr; display: grid; }
 }
 
 @media (max-width: 760px) {
   .deals-grid,
   .inspire-grid { grid-template-columns: 1fr; }
-  .showcase { width: calc(100% - 28px); margin: 34px auto; }
+  .showcase,
+  .home-layout { width: calc(100% - 28px); margin: 34px auto; }
   .deal-card { grid-template-columns: 130px 1fr; }
+  .home-sidebar { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 480px) {
