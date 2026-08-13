@@ -1,4 +1,9 @@
 const $ = sel => document.querySelector(sel);
+// Qualquer texto submetido por um visitante (nome, destino, notas...) pode
+// conter HTML/JS. Isto e inserido via innerHTML em varios sitios do
+// backoffice - sem escapar, um destino tipo "<img src=x onerror=...>"
+// executa no browser de um admin autenticado assim que ele abrir o painel.
+const esc = str => String(str ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 const money = n => `${Number(n || 0).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} EUR`;
 const shortDate = iso => iso ? new Date(`${iso}T00:00:00`).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
 const dateRange = (checkin, checkout) => (checkin && checkout) ? `${shortDate(checkin)} → ${shortDate(checkout)}` : '';
@@ -277,7 +282,7 @@ function rateLine(hotelIndex, rateIndex, option) {
   const name = [humanizeRoomName(option.roomName), option.mealPlanLabel].filter(Boolean).join(' · ');
   return `
     <div class="rate-line">
-      <span class="rate-line-name">${name}</span>
+      <span class="rate-line-name">${esc(name)}</span>
       <span class="rate-line-tag">${option.freeCancellation ? 'Cancelamento flexível' : 'Não reembolsável'}</span>
       <span class="rate-line-price">${money(option.finalPrice)}</span>
       <button type="button" class="btn mini-action" onclick="reserveRate(${hotelIndex}, ${rateIndex})">Reservar</button>
@@ -296,9 +301,9 @@ function renderHotelRow(offer, hotelIndex) {
       <div class="hotel-row-media" aria-hidden="true">🏨</div>
       <div class="hotel-row-info">
         <div class="meta">${offer.live ? '<span class="pill live">Preço real</span>' : '<span class="pill">Simulação</span>'}</div>
-        <h3>${offer.hotel}</h3>
+        <h3>${esc(offer.hotel)}</h3>
         <div class="hotel-row-stars">${stars}</div>
-        <p class="muted small">${offer.destination}${offer.country ? `, ${offer.country}` : ''}${trip ? ` · ${trip}` : ''}</p>
+        <p class="muted small">${esc(offer.destination)}${offer.country ? `, ${esc(offer.country)}` : ''}${trip ? ` · ${trip}` : ''}</p>
       </div>
       <div class="hotel-row-rates">
         ${visible.map(o => rateLine(hotelIndex, o.__rateIndex, o)).join('')}
@@ -486,8 +491,8 @@ function renderCheckoutSummary(offer) {
   const trip = dateRange(offer.checkin, offer.checkout);
   $('#checkoutSummary').innerHTML = `
     <div class="meta">${offer.live ? '<span class="pill live">Preco real</span>' : '<span class="pill">Simulacao</span>'}</div>
-    <h3>${offer.hotel}</h3>
-    <p class="muted">${offer.destination}${offer.country ? `, ${offer.country}` : ''}</p>
+    <h3>${esc(offer.hotel)}</h3>
+    <p class="muted">${esc(offer.destination)}${offer.country ? `, ${esc(offer.country)}` : ''}</p>
     ${trip ? `<div class="summary-dates">${trip}</div>` : ''}
     <ul class="summary-facts">
       <li>${offer.board}</li>
@@ -674,15 +679,15 @@ function renderReview(offer) {
       <div class="flight-card-icon">✈️</div>
       <div class="flight-card-body">
         <b>Voos</b>
-        <p>Voos não encontrados. Ainda não temos nenhuma fonte de voos ligada a este site - só reservamos alojamento através da TourDiez. Saída indicada: <b>${offer.origin || 'a confirmar'}</b>. Se precisar de voo, a nossa equipa trata disso separadamente depois de confirmar o hotel.</p>
+        <p>Voos não encontrados. Ainda não temos nenhuma fonte de voos ligada a este site - só reservamos alojamento através da TourDiez. Saída indicada: <b>${esc(offer.origin) || 'a confirmar'}</b>. Se precisar de voo, a nossa equipa trata disso separadamente depois de confirmar o hotel.</p>
       </div>
       <span class="pill">Não disponível</span>
     </div>
     <div class="review-grid">
       <div class="review-card">
         <div class="meta">${offer.live ? '<span class="pill live">Preço real</span>' : '<span class="pill">Simulação</span>'}</div>
-        <h3>${offer.hotel}</h3>
-        <p class="muted">${offer.destination}${offer.country ? `, ${offer.country}` : ''}</p>
+        <h3>${esc(offer.hotel)}</h3>
+        <p class="muted">${esc(offer.destination)}${offer.country ? `, ${esc(offer.country)}` : ''}</p>
         ${trip ? `<div class="summary-dates">${trip}</div>` : ''}
         <ul class="summary-facts">
           <li>${offer.board}</li>
@@ -992,8 +997,8 @@ async function refreshAdmin() {
   loadAdminReservations();
   loadCustomers();
   loadLeadsPipeline();
-  $('#adminMargins').innerHTML = data.margins.map(m => `<div class="mini-item"><b>${m.name}</b><br>${m.percent}% - minimo ${money(m.min)} - match: ${m.match}</div>`).join('');
-  $('#adminEmails').innerHTML = data.latest.emails.map(e => `<div class="mini-item"><b>${e.subject}</b><br>Para: ${e.to}<br>${e.status}</div>`).join('') || '<div class="mini-item">Sem emails.</div>';
+  $('#adminMargins').innerHTML = data.margins.map(m => `<div class="mini-item"><b>${esc(m.name)}</b><br>${m.percent}% - minimo ${money(m.min)} - match: ${esc(m.match)}</div>`).join('');
+  $('#adminEmails').innerHTML = data.latest.emails.map(e => `<div class="mini-item"><b>${esc(e.subject)}</b><br>Para: ${esc(e.to)}<br>${esc(e.status)}</div>`).join('') || '<div class="mini-item">Sem emails.</div>';
   $('#operatorLog').textContent = JSON.stringify({ operadores: data.operators, chamadas: data.latest.logs, auditoria: data.latest.audit }, null, 2);
 }
 
@@ -1014,10 +1019,10 @@ function renderReservationsTable() {
   $('#reservationsTable').innerHTML = filtered.map(r => `
     <div class="reservation-row">
       <div class="reservation-main">
-        <b>${r.id}</b> - ${r.customer?.name || ''} (${r.customer?.email || ''})<br>
-        ${r.offer?.hotel || ''} - ${r.offer?.destination || ''} - ${money(r.offer?.finalPrice)}
+        <b>${esc(r.id)}</b> - ${esc(r.customer?.name)} (${esc(r.customer?.email)})<br>
+        ${esc(r.offer?.hotel)} - ${esc(r.offer?.destination)} - ${money(r.offer?.finalPrice)}
         <div class="muted">Criado em ${new Date(r.createdAt).toLocaleString('pt-PT')}</div>
-        ${r.missingDocuments?.length ? `<div class="pill pill-warning">Falta: ${r.missingDocuments.join(', ')}</div>` : '<div class="pill pill-ok">Documentos completos</div>'}
+        ${r.missingDocuments?.length ? `<div class="pill pill-warning">Falta: ${esc(r.missingDocuments.join(', '))}</div>` : '<div class="pill pill-ok">Documentos completos</div>'}
       </div>
       <div class="reservation-actions">
         <span class="pill">${statusLabel(r.status)}</span>
@@ -1076,9 +1081,9 @@ function renderReservationDocuments(reservationId, panel, documents) {
       ${documents.map(d => `
         <div class="doc-item">
           <span class="doc-type">${d.type === 'PASSPORT' ? 'Passaporte/CC' : d.type === 'INSURANCE' ? 'Seguro' : 'Outro'}</span>
-          ${d.passengerName ? `<span class="muted">${d.passengerName}</span>` : ''}
-          <span class="muted">${d.fileName}</span>
-          <a href="${d.signedUrl}" target="_blank" rel="noopener">Ver</a>
+          ${d.passengerName ? `<span class="muted">${esc(d.passengerName)}</span>` : ''}
+          <span class="muted">${esc(d.fileName)}</span>
+          <a href="${esc(d.signedUrl)}" target="_blank" rel="noopener">Ver</a>
           <button class="ghost mini-action doc-delete" data-doc="${d.id}">Remover</button>
         </div>`).join('') || '<div class="muted">Sem documentos anexados.</div>'}
     </div>
@@ -1175,11 +1180,11 @@ function renderCustomersList() {
   const filtered = allCustomers.filter(c => !query || `${c.name} ${c.email}`.toLowerCase().includes(query));
   $('#customersList').innerHTML = filtered.map(c => `
     <div class="mini-item customer-item">
-      <div class="customer-summary" data-email="${c.email}">
-        <b>${c.name}</b> - ${c.email}<br>
-        ${c.phone || ''} - ${c.leadsCount} leads - ${c.reservationsCount} reservas
+      <div class="customer-summary" data-email="${esc(c.email)}">
+        <b>${esc(c.name)}</b> - ${esc(c.email)}<br>
+        ${esc(c.phone)} - ${c.leadsCount} leads - ${c.reservationsCount} reservas
       </div>
-      <div class="customer-detail" data-email="${c.email}" hidden></div>
+      <div class="customer-detail" data-email="${esc(c.email)}" hidden></div>
     </div>`).join('') || '<div class="mini-item">Sem clientes.</div>';
 
   $('#customersList').querySelectorAll('.customer-summary').forEach(el => {
@@ -1198,11 +1203,11 @@ async function toggleCustomerDetail(email) {
     const data = await api(`/api/admin/customers/detail?email=${encodeURIComponent(email)}`);
     detailEl.innerHTML = `
       <label>Notas internas
-        <textarea class="customer-notes" rows="3">${data.customer.notes || ''}</textarea>
+        <textarea class="customer-notes" rows="3">${esc(data.customer.notes)}</textarea>
       </label>
       <button class="ghost mini-action customer-save-notes">Guardar notas</button>
-      <div class="muted" style="margin-top:8px"><b>Leads:</b> ${data.leads.map(l => `${l.search?.destination || ''} (${leadStageLabel(l.status)})`).join(', ') || 'nenhum'}</div>
-      <div class="muted"><b>Reservas:</b> ${data.reservations.map(r => `${r.id} (${statusLabel(r.status)})`).join(', ') || 'nenhuma'}</div>`;
+      <div class="muted" style="margin-top:8px"><b>Leads:</b> ${data.leads.map(l => `${esc(l.search?.destination)} (${esc(leadStageLabel(l.status))})`).join(', ') || 'nenhum'}</div>
+      <div class="muted"><b>Reservas:</b> ${data.reservations.map(r => `${esc(r.id)} (${esc(statusLabel(r.status))})`).join(', ') || 'nenhuma'}</div>`;
     detailEl.querySelector('.customer-save-notes').onclick = async () => {
       const notes = detailEl.querySelector('.customer-notes').value;
       try {
@@ -1235,10 +1240,10 @@ function renderLeadsPipeline() {
         <h4>${col.label} <span class="badge">${items.length}</span></h4>
         ${items.map(l => `
           <div class="pipeline-card">
-            <b>${l.search?.destination || ''}</b><br>
-            ${l.search?.name || l.search?.email || ''}<br>
+            <b>${esc(l.search?.destination)}</b><br>
+            ${esc(l.search?.name || l.search?.email)}<br>
             <span class="muted">orcamento ${money(l.search?.budget)}</span>
-            <select class="lead-stage-select" data-lead="${l.id}">
+            <select class="lead-stage-select" data-lead="${esc(l.id)}">
               ${columns.map(c => `<option value="${c.value}" ${c.value === col.value ? 'selected' : ''}>${c.label}</option>`).join('')}
             </select>
           </div>`).join('') || '<p class="muted">Sem leads.</p>'}
