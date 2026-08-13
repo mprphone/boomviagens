@@ -8,18 +8,13 @@ let heroDeals = [];
 let heroIndex = 0;
 let heroTimer = null;
 
-function renderHero(i) {
+// So o fundo do hero roda entre as fotos das novidades - o cabecalho
+// (h1/tagline) e fixo desde o pedido de aproximar o visual ao VIAJA+,
+// que usa uma pergunta generica em vez de um carrossel de texto.
+function renderHeroBackground(i) {
   const deal = heroDeals[i];
   if (!deal) return;
   document.querySelector('.hero').style.setProperty('--hero-bg', `url("${deal.image}")`);
-  $('#heroCopy h1').textContent = deal.title;
-  $('#heroCopy .hero-subtitle').textContent = deal.subtitle;
-  $('#heroCopy .hero-facts').innerHTML = `<span>${deal.nights} noites</span><span>${deal.board}</span><span>Saida de ${deal.origin}</span>`;
-  $('#heroCopy .hero-price').innerHTML = `desde <strong>${money(deal.price)}</strong> <small>por pessoa</small>`;
-  $('#heroDots').innerHTML = heroDeals.map((_, idx) => `<button type="button" aria-label="Destaque ${idx + 1}" class="${idx === i ? 'active' : ''}"></button>`).join('');
-  $('#heroDots').querySelectorAll('button').forEach((btn, idx) => {
-    btn.onclick = () => { heroIndex = idx; renderHero(heroIndex); restartHeroTimer(); };
-  });
 }
 
 function restartHeroTimer() {
@@ -27,14 +22,14 @@ function restartHeroTimer() {
   if (heroDeals.length < 2) return;
   heroTimer = setInterval(() => {
     heroIndex = (heroIndex + 1) % heroDeals.length;
-    renderHero(heroIndex);
+    renderHeroBackground(heroIndex);
   }, 6000);
 }
 
 function initHero(deals) {
   heroDeals = deals.slice(0, 5);
   if (!heroDeals.length) return;
-  renderHero(0);
+  renderHeroBackground(0);
   restartHeroTimer();
   const hero = document.querySelector('.hero');
   hero.addEventListener('mouseenter', () => clearInterval(heroTimer));
@@ -90,7 +85,6 @@ window.searchDeal = function(deal) {
   form.destination.value = deal.title;
   form.origin.value = deal.origin;
   form.nights.value = deal.nights;
-  form.budget.value = Math.ceil(deal.price * 2.2);
   location.hash = '#pesquisa';
   form.requestSubmit();
 };

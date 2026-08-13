@@ -1,121 +1,67 @@
-/* Hero de entrada e o formulario de pesquisa inteligente, incluindo os
-   paineis flutuantes de sugestao de destino e calendario de precos.
-   Os paineis vivem fora do .hero no HTML (ver app.js/positionPanelBelow)
-   porque overflow:hidden no hero corta descendentes position:fixed. */
+/* Hero de entrada e o formulario de pesquisa inteligente: cabecalho +
+   caixa de pedido livre com pills compactas + chips de categoria, tudo
+   centrado sobre a foto de fundo. Inclui tambem os paineis flutuantes
+   de sugestao de destino e calendario de precos - vivem fora do .hero
+   no HTML (ver heroSearch.js/positionPanelBelow) porque overflow:hidden
+   no hero corta descendentes position:fixed. */
 
 main { width: 100%; }
 
 .hero {
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(420px, 1fr) minmax(420px, 600px);
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 54px;
-  min-height: 560px;
-  max-height: 660px;
-  padding: 48px max(48px, calc((100vw - 1440px) / 2));
+  gap: 26px;
+  padding: 72px max(48px, calc((100vw - 1440px) / 2)) 44px;
   overflow: hidden;
   background:
-    linear-gradient(100deg, rgba(9, 22, 40, .78) 0%, rgba(9, 22, 40, .52) 45%, rgba(9, 22, 40, .18) 100%),
+    linear-gradient(180deg, rgba(9, 22, 40, .62) 0%, rgba(9, 22, 40, .74) 60%, rgba(9, 22, 40, .82) 100%),
     var(--hero-bg, url("https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=2200&q=85")) center / cover;
-  transition: background-image .4s ease;
+  transition: background-image .6s ease;
 }
 
-.hero-copy {
+.hero-heading {
   position: relative;
   z-index: 1;
-  min-width: 0;
-  max-width: 680px;
+  max-width: 720px;
+  text-align: center;
   color: #fff;
   text-shadow: 0 2px 16px rgba(0, 0, 0, .18);
 }
 
-.hero-copy .eyebrow { color: #a9e8f0; }
+.hero-heading .eyebrow { color: #a9e8f0; justify-content: center; display: flex; }
 
 .hero h1 {
-  margin: 14px 0 2px;
+  margin: 12px 0 8px;
   color: #fff;
   font-family: var(--font-display);
-  font-size: 52px;
+  font-size: 46px;
   font-weight: 800;
-  line-height: 1.02;
+  line-height: 1.08;
   letter-spacing: -.01em;
 }
 
-.hero-subtitle {
-  margin: 0 0 24px;
-  color: rgba(255, 255, 255, .82);
-  font-family: var(--font-display);
-  font-size: 22px;
+.hero h1 em { font-style: normal; color: #7dd8e8; }
+
+.hero-tagline {
+  margin: 0 0 14px;
+  color: rgba(255, 255, 255, .85);
+  font-size: 17px;
   font-weight: 600;
 }
 
-.hero-facts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 22px;
-}
-
-.hero-facts span {
-  border: 1px solid rgba(255, 255, 255, .28);
-  border-radius: 999px;
-  padding: 6px 13px;
-  background: rgba(255, 255, 255, .1);
+.hero-heading .badge {
+  background: rgba(255, 255, 255, .14);
   color: #fff;
-  font-size: 13px;
-  font-weight: 600;
   backdrop-filter: blur(4px);
 }
-
-.hero-price {
-  margin: 0;
-  color: rgba(255, 255, 255, .78);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: .04em;
-  text-transform: uppercase;
-}
-
-.hero-price strong {
-  display: inline-block;
-  margin: 4px 8px 0 0;
-  color: #ffd873;
-  font-family: var(--font-display);
-  font-size: 32px;
-  font-weight: 800;
-  letter-spacing: 0;
-  text-transform: none;
-}
-
-.hero-price small { display: block; margin-top: 2px; letter-spacing: .1em; }
-
-.hero-dots {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  gap: 8px;
-  margin-top: 22px;
-}
-
-.hero-dots button {
-  width: 8px;
-  height: 8px;
-  border: 0;
-  border-radius: 999px;
-  padding: 0;
-  background: rgba(255, 255, 255, .4);
-  cursor: pointer;
-  transition: background .15s ease, width .15s ease;
-}
-
-.hero-dots button.active { width: 22px; background: #ffd873; }
 
 .search-card {
   position: relative;
   z-index: 2;
-  min-width: 0;
-  padding: 24px;
+  width: min(920px, 100%);
+  padding: 20px;
   border: 1px solid rgba(255, 255, 255, .5);
   border-radius: var(--radius);
   background: rgba(255, 255, 255, .97);
@@ -123,11 +69,110 @@ main { width: 100%; }
   backdrop-filter: blur(10px);
 }
 
-.search-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+.prompt-input {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  padding: 4px 4px 14px;
+  margin-bottom: 14px;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.4;
+  resize: none;
+}
+
+.prompt-input:focus { border-color: var(--blue); box-shadow: none; }
+
+.search-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.pill-field {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 150px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: #f8fafc;
+}
+
+.pill-field:focus-within { border-color: var(--blue); background: #fff; }
+
+.pill-icon { flex: 0 0 auto; font-size: 14px; line-height: 1; }
+
+.pill-field input,
+.pill-field select {
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  background: none;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.pill-field input:focus,
+.pill-field select:focus { box-shadow: none; }
+
+.pill-destination { flex-basis: 190px; }
+
+.pill-pax { flex: 0 1 130px; }
+.pill-pax input { width: 28px; text-align: center; }
+.pill-sep { color: var(--muted); }
+
+.search-submit {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--blue);
+  color: #fff;
+  font-size: 17px;
+  cursor: pointer;
+  box-shadow: 0 10px 20px rgba(0, 119, 182, .28);
+  transition: transform .12s ease, background .15s ease;
+}
+
+.search-submit:hover { background: var(--blue-dark); transform: translateY(-1px); }
+
+.category-chips {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 10px;
 }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(255, 255, 255, .5);
+  border-radius: 999px;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, .14);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background .15s ease, border-color .15s ease;
+}
+
+.chip:hover { background: rgba(255, 255, 255, .26); border-color: #fff; }
 
 .suggest-panel {
   position: fixed;
@@ -231,28 +276,22 @@ main { width: 100%; }
 .cal-day small { color: var(--blue-dark); font-size: 9.5px; font-weight: 800; }
 .cal-day.cal-unavailable { color: #c3ccd6; font-weight: 500; }
 
-.search-card .btn {
-  width: 100%;
-  margin-top: 14px;
-  font-size: 14.5px;
-}
-
 @media (max-width: 1180px) {
-  .hero { grid-template-columns: 1fr; padding-top: 44px; }
-  .search-card { max-width: 760px; }
+  .hero { padding-top: 56px; }
+  .hero h1 { font-size: 40px; }
 }
 
 @media (max-width: 760px) {
   .hero {
     min-height: auto;
-    padding: 38px 18px 54px;
-    grid-template-columns: 1fr;
+    padding: 38px 18px 40px;
   }
-  .hero h1 { font-size: 38px; }
-  .hero-subtitle { font-size: 19px; }
-  .hero-facts { font-size: 13px; }
-  .search-card { padding: 18px; }
-  .search-grid { grid-template-columns: 1fr; }
+  .hero h1 { font-size: 32px; }
+  .hero-tagline { font-size: 15px; }
+  .search-card { padding: 16px; }
+  .pill-field { flex: 1 1 100%; }
+  .pill-destination { flex-basis: 100%; }
+  .search-submit { width: 100%; border-radius: var(--radius-sm); }
   .cal-months { grid-template-columns: 1fr; }
   .calendar-panel { width: min(320px, 90vw); }
 }

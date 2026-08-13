@@ -83,44 +83,50 @@
 
   <main>
     <section class="hero" id="pesquisa">
-      <div class="hero-copy" id="heroCopy">
+      <div class="hero-heading">
         <p class="eyebrow">boomviagens.pt</p>
-        <h1>Punta Cana</h1>
-        <p class="hero-subtitle">Republica Dominicana</p>
-        <div class="hero-facts">
-          <span>7 noites</span>
-          <span>Tudo incluido</span>
-          <span>Voos de Lisboa ou Porto</span>
-        </div>
-        <p class="hero-price">desde <strong>779 EUR</strong> <small>por pessoa</small></p>
-        <div id="heroDots" class="hero-dots"></div>
+        <h1>Para onde queres <em>ir?</em></h1>
+        <p class="hero-tagline">Descreve a viagem perfeita e nós tratamos do resto.</p>
+        <span id="modeBadge" class="badge">modo demo</span>
       </div>
 
       <form id="searchForm" class="search-card">
-        <div class="section-head compact">
-          <div>
-            <p class="eyebrow">Pesquisa inteligente</p>
-            <h2>Encontre o melhor destino</h2>
-          </div>
-          <span id="modeBadge" class="badge">modo demo</span>
-        </div>
+        <textarea name="prompt" class="prompt-input" rows="2" placeholder="Ex: Quero ir com a família, 7 noites em agosto, praia, tudo incluído, até 2500€, saída do Porto.">Quero 7 noites nas Caraibas em agosto, tudo incluido, para 2 adultos, ate 2500 euros, saida do Porto.</textarea>
 
-        <label class="wide">Pedido livre
-          <textarea name="prompt" rows="3">Quero 7 noites nas Caraibas em agosto, tudo incluido, para 2 adultos, ate 2500 euros, saida do Porto.</textarea>
-        </label>
-        <div class="search-grid">
-          <label>Destino <input name="destination" id="destinationInput" placeholder="Punta Cana" autocomplete="off" /></label>
-          <label>Aeroporto <select name="origin"><option>Lisboa</option><option selected>Porto</option><option>Faro</option></select></label>
-          <label>Data <input name="checkin" id="checkinInput" type="text" readonly placeholder="Escolher data" autocomplete="off" /></label>
-          <label>Noites <input name="nights" id="nightsInput" type="number" value="7" min="1" /></label>
-          <label>Adultos <input name="adults" type="number" value="2" min="1" /></label>
-          <label>Criancas <input name="children" type="number" value="0" min="0" /></label>
-          <label>Orcamento <input name="budget" type="number" value="2500" /></label>
-          <label>Nome <input name="name" value="Cliente Teste" /></label>
-          <label class="wide">Email <input name="email" value="cliente@exemplo.pt" /></label>
+        <div class="search-pills">
+          <label class="pill-field pill-destination">
+            <span class="pill-icon">📍</span>
+            <input name="destination" id="destinationInput" placeholder="Qualquer destino" autocomplete="off" />
+          </label>
+          <label class="pill-field">
+            <span class="pill-icon">✈️</span>
+            <select name="origin"><option>Lisboa</option><option selected>Porto</option><option>Faro</option></select>
+          </label>
+          <label class="pill-field">
+            <span class="pill-icon">📅</span>
+            <input name="checkin" id="checkinInput" type="text" readonly placeholder="Datas flexíveis" autocomplete="off" />
+          </label>
+          <label class="pill-field pill-pax">
+            <span class="pill-icon">👤</span>
+            <input name="adults" id="adultsInput" type="number" value="2" min="1" title="Adultos" />
+            <span class="pill-sep">·</span>
+            <input name="children" id="childrenInput" type="number" value="0" min="0" title="Crianças" />
+          </label>
+          <input type="hidden" name="nights" id="nightsInput" value="7" />
+          <input type="hidden" name="name" value="Cliente Teste" />
+          <input type="hidden" name="email" value="cliente@exemplo.pt" />
+          <button class="search-submit" type="submit" aria-label="Procurar viagens">🔎</button>
         </div>
-        <button class="btn wide" type="submit">Procurar viagens</button>
       </form>
+
+      <div class="category-chips">
+        <a href="#pesquisa" class="chip" data-destino="Punta Cana" data-prompt="Quero umas ferias de praia, tudo incluido, 7 noites para 2 adultos.">🏖️ Praia</a>
+        <a href="#pesquisa" class="chip" data-destino="Disneyland Paris" data-prompt="Quero uma escapadinha a uma cidade, 3 noites para 2 adultos.">🏙️ City break</a>
+        <a href="#pesquisa" class="chip" data-destino="Sal" data-prompt="Quero uma viagem em familia, tudo incluido, 7 noites para 2 adultos e 2 criancas.">👨‍👩‍👧 Família</a>
+        <a href="#pesquisa" class="chip" data-destino="Maldivas" data-prompt="Quero uma viagem romantica de lua de mel, 7 noites para 2 adultos.">❤️ Romântico</a>
+        <a href="#pesquisa" class="chip" data-destino="Madeira" data-prompt="Quero uma viagem de aventura na natureza, 5 noites para 2 adultos.">⛰️ Aventura</a>
+        <a href="#pesquisa" class="chip" data-soon="Cruzeiros">⚓ Cruzeiros</a>
+      </div>
     </section>
 
     <section id="novidades" class="showcase">
@@ -186,6 +192,7 @@
         </div>
       </div>
       <div id="parsedBox" class="parsed"></div>
+      <div id="resultsHighlights" class="highlight-strip"></div>
       <div class="results-layout">
         <aside class="results-filters" id="resultsFilters" hidden></aside>
         <div id="results" class="results-list"></div>
