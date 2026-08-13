@@ -20,14 +20,22 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
     const body = await parseBody(req);
     const db = ensureCollections(await readDb());
     const idemKey = cleanText(req.headers['idempotency-key'] || body.idempotencyKey || '', 160);
-    if (idemKey && db.idempotencyKeys[idemKey]) {
-      const existingReservation = db.reservations.find(r => r.id === db.idempotencyKeys[idemKey].reservationId);
-      const existingPayment = db.payments.find(p => p.id === db.idempotencyKeys[idemKey].paymentId);
-      if (existingReservation && existingPayment) return json(res, 200, { ok: true, reservation: existingReservation, payment: existingPayment, idempotent: true });
-    }
 
     let offer = body.offer || ctx.getOfferById(body.offerId, db.margins);
     if (!offer) return json(res, 404, { ok: false, error: 'Oferta nao encontrada' });
+
+    // O offer vem do cliente (o browser reenvia o que recebeu na pesquisa),
+    // por isso nada garante que finalPrice nao foi alterado entretanto.
+    // applyMargin() nunca produz um finalPrice abaixo do costPrice (a
+    // margem e sempre >= 0 e o arredondamento e sempre para cima) - uma
+    // oferta que viole isso so pode ter sido manipulada, e e rejeitada
+    // aqui, antes de criar reserva ou pagamento.
+    const finalPrice = Number(offer.finalPrice);
+    const costPrice = Number(offer.costPrice);
+    if (!Number.isFinite(finalPrice) || finalPrice <= 0 || (Number.isFinite(costPrice) && finalPrice < costPrice)) {
+      return json(res, 400, { ok: false, error: 'Preço da oferta inválido.' });
+    }
+
     const customer = customerPayload(body.customer || { name: body.name || 'Cliente Teste', email: body.email || 'cliente@exemplo.pt', phone: body.phone || '' });
     const passengers = Array.isArray(body.passengers) && body.passengers.length ? body.passengers : customer.passengers;
     const reservation = {
@@ -51,16 +59,33 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
       reference: crypto.randomInt(100000000, 999999999).toString(),
       expiresAt: new Date(Date.now() + 86400000).toISOString()
     };
+
+    // Verificar e inserir a idempotency key tem de acontecer as duas coisas
+    // dentro do MESMO updateDb: se a verificacao fosse feita contra uma
+    // leitura separada de antemao, dois pedidos quase simultaneos com a
+    // mesma idempotency-key (ex.: duplo clique, retry de rede) podiam
+    // passar os dois pela verificacao antes de qualquer um escrever,
+    // criando duas reservas/pagamentos para o mesmo clique.
+    let resultPayload = null;
     await updateDb(d => {
       ensureCollections(d);
+      if (idemKey && d.idempotencyKeys[idemKey]) {
+        const existingReservation = d.reservations.find(r => r.id === d.idempotencyKeys[idemKey].reservationId);
+        const existingPayment = d.payments.find(p => p.id === d.idempotencyKeys[idemKey].paymentId);
+        if (existingReservation && existingPayment) {
+          resultPayload = { reservation: existingReservation, payment: existingPayment, idempotent: true };
+          return;
+        }
+      }
       d.reservations.unshift(reservation);
       d.payments.unshift(payment);
       let existing = d.customers.find(c => c.email === customer.email);
       if (!existing && customer.email) d.customers.unshift({ id: id('cli'), createdAt: now(), ...customer });
       if (idemKey) d.idempotencyKeys[idemKey] = { reservationId: reservation.id, paymentId: payment.id, createdAt: now() };
       audit(d, 'site', 'CHECKOUT_CREATED', { reservationId: reservation.id, paymentId: payment.id, idempotencyKey: idemKey || null });
+      resultPayload = { reservation, payment, idempotent: false };
     });
-    return json(res, 200, { ok: true, reservation, payment, next: 'Chamar /api/payment/confirm para simular pagamento. A confirmacao no operador fica pendente de aprovacao no backoffice.' });
+    return json(res, 200, { ok: true, ...resultPayload, next: 'Chamar /api/payment/confirm para simular pagamento. A confirmacao no operador fica pendente de aprovacao no backoffice.' });
   });
 
   router.post('/api/payment/confirm', async (req, res) => {
