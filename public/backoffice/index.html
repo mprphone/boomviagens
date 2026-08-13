@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="/backoffice/css/pipeline.css" />
   <link rel="stylesheet" href="/backoffice/css/reservations.css" />
   <link rel="stylesheet" href="/backoffice/css/customers.css" />
+  <link rel="stylesheet" href="/backoffice/css/system.css" />
 </head>
 <body>
   <div id="loginGate" class="login-gate">
@@ -59,6 +60,17 @@
         <button type="button" class="nav-item is-disabled" disabled>
           <span class="nav-item-icon">🏢</span>Fornecedores<span class="soon-badge">em breve</span>
         </button>
+        <button type="button" class="nav-item" data-view="margens">
+          <span class="nav-item-icon">📐</span>Margens
+        </button>
+
+        <p class="nav-section-title">Sistema</p>
+        <button type="button" class="nav-item" data-view="emails">
+          <span class="nav-item-icon">✉️</span>Emails
+        </button>
+        <button type="button" class="nav-item" data-view="operador">
+          <span class="nav-item-icon">🔌</span>Operador
+        </button>
 
         <p class="nav-section-title">Análises</p>
         <button type="button" class="nav-item is-disabled" disabled>
@@ -83,6 +95,9 @@
         <section id="view-interesses" class="view" hidden></section>
         <section id="view-reservas" class="view" hidden></section>
         <section id="view-clientes" class="view" hidden></section>
+        <section id="view-margens" class="view" hidden></section>
+        <section id="view-emails" class="view" hidden></section>
+        <section id="view-operador" class="view" hidden></section>
       </main>
     </div>
   </div>

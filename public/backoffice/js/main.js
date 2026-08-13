@@ -7,12 +7,16 @@ import { renderResumo } from './dashboard.js';
 import { renderInteresses } from './pipeline.js';
 import { renderReservas } from './reservations.js';
 import { renderClientes } from './customers.js';
+import { renderMargens, renderEmails, renderOperador } from './system.js';
 
 const VIEWS = {
   resumo: { title: 'Resumo Geral', render: renderResumo },
   interesses: { title: 'Interesses', render: renderInteresses },
   reservas: { title: 'Reservas', render: renderReservas },
-  clientes: { title: 'Clientes', render: renderClientes }
+  clientes: { title: 'Clientes', render: renderClientes },
+  margens: { title: 'Margens', render: renderMargens },
+  emails: { title: 'Emails', render: renderEmails },
+  operador: { title: 'Operador', render: renderOperador }
 };
 
 function switchView(name) {

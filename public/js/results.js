@@ -6,7 +6,6 @@ import { $, esc, money, dateRange, api, formToJson } from './utils.js';
 import { goHome, goToResults } from './router.js';
 import { applyRoomOption } from './offers.js';
 import { showReview } from './review.js';
-import { refreshAdmin } from './admin.js';
 
 // Nomes tal como vem do sistema do operador sao codigos internos em
 // espanhol, em maiusculas (ex.: "DOBLE NO REEMBOLSABLE") - parecem erro de
@@ -193,7 +192,6 @@ $('#searchForm').addEventListener('submit', async e => {
     ]);
     stopLoading();
     renderResultsPage(data);
-    refreshAdmin();
   } catch (err) {
     stopLoading();
     $('#results').innerHTML = `<p class="error">${err.message}</p>`;

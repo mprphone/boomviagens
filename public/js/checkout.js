@@ -5,7 +5,6 @@
 import { $, esc, money, dateRange, formToJson, api, statusLabel } from './utils.js';
 import { getCurrentOffer, getLastPayment, setLastPayment, setLastReservation } from './state.js';
 import { goHome } from './router.js';
-import { refreshAdmin } from './admin.js';
 
 function setCheckoutStep(step) {
   document.querySelectorAll('#checkoutStepper .stepper-step').forEach(el => {
@@ -222,7 +221,6 @@ async function onCheckoutSubmit(e) {
     setLastReservation(data.reservation);
     setCheckoutStep(2);
     renderCheckoutStep2(data);
-    refreshAdmin();
   } catch (err) {
     btn.disabled = false;
     btn.textContent = 'Continuar para pagamento';
@@ -239,7 +237,6 @@ async function onConfirmPayment() {
     const data = await api('/api/payment/confirm', { method: 'POST', body: JSON.stringify({ paymentId: getLastPayment().id }) });
     setCheckoutStep(3);
     renderCheckoutStep3(data);
-    refreshAdmin();
   } catch (err) {
     btn.disabled = false;
     btn.textContent = 'Confirmar pagamento (simulado)';

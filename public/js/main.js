@@ -9,7 +9,6 @@ import './results.js';
 import './review.js';
 import './checkout.js';
 import { refreshCustomerArea } from './customerArea.js';
-import { initAdminSession } from './admin.js';
 import './chat.js';
 
 api('/api/config').then(c => {
@@ -17,6 +16,5 @@ api('/api/config').then(c => {
   $('#rnavt').textContent = c.company.rnavt || 'INSERIR_RNAVT';
 });
 
-initAdminSession();
 refreshCustomerArea();
 loadDeals();

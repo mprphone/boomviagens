@@ -14,7 +14,6 @@
   <link rel="stylesheet" href="/css/results.css" />
   <link rel="stylesheet" href="/css/review.css" />
   <link rel="stylesheet" href="/css/checkout.css" />
-  <link rel="stylesheet" href="/css/admin.css" />
   <link rel="stylesheet" href="/css/shared.css" />
 </head>
 <body>
@@ -67,7 +66,6 @@
       <a href="/backoffice/">Backoffice</a>
       <a href="#legal">Legal</a>
     </nav>
-    <button id="refreshAdmin" class="ghost">Atualizar painel</button>
   </header>
 
   <div class="destination-strip" aria-label="Destinos populares">
@@ -268,45 +266,6 @@
 
       <div id="customerContent" hidden>
         <div id="customerReservations" class="mini-list"></div>
-      </div>
-    </section>
-
-    <section id="backoffice" class="panel">
-      <div class="section-head">
-        <div>
-          <p class="eyebrow">Backoffice</p>
-          <h2>CRM, reservas, margens e logs</h2>
-        </div>
-        <button id="testOperator" class="ghost">Testar TourDiez</button>
-      </div>
-      <form id="adminLogin" class="admin-login">
-        <label>Utilizador <input name="username" autocomplete="username" value="admin" required /></label>
-        <label>Password <input name="password" type="password" autocomplete="current-password" placeholder="admin123" required /></label>
-        <button class="btn" type="submit">Entrar no backoffice</button>
-        <p id="adminLoginMessage"></p>
-      </form>
-      <div id="adminContent" hidden>
-        <div class="kpis" id="kpis"></div>
-
-        <h3>Reservas</h3>
-        <div class="reservations-toolbar">
-          <input id="reservationsSearch" type="search" placeholder="Pesquisar por id, hotel, destino, cliente..." />
-          <select id="reservationsStatusFilter"></select>
-        </div>
-        <div id="reservationsTable" class="reservations-table"></div>
-
-        <h3>Clientes</h3>
-        <input id="customersSearch" type="search" placeholder="Pesquisar por nome ou email..." class="wide" />
-        <div id="customersList" class="mini-list"></div>
-
-        <h3>Pipeline de leads</h3>
-        <div id="leadsPipeline" class="leads-pipeline"></div>
-
-        <div class="admin-grid">
-          <div><h3>Margens</h3><div id="adminMargins" class="mini-list"></div></div>
-          <div><h3>Emails gerados</h3><div id="adminEmails" class="mini-list"></div></div>
-        </div>
-        <pre id="operatorLog" class="log"></pre>
       </div>
     </section>
 

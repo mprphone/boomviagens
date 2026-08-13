@@ -1,0 +1,33 @@
+/* Vistas "Margens", "Emails" e "Operador": reaproveitam .panel e
+   .list-row de dashboard.css, so acrescentam a caixa de log/JSON e a
+   barra de acao do teste ao operador. */
+
+.op-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.op-status { font-size: 13px; color: var(--muted); }
+
+.log {
+  max-height: 360px;
+  overflow: auto;
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  background: #0d1b2e;
+  color: #b7f5db;
+  font-size: 12.5px;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  white-space: pre-wrap;
+}
+
+.match-tag {
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.pill.inactive { background: var(--red-bg); color: var(--red); }
+.pill.active { background: var(--green-bg); color: var(--green); }
