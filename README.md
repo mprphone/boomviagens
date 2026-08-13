@@ -164,7 +164,7 @@ Backoffice mostra leads, reservas, emails e logs. Chat responde e indica quando 
 
 ## Próximo desenvolvimento recomendado
 
-1. ~~Migrar `data/db.json` para Supabase/PostgreSQL.~~ Feito: `src/storage.js` liga a Supabase quando `DB_MODE=supabase` (ver `docs/SUPABASE_SETUP.md`). Falta criar o projeto real e definir as variáveis em produção.
+1. ~~Migrar `data/db.json` para Supabase/PostgreSQL.~~ Feito: `src/storage.js` liga a Supabase quando `DB_MODE=supabase` (ver `docs/SUPABASE_SETUP.md`). Falta criar o projeto real e definir as variáveis em produção. Entretanto, `DB_MODE=sqlite` (`src/storageSqlite.js`) dá SQL real num ficheiro local (`data/boomviagens.sqlite`), sem depender de nada externo - cria e semeia as tabelas sozinho no primeiro arranque. Não substitui o Supabase em produção serverless (sistema de ficheiros efémero no Vercel), mas é a opção recomendada para desenvolvimento local agora.
 2. Criar autenticação de clientes e backoffice.
 3. Colocar jobs de sincronização de hotéis/destinos TourDiez.
 4. Adicionar mais operadores.

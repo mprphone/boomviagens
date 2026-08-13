@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { readDbSqlite, writeDbSqlite, updateDbSqlite, SQLITE_PATH } = require('./storageSqlite');
 
 const DB_PATH = path.join(__dirname, '..', 'data', 'db.json');
 
@@ -12,6 +13,7 @@ const supabaseConfigured = Boolean(
 );
 
 const useSupabase = process.env.DB_MODE === 'supabase' && supabaseConfigured;
+const useSqlite = process.env.DB_MODE === 'sqlite';
 
 if (process.env.DB_MODE === 'supabase' && !supabaseConfigured) {
   console.warn('[storage] DB_MODE=supabase mas SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY nao estao definidos corretamente. A usar data/db.json local (nao persistente em Vercel).');
@@ -473,19 +475,25 @@ async function updateDbSupabase(mutator) {
 // ---------------------------------------------------------------------------
 
 async function readDb() {
-  return useSupabase ? readDbSupabase() : readDbLocal();
+  if (useSupabase) return readDbSupabase();
+  if (useSqlite) return readDbSqlite();
+  return readDbLocal();
 }
 
 async function writeDb(db) {
-  return useSupabase ? writeDbSupabase(db) : writeDbLocal(db);
+  if (useSupabase) return writeDbSupabase(db);
+  if (useSqlite) return writeDbSqlite(db);
+  return writeDbLocal(db);
 }
 
 async function updateDb(mutator) {
   if (useSupabase) return updateDbSupabase(mutator);
+  if (useSqlite) return updateDbSqlite(mutator);
   const db = readDbLocal();
   const result = mutator(db) || db;
   writeDbLocal(db);
   return result;
 }
 
-module.exports = { readDb, writeDb, updateDb, DB_PATH, mode: useSupabase ? 'supabase' : 'local' };
+const mode = useSupabase ? 'supabase' : useSqlite ? 'sqlite' : 'local';
+module.exports = { readDb, writeDb, updateDb, DB_PATH, SQLITE_PATH, mode };

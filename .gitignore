@@ -4,4 +4,8 @@
 node_modules/
 npm-debug.log*
 data/*.tmp
+data/*.sqlite
+data/*.sqlite-*
 *.local
+.claude/
+server_*.log

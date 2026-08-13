@@ -1,0 +1,292 @@
+// Backoffice: login/sessao (publicas, e como se entra) e todas as rotas de
+// gestao (marcadas admin:true - o dispatcher central em server.js exige
+// sessao valida antes de chamar o handler, sem repetir a verificacao em
+// cada rota).
+
+module.exports = function registerAdminRoutes(router, ctx) {
+  const { json, parseBody, readDb, updateDb, operators, cleanText, numberInRange, domain, fileStorage, reservationEmail } = ctx;
+  const { ensureCollections, audit, addOperatorLog, missingDocumentsFor, statusLabel, leadStage, leadStageLabel, id, now, RESERVATION_STATUSES, LEAD_STAGES, DOCUMENT_TYPES } = domain;
+  const { sessionUser, signToken, safeEqual, setSessionCookie, clearSessionCookie, rateLimit, SESSION_TTL_MS } = ctx.auth;
+
+  router.get('/api/admin/session', async (req, res) => {
+    const user = sessionUser(req);
+    return json(res, 200, { ok: true, authenticated: Boolean(user), user });
+  });
+
+  router.post('/api/admin/login', async (req, res) => {
+    const limited = rateLimit(req, res, 'admin-login', 10, 15 * 60 * 1000);
+    if (limited) return limited;
+    const body = await parseBody(req);
+    const expectedUser = process.env.ADMIN_USERNAME || 'admin';
+    const expectedPassword = process.env.ADMIN_PASSWORD || 'admin123';
+    if (!safeEqual(body.username, expectedUser) || !safeEqual(body.password, expectedPassword)) {
+      return json(res, 401, { ok: false, error: 'Credenciais inválidas' });
+    }
+    const token = signToken({ scope: 'admin', user: expectedUser, exp: Date.now() + SESSION_TTL_MS });
+    setSessionCookie(res, token);
+    return json(res, 200, { ok: true, user: expectedUser });
+  });
+
+  router.post('/api/admin/logout', async (req, res) => {
+    clearSessionCookie(res);
+    return json(res, 200, { ok: true });
+  });
+
+  router.get('/api/admin/dashboard', async (req, res) => {
+    const db = ensureCollections(await readDb());
+    const totalReservations = db.reservations.length;
+    const confirmed = db.reservations.filter(r => r.status === 'CONFIRMED').length;
+    const revenue = db.reservations.filter(r => r.status === 'CONFIRMED').reduce((sum, r) => sum + (r.offer?.finalPrice || 0), 0);
+    const margin = db.reservations.filter(r => r.status === 'CONFIRMED').reduce((sum, r) => sum + (r.offer?.marginValue || 0), 0);
+    return json(res, 200, {
+      company: db.company,
+      stats: { leads: db.leads.length, customers: db.customers.length, reservations: totalReservations, confirmed, revenue, margin },
+      latest: { leads: db.leads.slice(0, 10), reservations: db.reservations.slice(0, 10), payments: db.payments.slice(0, 10), emails: db.emails.slice(0, 10), logs: db.operatorLogs.slice(0, 10), audit: db.auditLogs.slice(0, 10) },
+      margins: db.margins,
+      operators: operators.list(),
+      statuses: RESERVATION_STATUSES.map(value => ({ value, label: statusLabel(value) }))
+    });
+  }, { admin: true });
+
+  router.get('/api/admin/margins', async (req, res) => {
+    return json(res, 200, { margins: (await readDb()).margins });
+  }, { admin: true });
+
+  router.post('/api/admin/margins', async (req, res) => {
+    const body = await parseBody(req);
+    const saved = await updateDb(db => {
+      ensureCollections(db);
+      const margin = {
+        id: cleanText(body.id || id('margin'), 80),
+        name: cleanText(body.name || 'Nova margem', 120),
+        match: cleanText(body.match || '*', 500),
+        percent: numberInRange(body.percent, 'Percentagem', 0, 80, 7),
+        min: numberInRange(body.min, 'Margem minima', 0, 10000, 50),
+        roundTo: numberInRange(body.roundTo, 'Arredondamento', 1, 1000, 5),
+        active: body.active !== false
+      };
+      const idx = db.margins.findIndex(m => m.id === margin.id);
+      if (idx >= 0) db.margins[idx] = margin; else db.margins.unshift(margin);
+      audit(db, sessionUser(req), 'MARGIN_UPSERT', { marginId: margin.id });
+      return margin;
+    });
+    return json(res, 200, { ok: true, margin: saved });
+  }, { admin: true });
+
+  router.post('/api/admin/reservations/approve', async (req, res) => {
+    const body = await parseBody(req);
+    const reservationId = cleanText(body.reservationId, 120);
+    const db = ensureCollections(await readDb());
+    const reservation = db.reservations.find(r => r.id === reservationId);
+    if (!reservation) return json(res, 404, { ok: false, error: 'Reserva nao encontrada' });
+    const payment = db.payments.find(p => p.reservationId === reservation.id);
+    if (!payment || payment.status !== 'PAID') return json(res, 409, { ok: false, error: 'A reserva ainda nao tem pagamento confirmado' });
+    if (reservation.status === 'CONFIRMED') return json(res, 200, { ok: true, reservation, payment, alreadyConfirmed: true });
+
+    const adapter = operators.getForOffer(reservation.offer);
+    const confirmation = await adapter.confirm({ reservation, payment });
+    let resultPayload = null;
+
+    await updateDb(d => {
+      ensureCollections(d);
+      const r = d.reservations.find(x => x.id === reservation.id);
+      const p = d.payments.find(x => x.id === payment.id);
+      r.status = 'CONFIRMED';
+      r.confirmedAt = now();
+      r.operatorLocator = confirmation.locator;
+      r.operatorConfirmation = confirmation.raw?.mock ? 'MOCK_CONFIRM_OK' : 'CONFIRM_SENT';
+      const email = reservationEmail({ reservation: r, payment: p });
+      d.emails.unshift({ id: id('email'), createdAt: now(), to: r.customer?.email || 'cliente@exemplo.pt', status: 'GERADO_DEMO', ...email });
+      addOperatorLog(d, 'CONFIRM', confirmation);
+      audit(d, sessionUser(req), 'RESERVATION_APPROVED', { reservationId: r.id, operatorLocator: r.operatorLocator });
+      resultPayload = { reservation: r, payment: p, confirmation };
+    });
+    return json(res, 200, { ok: true, ...resultPayload });
+  }, { admin: true });
+
+  router.get('/api/admin/reservations', async (req, res) => {
+    const db = ensureCollections(await readDb());
+    const reservations = db.reservations.map(r => ({ ...r, missingDocuments: missingDocumentsFor(r, db.documents) }));
+    return json(res, 200, { ok: true, reservations });
+  }, { admin: true });
+
+  router.post('/api/admin/reservations/update', async (req, res) => {
+    const body = await parseBody(req);
+    const reservationId = cleanText(body.reservationId, 120);
+    const status = cleanText(body.status, 40);
+    if (!RESERVATION_STATUSES.includes(status)) return json(res, 400, { ok: false, error: 'Estado invalido' });
+    const db = ensureCollections(await readDb());
+    const reservation = db.reservations.find(r => r.id === reservationId);
+    if (!reservation) return json(res, 404, { ok: false, error: 'Reserva nao encontrada' });
+    let resultPayload = null;
+
+    await updateDb(d => {
+      ensureCollections(d);
+      const r = d.reservations.find(x => x.id === reservationId);
+      const previousStatus = r.status;
+      r.status = status;
+      r.updatedAt = now();
+      if (body.notes !== undefined) r.notes = cleanText(body.notes, 1000);
+      if (status === 'CONFIRMED' && !r.confirmedAt) r.confirmedAt = now();
+      const p = d.payments.find(x => x.reservationId === r.id);
+      const email = reservationEmail({ reservation: r, payment: p });
+      d.emails.unshift({ id: id('email'), createdAt: now(), to: r.customer?.email || 'cliente@exemplo.pt', status: 'GERADO_DEMO', ...email });
+      audit(d, sessionUser(req), 'RESERVATION_STATUS_UPDATED', { reservationId: r.id, from: previousStatus, to: status });
+      resultPayload = { reservation: r };
+    });
+    return json(res, 200, { ok: true, ...resultPayload });
+  }, { admin: true });
+
+  router.post('/api/admin/documents/upload', async (req, res) => {
+    const body = await parseBody(req);
+    const reservationId = cleanText(body.reservationId, 120);
+    const type = cleanText(body.type, 20);
+    if (!DOCUMENT_TYPES.includes(type)) return json(res, 400, { ok: false, error: 'Tipo de documento invalido' });
+    const fileName = cleanText(body.fileName, 200);
+    const passengerName = body.passengerName ? cleanText(body.passengerName, 200) : undefined;
+    if (!fileName || !body.fileBase64) return json(res, 400, { ok: false, error: 'Ficheiro invalido' });
+
+    const db = ensureCollections(await readDb());
+    const reservation = db.reservations.find(r => r.id === reservationId);
+    if (!reservation) return json(res, 404, { ok: false, error: 'Reserva nao encontrada' });
+
+    const buffer = Buffer.from(body.fileBase64, 'base64');
+    const docId = id('doc');
+    const storagePath = `${reservationId}/${docId}-${fileName}`;
+    try {
+      await fileStorage.uploadFile(storagePath, buffer, body.mimeType);
+    } catch (err) {
+      return json(res, 502, { ok: false, error: `Falha ao guardar documento: ${err.message}` });
+    }
+
+    const document = { id: docId, createdAt: now(), reservationId, type, passengerName, fileName, storagePath, uploadedBy: sessionUser(req) };
+    await updateDb(d => {
+      ensureCollections(d);
+      d.documents.unshift(document);
+      audit(d, sessionUser(req), 'DOCUMENT_UPLOADED', { reservationId, documentId: docId, type });
+    });
+    return json(res, 200, { ok: true, document });
+  }, { admin: true });
+
+  router.get('/api/admin/documents', async (req, res, url) => {
+    const reservationId = cleanText(url.searchParams.get('reservationId'), 120);
+    const db = ensureCollections(await readDb());
+    const documents = db.documents.filter(d => d.reservationId === reservationId);
+    const withUrls = await Promise.all(documents.map(async d => ({ ...d, signedUrl: await fileStorage.signedUrl(d.storagePath) })));
+    return json(res, 200, { ok: true, documents: withUrls });
+  }, { admin: true });
+
+  router.post('/api/admin/documents/delete', async (req, res) => {
+    const body = await parseBody(req);
+    const documentId = cleanText(body.documentId, 120);
+    const db = ensureCollections(await readDb());
+    const document = db.documents.find(d => d.id === documentId);
+    if (!document) return json(res, 404, { ok: false, error: 'Documento nao encontrado' });
+
+    try {
+      await fileStorage.deleteFile(document.storagePath);
+    } catch (err) {
+      return json(res, 502, { ok: false, error: `Falha ao remover documento: ${err.message}` });
+    }
+
+    await updateDb(d => {
+      ensureCollections(d);
+      d.documents = d.documents.filter(x => x.id !== documentId);
+      audit(d, sessionUser(req), 'DOCUMENT_DELETED', { reservationId: document.reservationId, documentId });
+    });
+    return json(res, 200, { ok: true });
+  }, { admin: true });
+
+  router.get('/api/admin/customers', async (req, res) => {
+    const db = ensureCollections(await readDb());
+    const customers = db.customers.map(c => ({
+      ...c,
+      leadsCount: db.leads.filter(l => l.search?.email === c.email).length,
+      reservationsCount: db.reservations.filter(r => r.customer?.email === c.email).length
+    }));
+    return json(res, 200, { ok: true, customers });
+  }, { admin: true });
+
+  router.get('/api/admin/customers/detail', async (req, res, url) => {
+    const customerEmail = cleanText(url.searchParams.get('email'), 254);
+    const db = ensureCollections(await readDb());
+    const customer = db.customers.find(c => c.email === customerEmail);
+    if (!customer) return json(res, 404, { ok: false, error: 'Cliente nao encontrado' });
+    const leads = db.leads.filter(l => l.search?.email === customerEmail);
+    const reservations = db.reservations.filter(r => r.customer?.email === customerEmail);
+    return json(res, 200, { ok: true, customer, leads, reservations });
+  }, { admin: true });
+
+  router.post('/api/admin/customers/notes', async (req, res) => {
+    const body = await parseBody(req);
+    const customerEmail = cleanText(body.email, 254);
+    const notes = cleanText(body.notes, 2000);
+    const saved = await updateDb(d => {
+      ensureCollections(d);
+      const customer = d.customers.find(c => c.email === customerEmail);
+      if (!customer) return null;
+      customer.notes = notes;
+      customer.updatedAt = now();
+      audit(d, sessionUser(req), 'CUSTOMER_NOTES_UPDATED', { email: customerEmail });
+      return customer;
+    });
+    if (!saved) return json(res, 404, { ok: false, error: 'Cliente nao encontrado' });
+    return json(res, 200, { ok: true, customer: saved });
+  }, { admin: true });
+
+  router.get('/api/admin/leads', async (req, res) => {
+    const db = ensureCollections(await readDb());
+    const leads = db.leads.map(l => ({ ...l, stage: leadStage(l) }));
+    return json(res, 200, { ok: true, leads, leadStages: LEAD_STAGES.map(value => ({ value, label: leadStageLabel(value) })) });
+  }, { admin: true });
+
+  router.post('/api/admin/leads/update', async (req, res) => {
+    const body = await parseBody(req);
+    const leadId = cleanText(body.leadId, 120);
+    const stage = cleanText(body.status, 40);
+    if (!LEAD_STAGES.includes(stage)) return json(res, 400, { ok: false, error: 'Estagio invalido' });
+    const saved = await updateDb(d => {
+      ensureCollections(d);
+      const lead = d.leads.find(l => l.id === leadId);
+      if (!lead) return null;
+      const previousStatus = lead.status;
+      lead.status = stage;
+      lead.updatedAt = now();
+      audit(d, sessionUser(req), 'LEAD_STAGE_UPDATED', { leadId: lead.id, from: previousStatus, to: stage });
+      return lead;
+    });
+    if (!saved) return json(res, 404, { ok: false, error: 'Lead nao encontrado' });
+    return json(res, 200, { ok: true, lead: saved });
+  }, { admin: true });
+
+  router.post('/api/admin/operator/tourdiez/test', async (req, res) => {
+    const body = await parseBody(req);
+    const { tourdiezAdapter } = ctx;
+    const checkin = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const nights = Number(body.nights || 5);
+    const checkout = new Date(checkin.getTime() + nights * 24 * 60 * 60 * 1000);
+    // Sem accomodationsCode fixo por omissao: confirmado por teste direto
+    // que esse filtro devolve sempre "sem dados" na sandbox, mesmo com um
+    // unico codigo valido. Pesquisar so por city devolve dados reais - ver
+    // o mesmo raciocinio em operatorAdapters.js#defaultSearchParams.
+    const testParams = {
+      city: process.env.TOURDIEZ_DEFAULT_CITY || 'ES00634',
+      checkin: checkin.toISOString().slice(0, 10),
+      checkout: checkout.toISOString().slice(0, 10),
+      nights,
+      adults: 2,
+      children: 0,
+      retrieveCancelPolicies: true,
+      ...body
+    };
+    try {
+      const login = await tourdiezAdapter.client.login();
+      const avail = await tourdiezAdapter.search(testParams);
+      await updateDb(db => { addOperatorLog(db, 'TEST_LOGIN', login); addOperatorLog(db, 'TEST_AVAIL', avail); });
+      return json(res, 200, { ok: true, configured: tourdiezAdapter.isConfigured(), tourdiezOk: true, params: testParams, login, availability: avail });
+    } catch (e) {
+      await updateDb(db => addOperatorLog(db, 'TEST_ERROR', { error: e.message, params: testParams }));
+      return json(res, 200, { ok: true, configured: tourdiezAdapter.isConfigured(), tourdiezOk: false, params: testParams, error: e.message });
+    }
+  }, { admin: true });
+};
