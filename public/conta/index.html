@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>A minha conta - Boomviagens</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/conta/css/shell.css" />
+  <link rel="stylesheet" href="/conta/css/dashboard.css" />
+  <link rel="stylesheet" href="/conta/css/reservations.css" />
+  <link rel="stylesheet" href="/conta/css/documents.css" />
+</head>
+<body>
+  <div id="loginGate" class="login-gate">
+    <form id="loginEmailForm" class="login-card">
+      <p class="login-eyebrow">boomviagens.pt</p>
+      <h1>A minha conta</h1>
+      <p class="muted">Entre com o email da sua reserva para aceder às suas viagens, documentos e pagamentos.</p>
+      <label>Email <input name="email" type="email" placeholder="o-seu-email@exemplo.pt" required /></label>
+      <button class="btn wide" type="submit">Pedir código</button>
+      <p id="loginEmailMessage" class="login-message"></p>
+    </form>
+
+    <form id="loginCodeForm" class="login-card" hidden>
+      <p class="login-eyebrow">boomviagens.pt</p>
+      <h1>Confirme o código</h1>
+      <p class="muted">Enviámos um código de acesso para o seu email.</p>
+      <label>Código <input name="code" inputmode="numeric" maxlength="6" placeholder="123456" required /></label>
+      <button class="btn wide" type="submit">Confirmar</button>
+      <button type="button" id="backToEmailBtn" class="ghost wide">Usar outro email</button>
+      <p id="loginCodeMessage" class="login-message"></p>
+    </form>
+  </div>
+
+  <div id="appShell" class="app-shell" hidden>
+    <aside class="sidebar">
+      <div class="sidebar-profile">
+        <div class="sidebar-avatar" id="avatarInitial">?</div>
+        <div>
+          <div class="sidebar-profile-name" id="profileName">Olá!</div>
+          <div class="sidebar-profile-sub" id="profileSub"></div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button type="button" class="nav-item is-active" data-view="dashboard">
+          <span class="nav-item-icon">🏠</span>Dashboard
+        </button>
+        <button type="button" class="nav-item" data-view="viagens">
+          <span class="nav-item-icon">🧳</span>As minhas viagens
+        </button>
+        <button type="button" class="nav-item" data-view="anteriores">
+          <span class="nav-item-icon">📅</span>Reservas anteriores
+        </button>
+        <button type="button" class="nav-item" data-view="documentos">
+          <span class="nav-item-icon">📄</span>Documentos
+        </button>
+        <button type="button" class="nav-item" data-view="pagamentos">
+          <span class="nav-item-icon">💳</span>Pagamentos
+        </button>
+        <button type="button" class="nav-item" data-view="dados">
+          <span class="nav-item-icon">👤</span>Os meus dados
+        </button>
+        <button type="button" class="nav-item is-disabled" disabled>
+          <span class="nav-item-icon">⚙️</span>Preferências<span class="soon-badge">em breve</span>
+        </button>
+        <button type="button" class="nav-item is-disabled" disabled>
+          <span class="nav-item-icon">💬</span>Mensagens<span class="soon-badge">em breve</span>
+        </button>
+        <button type="button" class="nav-item is-disabled" disabled>
+          <span class="nav-item-icon">🆘</span>Contactos de emergência<span class="soon-badge">em breve</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-help">
+        <h4>Precisa de ajuda?</h4>
+        <p>A nossa equipa responde por email ou telefone.</p>
+        <a id="helpPhone" href="#"></a>
+        <a id="helpEmail" href="#"></a>
+      </div>
+
+      <div class="sidebar-footer">
+        <a class="sidebar-footer-link" href="/">← Voltar ao site</a>
+        <button type="button" id="logoutBtn" class="sidebar-footer-link">Terminar sessão</button>
+      </div>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <h1 id="pageTitle">Dashboard</h1>
+      </header>
+
+      <main class="content">
+        <section id="view-dashboard" class="view"></section>
+        <section id="view-viagens" class="view" hidden></section>
+        <section id="view-anteriores" class="view" hidden></section>
+        <section id="view-documentos" class="view" hidden></section>
+        <section id="view-pagamentos" class="view" hidden></section>
+        <section id="view-dados" class="view" hidden></section>
+      </main>
+    </div>
+  </div>
+
+  <script type="module" src="/conta/js/main.js"></script>
+</body>
+</html>

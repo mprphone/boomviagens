@@ -62,7 +62,7 @@
         </div>
       </div>
 
-      <a href="#areaCliente">Area de Cliente</a>
+      <a href="/conta/">Area de Cliente</a>
       <a href="/backoffice/">Backoffice</a>
       <a href="#legal">Legal</a>
     </nav>
@@ -249,32 +249,6 @@
         </div>
       </div>
     </div>
-
-    <section id="areaCliente" class="panel">
-      <div class="section-head">
-        <div>
-          <p class="eyebrow">Area de cliente</p>
-          <h2>As suas reservas</h2>
-        </div>
-        <button id="customerLogout" class="ghost" hidden>Terminar sessao</button>
-      </div>
-
-      <form id="customerLoginForm" class="admin-login">
-        <label>Email <input name="email" type="email" placeholder="o-seu-email@exemplo.pt" required /></label>
-        <button class="btn" type="submit">Pedir codigo</button>
-        <p id="customerLoginMessage">Entre com o seu email para ver as suas reservas.</p>
-      </form>
-
-      <form id="customerCodeForm" class="admin-login" hidden>
-        <label>Codigo recebido <input name="code" inputmode="numeric" maxlength="6" placeholder="123456" required /></label>
-        <button class="btn" type="submit">Confirmar</button>
-        <p id="customerCodeMessage"></p>
-      </form>
-
-      <div id="customerContent" hidden>
-        <div id="customerReservations" class="mini-list"></div>
-      </div>
-    </section>
 
     <section id="legal" class="panel legal">
       <h2>Elementos legais a completar antes de producao</h2>

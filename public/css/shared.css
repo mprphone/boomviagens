@@ -1,21 +1,5 @@
-/* Componentes usados em varias paginas: modais genericos, o formulario
-   de login simples (area de cliente e backoffice), chat flutuante e
-   rodape. */
-
-.admin-login[hidden] { display: none; }
-
-.admin-login {
-  display: grid;
-  grid-template-columns: 1fr 1fr auto;
-  align-items: end;
-  gap: 14px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  padding: 16px;
-  background: #f9fbfd;
-}
-
-.admin-login p { grid-column: 1 / -1; margin: 0; color: var(--muted); font-weight: 600; }
+/* Componentes usados em varias paginas: modais genericos, chat
+   flutuante e rodape. */
 
 .modal-overlay {
   position: fixed;
@@ -127,7 +111,6 @@ footer {
 }
 
 @media (max-width: 760px) {
-  .admin-login { grid-template-columns: 1fr; }
   .footer-grid { grid-template-columns: 1fr; }
   .chat { position: static; width: auto; margin: 22px 14px; }
 }

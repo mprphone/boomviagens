@@ -1,0 +1,49 @@
+/* Vistas "As minhas viagens" e "Reservas anteriores": lista de
+   cartoes de reserva. */
+
+.trip-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.trip-card {
+  display: grid;
+  grid-template-columns: 72px 1fr auto;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: var(--shadow-sm);
+}
+
+.trip-card-media {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 72px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, var(--accent), #0284c7);
+  font-size: 26px;
+}
+
+.trip-card-body b { display: block; font-size: 14.5px; margin-bottom: 2px; }
+.trip-card-body span { display: block; font-size: 12.5px; color: var(--muted); }
+.trip-card-body .trip-dates { margin-top: 4px; font-weight: 600; color: var(--ink-soft); }
+
+.trip-card-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.trip-card-side strong { font-family: var(--font-display); font-size: 16px; }
+
+@media (max-width: 640px) {
+  .trip-card { grid-template-columns: 1fr; }
+  .trip-card-media { width: 100%; }
+  .trip-card-side { align-items: flex-start; }
+}

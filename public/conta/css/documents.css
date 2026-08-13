@@ -1,0 +1,74 @@
+/* Vista "Documentos": uma reserva por bloco, com a lista de documentos
+   anexados e o formulario para anexar mais um. */
+
+.doc-reservation {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px;
+  background: var(--card);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 14px;
+}
+
+.doc-reservation-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.doc-reservation-head b { font-size: 14px; }
+.doc-reservation-head span { font-size: 12px; color: var(--muted); }
+
+.doc-missing-note {
+  margin: 8px 0 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--amber-bg);
+  color: var(--amber);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.doc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.doc-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+
+.doc-type { font-weight: 700; color: var(--ink-soft); }
+.doc-item a { color: var(--accent-dark); font-weight: 700; text-decoration: none; }
+
+.doc-upload-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.doc-upload-form select,
+.doc-upload-form input[type="text"],
+.doc-upload-form input[type="file"] {
+  width: auto;
+  padding: 7px 8px;
+  font-size: 12px;
+}
+
+.mini-action {
+  min-height: 32px;
+  padding: 7px 12px;
+  font-size: 12px;
+}
