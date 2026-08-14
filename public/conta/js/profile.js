@@ -23,6 +23,7 @@ export async function renderDados() {
         <label>Nome completo <input name="name" value="${esc(c.name || '')}" /></label>
         <label>Telefone <input name="phone" value="${esc(c.phone || '')}" /></label>
         <label>Contribuinte (NIF) <input name="nif" value="${esc(c.nif || '')}" pattern="[0-9]{9}" maxlength="9" /></label>
+        <label>Morada <span class="muted">(opcional)</span> <input name="address" value="${esc(c.address || '')}" placeholder="Rua, número, código postal, localidade" /></label>
         <button class="btn" type="submit">Guardar alterações</button>
         <p id="profileMessage" class="muted" style="margin:0"></p>
       </form>
@@ -37,7 +38,7 @@ export async function renderDados() {
     try {
       await api('/api/customer/profile', {
         method: 'POST',
-        body: JSON.stringify({ name: e.target.name.value, phone: e.target.phone.value, nif: e.target.nif.value })
+        body: JSON.stringify({ name: e.target.name.value, phone: e.target.phone.value, nif: e.target.nif.value, address: e.target.address.value })
       });
       msg.textContent = 'Dados guardados.';
     } catch (err) {

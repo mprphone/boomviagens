@@ -42,6 +42,9 @@ create table if not exists public.customers (
   name text not null,
   email text not null unique,
   phone text,
+  nif text,
+  address text,
+  notes text,
   passengers jsonb not null default '[]'::jsonb
 );
 

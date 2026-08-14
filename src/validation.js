@@ -32,9 +32,22 @@ function phone(value) {
   return cleaned;
 }
 
+// Digito de controlo do NIF portugues: soma ponderada dos primeiros 8
+// digitos (peso 9..2), resto da divisao por 11 - resto<2 da digito 0,
+// caso contrario digito = 11-resto. So aceita o formato PT (9 digitos);
+// NIFs estrangeiros nao tem este algoritmo e ficam de fora por agora.
+function isValidNif(digits) {
+  if (!/^\d{9}$/.test(digits)) return false;
+  const d = digits.split('').map(Number);
+  const sum = d.slice(0, 8).reduce((acc, digit, i) => acc + digit * (9 - i), 0);
+  const remainder = sum % 11;
+  const expected = remainder < 2 ? 0 : 11 - remainder;
+  return expected === d[8];
+}
+
 function nif(value) {
   const cleaned = optionalText(value, 9).replace(/\D/g, '');
-  if (cleaned && !/^\d{9}$/.test(cleaned)) throw new Error('NIF invalido');
+  if (cleaned && !isValidNif(cleaned)) throw new Error('NIF invalido');
   return cleaned;
 }
 
@@ -60,6 +73,7 @@ function customerPayload(body = {}) {
     email: email(body.email),
     phone: phone(body.phone),
     nif: nif(body.nif),
+    address: optionalText(body.address, 200),
     passengers: Array.isArray(body.passengers) ? body.passengers.slice(0, 12).map(passengerPayload) : []
   };
 }

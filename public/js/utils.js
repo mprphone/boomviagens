@@ -24,6 +24,19 @@ export function formToJson(form) {
   return Object.fromEntries(new FormData(form).entries());
 }
 
+// Digito de controlo do NIF portugues - mesmo algoritmo do servidor
+// (src/validation.js#isValidNif), aqui so para dar feedback imediato no
+// formulario sem esperar por um pedido; o servidor continua a validar.
+export function isValidNif(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (!/^\d{9}$/.test(digits)) return false;
+  const d = digits.split('').map(Number);
+  const sum = d.slice(0, 8).reduce((acc, digit, i) => acc + digit * (9 - i), 0);
+  const remainder = sum % 11;
+  const expected = remainder < 2 ? 0 : 11 - remainder;
+  return expected === d[8];
+}
+
 export function statusLabel(status) {
   return ({
     NEW_LEAD: 'Nova lead',

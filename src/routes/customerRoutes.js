@@ -107,7 +107,8 @@ module.exports = function registerCustomerRoutes(router, ctx) {
     const updates = {
       name: cleanText(body.name, 120),
       phone: cleanText(body.phone, 40),
-      nif: cleanText(body.nif, 20)
+      nif: cleanText(body.nif, 20),
+      address: cleanText(body.address, 200)
     };
     const customer = await updateDb(db => {
       ensureCollections(db);

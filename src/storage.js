@@ -172,6 +172,9 @@ function rowToCustomer(row) {
     name: row.name,
     email: row.email,
     phone: row.phone || '',
+    nif: row.nif || '',
+    address: row.address || '',
+    notes: row.notes || '',
     passengers: row.passengers || []
   };
 }
@@ -184,6 +187,9 @@ function customerToRow(c) {
     name: c.name || 'Cliente',
     email: c.email,
     phone: c.phone || null,
+    nif: c.nif || null,
+    address: c.address || null,
+    notes: c.notes || null,
     passengers: c.passengers || []
   };
 }
