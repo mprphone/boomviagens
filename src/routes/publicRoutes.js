@@ -2,8 +2,8 @@
 // destaques da homepage, saude do servico e o chat local.
 
 module.exports = function registerPublicRoutes(router, ctx) {
-  const { json, readDb, updateDb, operators, tourdiezAdapter, searchOffers, baseOffers, getOfferById, searchPayload, normalize, rateLimit, domain, proposalEmail } = ctx;
-  const { publicDeals, ensureCollections, addOperatorLog, audit, id, now } = domain;
+  const { json, readDb, updateDb, operators, tourdiezAdapter, searchOffers, baseOffers, getOfferById, searchPayload, normalize, rateLimit, domain } = ctx;
+  const { publicDeals, ensureCollections, addOperatorLog, now } = domain;
 
   router.get('/api/health', async (req, res) => {
     return json(res, 200, { ok: true, service: 'Boomviagens', time: now(), mode: process.env.TOURDIEZ_MODE || 'mock' });
@@ -77,19 +77,15 @@ module.exports = function registerPublicRoutes(router, ctx) {
         operatorStatus = { source: 'demo_fallback', message: 'TourDiez indisponivel neste momento; a mostrar alternativas demo.', error: e.message };
       }
     }
-    // O estagio arranca em PROPOSTA_ENVIADA porque todo o lead recebe logo
-    // a seguir um email de proposta automatico (ver mais abaixo) - nao ha
-    // um estagio "so pesquisou, sem proposta" neste fluxo.
-    const lead = { id: id('lead'), createdAt: now(), search: { ...parsed, name: body.name, email: body.email, operatorStatus }, source: body.source || 'site', status: 'PROPOSTA_ENVIADA', topResult: results[0] };
-    const email = proposalEmail({ customer: { name: body.name || 'Cliente' }, results, search: parsed });
-    await updateDb(d => {
-      ensureCollections(d);
-      d.leads.unshift(lead);
-      d.emails.unshift({ id: id('email'), createdAt: now(), to: body.email || 'cliente@exemplo.pt', status: 'GERADO_DEMO', ...email });
-      if (operatorLog) addOperatorLog(d, operatorLog.type, operatorLog.payload);
-      audit(d, 'site', 'SEARCH_CREATED', { leadId: lead.id, destination: parsed.destination });
-    });
-    return json(res, 200, { ok: true, parsed, results, operatorStatus, leadId: lead.id, message: 'Pesquisa feita, proposta gerada e lead criado.' });
+    // Uma pesquisa, por si so, nao e um interesse - a maioria e so
+    // curiosidade/comparacao de precos. Criar um lead (e mandar email) por
+    // cada pesquisa poluia o pipeline de Interesses sem sinal nenhum de
+    // intencao real (o "email" nem sequer vinha do visitante - era sempre o
+    // mesmo valor fixo escondido no formulario). Registar aqui apenas o log
+    // tecnico do operador; o lead so nasce mais tarde, quando ha um sinal
+    // real de interesse (ex.: avancar para o checkout).
+    if (operatorLog) await updateDb(d => { ensureCollections(d); addOperatorLog(d, operatorLog.type, operatorLog.payload); });
+    return json(res, 200, { ok: true, parsed, results, operatorStatus });
   });
 
   router.post('/api/chat', async (req, res) => {
