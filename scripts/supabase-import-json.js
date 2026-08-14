@@ -1,10 +1,7 @@
 require('dotenv').config();
-const fs = require('fs');
-const path = require('path');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const DB_PATH = path.join(__dirname, '..', 'data', 'db.json');
 
 if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
   console.error('Defina SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY antes de importar.');
@@ -16,7 +13,15 @@ if (SUPABASE_URL.includes('PROJECT_REF') || SERVICE_ROLE_KEY.includes('colocar_'
   process.exit(1);
 }
 
-const db = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
+// Le sempre do backend local ativo (DB_MODE=local ou sqlite) - nunca de
+// data/db.json diretamente, que fica desatualizado assim que se muda para
+// DB_MODE=sqlite (como aconteceu aqui: db.json tinha menos de metade dos
+// registos que ja estavam na base sqlite ativa).
+if (process.env.DB_MODE === 'supabase') {
+  console.error('DB_MODE esta como supabase - mude temporariamente para local ou sqlite para importar de la para o Supabase.');
+  process.exit(1);
+}
+const { readDb } = require('../src/storage');
 
 async function upsert(table, rows, onConflict = 'id') {
   if (!rows.length) return;
@@ -40,6 +45,8 @@ function ts(value) {
 }
 
 (async () => {
+  const db = await readDb();
+
   await upsert('company_settings', [{
     id: 'main',
     name: db.company.name,
@@ -77,7 +84,7 @@ function ts(value) {
     email: c.email,
     phone: c.phone || null,
     passengers: c.passengers || []
-  })));
+  })), 'email');
 
   await upsert('leads', (db.leads || []).map(l => ({
     id: l.id,
