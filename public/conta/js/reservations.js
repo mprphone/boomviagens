@@ -14,6 +14,7 @@ function isPast(reservation) {
 
 function tripCard(r) {
   const offer = r.offer || {};
+  const needsPayment = r.payment && r.payment.status !== 'PAID';
   return `
     <article class="trip-card">
       <div class="trip-card-media" aria-hidden="true">🏨</div>
@@ -25,6 +26,7 @@ function tripCard(r) {
       <div class="trip-card-side">
         <span class="pill ${r.status === 'CONFIRMED' ? 'ok' : r.status === 'CANCELLED' ? 'bad' : 'info'}">${esc(statusLabel(r.status))}</span>
         <strong>${money(offer.finalPrice)}</strong>
+        ${needsPayment ? `<button class="btn mini-action pay-now" data-payment="${esc(r.payment.id)}">Pagar agora</button>` : ''}
       </div>
     </article>`;
 }
@@ -41,6 +43,21 @@ async function renderList(elId, filterFn, emptyMessage) {
   }
   const list = data.reservations.filter(filterFn);
   el.innerHTML = `<div class="trip-list">${list.map(tripCard).join('') || `<p class="empty-note">${emptyMessage}</p>`}</div>`;
+
+  el.querySelectorAll('.pay-now').forEach(btn => {
+    btn.onclick = async () => {
+      btn.disabled = true;
+      btn.textContent = 'A confirmar...';
+      try {
+        await api('/api/payment/confirm', { method: 'POST', body: JSON.stringify({ paymentId: btn.dataset.payment }) });
+        await renderList(elId, filterFn, emptyMessage);
+      } catch (err) {
+        alert(err.message);
+        btn.disabled = false;
+        btn.textContent = 'Pagar agora';
+      }
+    };
+  });
 }
 
 export function renderViagens() {

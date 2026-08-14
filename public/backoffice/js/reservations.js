@@ -57,9 +57,10 @@ function renderTable() {
     <div class="reservation-row">
       <div class="reservation-row-top">
         <div class="reservation-main">
-          <b>${esc(r.id)}</b> - ${esc(r.customer?.name)} (${esc(r.customer?.email)})<br>
+          <b>${esc(r.id)}</b> - ${esc(r.customer?.name)} (<a href="mailto:${esc(r.customer?.email)}">${esc(r.customer?.email)}</a>${r.customer?.phone ? ` · <a href="tel:${esc(r.customer.phone)}">${esc(r.customer.phone)}</a>` : ''})<br>
           ${esc(r.offer?.hotel)} - ${esc(r.offer?.destination)} - ${money(r.offer?.finalPrice)}
           <div class="muted">Criado em ${new Date(r.createdAt).toLocaleString('pt-PT')}</div>
+          ${r.status === 'PENDING_PAYMENT' ? '<div class="pill pill-warning">💬 Pagamento pendente - considerar contactar o cliente</div>' : ''}
           ${r.missingDocuments?.length ? `<div class="pill pill-warning">Falta: ${esc(r.missingDocuments.join(', '))}</div>` : '<div class="pill pill-ok">Documentos completos</div>'}
         </div>
         <div class="reservation-actions">

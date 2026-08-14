@@ -10,9 +10,10 @@
 const crypto = require('crypto');
 
 module.exports = function registerCheckoutRoutes(router, ctx) {
-  const { json, parseBody, readDb, updateDb, operators, customerPayload, paymentMethod, cleanText, domain, reservationEmail } = ctx;
+  const { json, unauthorized, parseBody, readDb, updateDb, operators, customerPayload, paymentMethod, cleanText, domain, reservationEmail } = ctx;
   const { ensureCollections, audit, addOperatorLog, id, now } = domain;
   const { rateLimit } = ctx;
+  const { customerSessionEmail } = ctx.auth;
 
   router.post('/api/checkout', async (req, res) => {
     const limited = rateLimit(req, res, 'checkout', 30, 60 * 1000);
@@ -98,6 +99,12 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
     if (!payment) return json(res, 404, { ok: false, error: 'Pagamento nao encontrado' });
     const reservation = db.reservations.find(r => r.id === payment.reservationId);
     if (!reservation) return json(res, 404, { ok: false, error: 'Reserva nao encontrada' });
+    // O checkout exige email verificado antes de chegar aqui (ver
+    // billingStep.js), por isso a sessao do cliente ja deve corresponder ao
+    // dono da reserva - sem isto, qualquer pessoa que adivinhasse um
+    // paymentId conseguia confirmar o pagamento de outra reserva.
+    const customerEmail = customerSessionEmail(req);
+    if (!customerEmail || customerEmail !== reservation.customer?.email) return unauthorized(res);
 
     const adapter = operators.getForOffer(reservation.offer);
     const validation = await adapter.value({ offer: reservation.offer, reservation });

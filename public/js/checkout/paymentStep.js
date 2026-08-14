@@ -35,9 +35,26 @@ export function renderCheckoutStep3(data) {
       <div class="secure-box">Reserva <b>${data.reservation.id}</b> criada. Ainda sem emissao final ate o pagamento e a disponibilidade serem validados.</div>
       <div id="checkoutPaymentError"></div>
       <button class="btn wide" id="confirmPayment" type="button">Confirmar pagamento (simulado)</button>
+      <button class="ghost wide" id="saveForLater" type="button">Guardar e continuar mais tarde</button>
       <p class="trust-note">Ambiente de testes: este pagamento e simulado. Em producao liga a SIBS, Easypay, Ifthenpay, EuPago ou Stripe.</p>
     </div>`;
   $('#confirmPayment').onclick = onConfirmPayment;
+  $('#saveForLater').onclick = () => renderSavedForLater(data);
+}
+
+// A reserva e o pagamento ja existem (status PENDING_PAYMENT/PENDING) desde
+// que a etapa de Passageiros terminou - nao ha nada extra a gravar aqui, so
+// tranquilizar quem nao tem o cartao a mao agora e dizer onde retomar.
+function renderSavedForLater(data) {
+  $('#checkoutMain').innerHTML = `
+    <div class="confirmation-state">
+      <div class="confirmation-icon">💾</div>
+      <h3>Reserva guardada</h3>
+      <p class="muted">Referencia <b>${data.reservation.id}</b> fica guardada em seu nome. Pode concluir o pagamento quando quiser, sem preencher nada outra vez.</p>
+      <p class="secure-box">Va a <b>Área de Cliente → As minhas viagens</b> e escolha esta reserva para retomar o pagamento.</p>
+      <button class="ghost" type="button" id="checkoutSavedDone">Fechar</button>
+    </div>`;
+  $('#checkoutSavedDone').onclick = () => closeCheckoutModal();
 }
 
 function renderCheckoutStep4(data) {

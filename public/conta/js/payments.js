@@ -30,7 +30,23 @@ export async function renderPagamentos() {
           <div class="payment-row-side">
             <strong>${money(r.payment.amount)}</strong>
             <span class="pill ${r.payment.status === 'PAID' ? 'ok' : 'warn'}">${r.payment.status === 'PAID' ? 'Pago' : 'Pendente'}</span>
+            ${r.payment.status !== 'PAID' ? `<button class="ghost mini-action pay-now" data-payment="${esc(r.payment.id)}">Pagar agora</button>` : ''}
           </div>
         </div>`).join('')}
     </div>`;
+
+  el.querySelectorAll('.pay-now').forEach(btn => {
+    btn.onclick = async () => {
+      btn.disabled = true;
+      btn.textContent = 'A confirmar...';
+      try {
+        await api('/api/payment/confirm', { method: 'POST', body: JSON.stringify({ paymentId: btn.dataset.payment }) });
+        await renderPagamentos();
+      } catch (err) {
+        alert(err.message);
+        btn.disabled = false;
+        btn.textContent = 'Pagar agora';
+      }
+    };
+  });
 }
