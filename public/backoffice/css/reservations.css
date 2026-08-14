@@ -66,13 +66,79 @@
 .pill-warning { background: var(--red-bg); color: var(--red); }
 .pill-ok { background: var(--green-bg); color: var(--green); }
 
-.reservation-documents {
+.reservation-documents,
+.reservation-file {
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px dashed var(--line);
 }
 
-.reservation-documents[hidden] { display: none; }
+.reservation-documents[hidden],
+.reservation-file[hidden] { display: none; }
+
+/* Ficha de Reserva (separadores Resumo/Passageiros/Documentos/Emissoes) -
+   reutiliza .customer-tabs/.customer-tab/.customer-profile-grid ja
+   definidos em customers.css. */
+
+.summary-financial-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.summary-financial-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+
+.summary-financial-block strong { font-family: var(--font-display); font-size: 15px; }
+
+.summary-vat-note {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin-bottom: 12px;
+  background: var(--blue-bg, #eef1fb);
+  font-size: 12.5px;
+}
+
+.summary-vat-note p { margin: 0 0 8px; }
+.summary-vat-note p:last-child { margin-bottom: 0; }
+
+.summary-detail-line { margin-top: 6px; font-size: 12.5px; color: var(--ink-soft); }
+
+.passenger-table {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.passenger-table-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 12.5px;
+}
+
+.invoice-notice {
+  border: 1px solid #f0d3ae;
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin-bottom: 14px;
+  background: #fdf6ea;
+  font-size: 12.5px;
+}
+
+.invoice-notice p { margin: 0; }
 
 .doc-list {
   display: flex;

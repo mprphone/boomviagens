@@ -79,7 +79,11 @@ create table if not exists public.reservations (
   operator_validation_at timestamptz,
   operator_confirmation text,
   operator_locator text,
-  confirmed_at timestamptz
+  confirmed_at timestamptz,
+  vat_regime text not null default 'MARGEM',
+  invoice_number text,
+  invoice_date text,
+  invoice_system text
 );
 
 create index if not exists reservations_status_idx on public.reservations(status);

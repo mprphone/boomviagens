@@ -42,7 +42,8 @@ CREATE TABLE IF NOT EXISTS reservations (
   id TEXT PRIMARY KEY, created_at TEXT, updated_at TEXT, status TEXT, customer TEXT,
   passengers TEXT, offer TEXT, operator TEXT, source TEXT, notes TEXT,
   payment_received_at TEXT, operator_validation TEXT, operator_validation_at TEXT,
-  operator_confirmation TEXT, operator_locator TEXT, confirmed_at TEXT
+  operator_confirmation TEXT, operator_locator TEXT, confirmed_at TEXT,
+  vat_regime TEXT, invoice_number TEXT, invoice_date TEXT, invoice_system TEXT
 );
 CREATE INDEX IF NOT EXISTS reservations_status_idx ON reservations(status);
 CREATE TABLE IF NOT EXISTS payments (
@@ -169,7 +170,9 @@ function rowToReservation(row) {
     operator: row.operator || undefined, source: row.source, notes: row.notes || undefined,
     paymentReceivedAt: row.payment_received_at || undefined, operatorValidation: row.operator_validation || undefined,
     operatorValidationAt: row.operator_validation_at || undefined, operatorConfirmation: row.operator_confirmation || undefined,
-    operatorLocator: row.operator_locator || undefined, confirmedAt: row.confirmed_at || undefined
+    operatorLocator: row.operator_locator || undefined, confirmedAt: row.confirmed_at || undefined,
+    vatRegime: row.vat_regime || 'MARGEM', invoiceNumber: row.invoice_number || undefined,
+    invoiceDate: row.invoice_date || undefined, invoiceSystem: row.invoice_system || undefined
   };
 }
 
@@ -255,8 +258,8 @@ function writeDbSqlite(dbState) {
     const insLead = conn.prepare('INSERT INTO leads (id, created_at, updated_at, source, status, search, top_result) VALUES (?,?,?,?,?,?,?)');
     for (const l of dbState.leads || []) insLead.run(l.id, l.createdAt, l.updatedAt || null, l.source || 'site', l.status, j(l.search || {}), j(l.topResult));
 
-    const insRes = conn.prepare(`INSERT INTO reservations (id, created_at, updated_at, status, customer, passengers, offer, operator, source, notes, payment_received_at, operator_validation, operator_validation_at, operator_confirmation, operator_locator, confirmed_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
-    for (const r of dbState.reservations || []) insRes.run(r.id, r.createdAt, r.updatedAt || null, r.status, j(r.customer || {}), j(r.passengers || []), j(r.offer || {}), r.operator || null, r.source || 'site', r.notes || null, r.paymentReceivedAt || null, r.operatorValidation || null, r.operatorValidationAt || null, r.operatorConfirmation || null, r.operatorLocator || null, r.confirmedAt || null);
+    const insRes = conn.prepare(`INSERT INTO reservations (id, created_at, updated_at, status, customer, passengers, offer, operator, source, notes, payment_received_at, operator_validation, operator_validation_at, operator_confirmation, operator_locator, confirmed_at, vat_regime, invoice_number, invoice_date, invoice_system) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+    for (const r of dbState.reservations || []) insRes.run(r.id, r.createdAt, r.updatedAt || null, r.status, j(r.customer || {}), j(r.passengers || []), j(r.offer || {}), r.operator || null, r.source || 'site', r.notes || null, r.paymentReceivedAt || null, r.operatorValidation || null, r.operatorValidationAt || null, r.operatorConfirmation || null, r.operatorLocator || null, r.confirmedAt || null, r.vatRegime || 'MARGEM', r.invoiceNumber || null, r.invoiceDate || null, r.invoiceSystem || null);
 
     const insPay = conn.prepare('INSERT INTO payments (id, created_at, reservation_id, method, amount, status, reference, paid_at, expires_at) VALUES (?,?,?,?,?,?,?,?,?)');
     for (const p of dbState.payments || []) insPay.run(p.id, p.createdAt, p.reservationId, p.method, p.amount, p.status, p.reference || null, p.paidAt || null, p.expiresAt || null);

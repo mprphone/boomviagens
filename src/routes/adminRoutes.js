@@ -5,7 +5,7 @@
 
 module.exports = function registerAdminRoutes(router, ctx) {
   const { json, parseBody, readDb, updateDb, operators, cleanText, numberInRange, domain, fileStorage, reservationEmail } = ctx;
-  const { ensureCollections, audit, addOperatorLog, missingDocumentsFor, statusLabel, leadStage, leadStageLabel, id, now, RESERVATION_STATUSES, LEAD_STAGES, DOCUMENT_TYPES, CONTACT_TYPES, COMPLAINT_STATUSES, sanitizeCustomer } = domain;
+  const { ensureCollections, audit, addOperatorLog, missingDocumentsFor, statusLabel, leadStage, leadStageLabel, id, now, RESERVATION_STATUSES, LEAD_STAGES, DOCUMENT_TYPES, CONTACT_TYPES, COMPLAINT_STATUSES, VAT_REGIMES, sanitizeCustomer } = domain;
   const { sessionUser, signToken, safeEqual, setSessionCookie, clearSessionCookie, rateLimit, SESSION_TTL_MS } = ctx.auth;
 
   // Impede que um duplo clique em "Aprovar no operador" chame
@@ -220,6 +220,33 @@ module.exports = function registerAdminRoutes(router, ctx) {
       resultPayload = { reservation: r };
     });
     return json(res, 200, { ok: true, ...resultPayload });
+  }, { admin: true });
+
+  // So registo/classificacao interna - a fatura real e emitida em software
+  // certificado pela AT (ex.: OptiTravel). Aqui so se guarda o numero/data
+  // depois de emitida la, e o regime de IVA aplicavel para calculo da
+  // margem (ver src/pricing.js#marginSchemeVat).
+  router.post('/api/admin/reservations/invoice', async (req, res) => {
+    const body = await parseBody(req);
+    const reservationId = cleanText(body.reservationId, 120);
+    const vatRegime = VAT_REGIMES.includes(body.vatRegime) ? body.vatRegime : null;
+    const updates = {};
+    if (vatRegime) updates.vatRegime = vatRegime;
+    if (body.invoiceNumber !== undefined) updates.invoiceNumber = cleanText(body.invoiceNumber, 60);
+    if (body.invoiceDate !== undefined) updates.invoiceDate = cleanText(body.invoiceDate, 30);
+    if (body.invoiceSystem !== undefined) updates.invoiceSystem = cleanText(body.invoiceSystem, 80);
+
+    const saved = await updateDb(d => {
+      ensureCollections(d);
+      const r = d.reservations.find(x => x.id === reservationId);
+      if (!r) return null;
+      Object.assign(r, updates);
+      r.updatedAt = now();
+      audit(d, sessionUser(req), 'RESERVATION_INVOICE_UPDATED', { reservationId, ...updates });
+      return r;
+    });
+    if (!saved) return json(res, 404, { ok: false, error: 'Reserva nao encontrada' });
+    return json(res, 200, { ok: true, reservation: saved });
   }, { admin: true });
 
   // Documento pode ficar ligado a uma reserva OU diretamente ao cliente

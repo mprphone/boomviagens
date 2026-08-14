@@ -45,4 +45,16 @@ function computeScore(item, context = {}) {
   return Math.round(Math.min(99, priceScore + ratingScore + cancellationScore + availabilityScore + regimeScore + operatorScore));
 }
 
-module.exports = { applyMargin, computeScore, findMarginRule, normalize };
+// Regime da margem (Art. 308-310 CIVA / Diretiva 2006/112/CE) - regra por
+// omissao das agencias de viagem que revendem pacotes comprados a
+// operadores terceiros (exatamente o que este site faz). O IVA incide so
+// sobre a margem, ja incluido no seu valor - por isso se extrai a taxa em
+// vez de a somar. So um calculo informativo: a fatura oficial tem de ser
+// emitida em software certificado pela AT (SAF-T PT), nao aqui.
+function marginSchemeVat(marginValue, vatRate = 23) {
+  const margin = Number(marginValue) || 0;
+  const vatAmount = Number((margin - margin / (1 + vatRate / 100)).toFixed(2));
+  return { vatAmount, netMargin: Number((margin - vatAmount).toFixed(2)) };
+}
+
+module.exports = { applyMargin, computeScore, findMarginRule, normalize, marginSchemeVat };

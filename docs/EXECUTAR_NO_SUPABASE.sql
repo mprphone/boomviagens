@@ -90,8 +90,18 @@ create table if not exists public.reservations (
   operator_validation_at timestamptz,
   operator_confirmation text,
   operator_locator text,
-  confirmed_at timestamptz
+  confirmed_at timestamptz,
+  vat_regime text not null default 'MARGEM',
+  invoice_number text,
+  invoice_date text,
+  invoice_system text
 );
+
+alter table public.reservations
+  add column if not exists vat_regime text not null default 'MARGEM',
+  add column if not exists invoice_number text,
+  add column if not exists invoice_date text,
+  add column if not exists invoice_system text;
 
 create index if not exists reservations_status_idx on public.reservations(status);
 create index if not exists reservations_created_at_idx on public.reservations(created_at desc);

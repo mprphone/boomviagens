@@ -8,6 +8,12 @@ const LEAD_STAGES = ['NOVA', 'EM_CONSULTA', 'PROPOSTA_ENVIADA', 'RESERVADO', 'PE
 const DOCUMENT_TYPES = ['PASSPORT', 'INSURANCE', 'OTHER'];
 const CONTACT_TYPES = ['CALL', 'EMAIL', 'WHATSAPP', 'IN_PERSON', 'OTHER'];
 const COMPLAINT_STATUSES = ['OPEN', 'IN_PROGRESS', 'RESOLVED'];
+// Regimes de IVA relevantes para agencias de viagem em Portugal. MARGEM e
+// a regra geral para pacotes comprados a operadores e revendidos (o
+// modelo de negocio deste site) - os outros ficam disponiveis para casos
+// especificos que a equipa identifique. So classificacao/calculo interno;
+// nao substitui software certificado para emitir a fatura real.
+const VAT_REGIMES = ['MARGEM', 'NORMAL', 'ISENTO', 'REDUZIDA'];
 
 function id(prefix) {
   return `${prefix}-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
@@ -120,6 +126,7 @@ module.exports = {
   DOCUMENT_TYPES,
   CONTACT_TYPES,
   COMPLAINT_STATUSES,
+  VAT_REGIMES,
   id,
   now,
   ensureCollections,

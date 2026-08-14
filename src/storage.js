@@ -245,7 +245,11 @@ function rowToReservation(row) {
     operatorValidationAt: row.operator_validation_at || undefined,
     operatorConfirmation: row.operator_confirmation || undefined,
     operatorLocator: row.operator_locator || undefined,
-    confirmedAt: row.confirmed_at || undefined
+    confirmedAt: row.confirmed_at || undefined,
+    vatRegime: row.vat_regime || 'MARGEM',
+    invoiceNumber: row.invoice_number || undefined,
+    invoiceDate: row.invoice_date || undefined,
+    invoiceSystem: row.invoice_system || undefined
   };
 }
 
@@ -266,7 +270,11 @@ function reservationToRow(r) {
     operator_validation_at: r.operatorValidationAt || null,
     operator_confirmation: r.operatorConfirmation || null,
     operator_locator: r.operatorLocator || null,
-    confirmed_at: r.confirmedAt || null
+    confirmed_at: r.confirmedAt || null,
+    vat_regime: r.vatRegime || 'MARGEM',
+    invoice_number: r.invoiceNumber || null,
+    invoice_date: r.invoiceDate || null,
+    invoice_system: r.invoiceSystem || null
   };
 }
 

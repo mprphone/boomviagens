@@ -1,8 +1,9 @@
-// Vista "Reservas": lista pesquisavel/filtravel, mudanca de estado e
-// gestao de documentos por reserva (a mesma logica que existia no
-// backoffice antigo embutido no site, so reestilizada para este shell).
+// Vista "Reservas": lista pesquisavel/filtravel com mudanca rapida de
+// estado; cada linha abre a Ficha de Reserva completa por separadores
+// (Resumo, Passageiros, Documentos, Emissoes) - ver ./reservations/*.js.
 
 import { $, esc, money, api } from './utils.js';
+import { openReservationDetail } from './reservations/reservationDetail.js';
 
 let allReservations = [];
 let statuses = [];
@@ -69,17 +70,17 @@ function renderTable() {
             ${statuses.map(s => `<option value="${s.value}" ${s.value === r.status ? 'selected' : ''}>${s.label}</option>`).join('')}
           </select>
           <button class="ghost mini-action reservation-save" data-reservation="${r.id}">Guardar</button>
-          <button class="ghost mini-action reservation-docs-toggle" data-reservation="${r.id}">Documentos</button>
+          <button class="btn mini-action reservation-open" data-reservation="${r.id}">Abrir ficha</button>
         </div>
       </div>
-      <div class="reservation-documents" data-reservation="${r.id}" hidden></div>
+      <div class="reservation-file" data-reservation="${r.id}" hidden></div>
     </div>`).join('') || '<p class="empty-note">Sem reservas.</p>';
 
   document.querySelectorAll('.reservation-save').forEach(btn => {
     btn.onclick = () => updateStatus(btn.dataset.reservation);
   });
-  document.querySelectorAll('.reservation-docs-toggle').forEach(btn => {
-    btn.onclick = () => toggleDocuments(btn.dataset.reservation);
+  document.querySelectorAll('.reservation-open').forEach(btn => {
+    btn.onclick = () => toggleFicha(btn.dataset.reservation);
   });
 }
 
@@ -93,103 +94,11 @@ async function updateStatus(reservationId) {
   }
 }
 
-async function toggleDocuments(reservationId) {
-  const panel = document.querySelector(`.reservation-documents[data-reservation="${reservationId}"]`);
+async function toggleFicha(reservationId) {
+  const panel = document.querySelector(`.reservation-file[data-reservation="${reservationId}"]`);
   if (!panel) return;
   if (!panel.hidden) { panel.hidden = true; return; }
-  document.querySelectorAll('.reservation-documents').forEach(el => { el.hidden = true; });
+  document.querySelectorAll('.reservation-file').forEach(el => { el.hidden = true; });
   panel.hidden = false;
-  await loadDocuments(reservationId, panel);
-}
-
-async function loadDocuments(reservationId, panel) {
-  panel.innerHTML = 'A carregar...';
-  try {
-    const data = await api(`/api/admin/documents?reservationId=${encodeURIComponent(reservationId)}`);
-    renderDocuments(reservationId, panel, data.documents);
-  } catch (err) {
-    panel.innerHTML = `<p class="error">${esc(err.message)}</p>`;
-  }
-}
-
-async function refreshKeepingDocsOpen(reservationId) {
-  await loadReservations();
-  const panel = document.querySelector(`.reservation-documents[data-reservation="${reservationId}"]`);
-  if (!panel) return;
-  panel.hidden = false;
-  await loadDocuments(reservationId, panel);
-}
-
-function renderDocuments(reservationId, panel, documents) {
-  panel.innerHTML = `
-    <div class="doc-list">
-      ${documents.map(d => `
-        <div class="doc-item">
-          <span class="doc-type">${d.type === 'PASSPORT' ? 'Passaporte/CC' : d.type === 'INSURANCE' ? 'Seguro' : 'Outro'}</span>
-          ${d.passengerName ? `<span class="muted">${esc(d.passengerName)}</span>` : ''}
-          <span class="muted">${esc(d.fileName)}</span>
-          <a href="${esc(d.signedUrl)}" target="_blank" rel="noopener">Ver</a>
-          <button class="ghost mini-action doc-delete" data-doc="${d.id}">Remover</button>
-        </div>`).join('') || '<div class="muted">Sem documentos anexados.</div>'}
-    </div>
-    <form class="doc-upload-form">
-      <select class="doc-type-select">
-        <option value="PASSPORT">Passaporte/Cartão de cidadão</option>
-        <option value="INSURANCE">Seguro de viagem</option>
-        <option value="OTHER">Outro</option>
-      </select>
-      <input type="text" class="doc-passenger-name" placeholder="Nome do passageiro">
-      <input type="file" class="doc-file-input" required>
-      <button type="submit" class="ghost mini-action">Anexar</button>
-    </form>`;
-
-  panel.querySelectorAll('.doc-delete').forEach(btn => {
-    btn.onclick = async () => {
-      if (!confirm('Remover este documento?')) return;
-      try {
-        await api('/api/admin/documents/delete', { method: 'POST', body: JSON.stringify({ documentId: btn.dataset.doc }) });
-        await refreshKeepingDocsOpen(reservationId);
-      } catch (err) { alert(err.message); }
-    };
-  });
-
-  const typeSelect = panel.querySelector('.doc-type-select');
-  const passengerInput = panel.querySelector('.doc-passenger-name');
-  const toggleField = () => { passengerInput.hidden = typeSelect.value !== 'PASSPORT'; };
-  typeSelect.onchange = toggleField;
-  toggleField();
-
-  panel.querySelector('.doc-upload-form').onsubmit = async ev => {
-    ev.preventDefault();
-    const fileInput = panel.querySelector('.doc-file-input');
-    const file = fileInput.files[0];
-    if (!file) return;
-    const submitBtn = ev.target.querySelector('button[type="submit"]');
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'A anexar...';
-    try {
-      const fileBase64 = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result.split(',')[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-      await api('/api/admin/documents/upload', {
-        method: 'POST',
-        body: JSON.stringify({
-          reservationId,
-          type: typeSelect.value,
-          passengerName: typeSelect.value === 'PASSPORT' ? passengerInput.value : undefined,
-          fileName: file.name,
-          mimeType: file.type,
-          fileBase64
-        })
-      });
-      await refreshKeepingDocsOpen(reservationId);
-    } catch (err) {
-      alert(err.message);
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Anexar';
-    }
-  };
+  await openReservationDetail(panel, reservationId);
 }
