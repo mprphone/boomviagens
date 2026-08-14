@@ -80,6 +80,19 @@
    reutiliza .customer-tabs/.customer-tab/.customer-profile-grid ja
    definidos em customers.css. */
 
+.reservation-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px dashed var(--line);
+}
+
+.reservation-status-row label { flex: 0 0 220px; }
+.reservation-status-row .customer-form-message { flex-basis: 100%; margin: 0; }
+
 .summary-financial-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));

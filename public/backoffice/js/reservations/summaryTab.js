@@ -3,7 +3,7 @@
 // calculo informativo para a equipa perceber o negocio - a fatura oficial
 // e sempre emitida em software certificado pela AT (ver ./invoiceTab.js).
 
-import { esc, money } from '../utils.js';
+import { esc, money, api } from '../utils.js';
 
 // Mesma formula de src/pricing.js#marginSchemeVat - duplicada aqui de
 // proposito (o backoffice nao importa ficheiros do servidor).
@@ -13,7 +13,7 @@ function marginSchemeVat(marginValue, vatRate = 23) {
   return { vatAmount, netMargin: Number((margin - vatAmount).toFixed(2)) };
 }
 
-export function renderSummaryTab(panel, reservation) {
+export function renderSummaryTab(panel, reservation, reload, statuses = []) {
   const offer = reservation.offer || {};
   const costPrice = Number(offer.costPrice) || 0;
   const finalPrice = Number(offer.finalPrice) || 0;
@@ -22,6 +22,15 @@ export function renderSummaryTab(panel, reservation) {
   const { vatAmount, netMargin } = marginSchemeVat(margin);
 
   panel.innerHTML = `
+    <div class="reservation-status-row">
+      <label>Estado da reserva
+        <select class="summary-status-select">
+          ${statuses.map(s => `<option value="${s.value}" ${s.value === reservation.status ? 'selected' : ''}>${s.label}</option>`).join('')}
+        </select>
+      </label>
+      <button type="button" class="btn mini-action summary-status-save">Guardar estado</button>
+      <p class="customer-form-message"></p>
+    </div>
     <div class="summary-financial-grid">
       <div class="summary-financial-block">
         <span class="muted small">Custo (NET)</span>
@@ -54,4 +63,20 @@ export function renderSummaryTab(panel, reservation) {
     <div class="summary-detail-line"><b>Operador:</b> ${esc(reservation.operator || 'não definido')}</div>
     ${reservation.notes ? `<div class="summary-detail-line"><b>Notas:</b> ${esc(reservation.notes)}</div>` : ''}
   `;
+
+  panel.querySelector('.summary-status-save').onclick = async () => {
+    const btn = panel.querySelector('.summary-status-save');
+    const msg = panel.querySelector('.customer-form-message');
+    const status = panel.querySelector('.summary-status-select').value;
+    btn.disabled = true;
+    btn.textContent = 'A guardar...';
+    try {
+      await api('/api/admin/reservations/update', { method: 'POST', body: JSON.stringify({ reservationId: reservation.id, status }) });
+      await reload();
+    } catch (err) {
+      msg.textContent = err.message;
+      btn.disabled = false;
+      btn.textContent = 'Guardar estado';
+    }
+  };
 }

@@ -38,6 +38,97 @@
 
 .customer-detail-line { margin-top: 8px; font-size: 12.5px; color: var(--ink-soft); }
 
+/* Modal generico (public/backoffice/js/modal.js) - a ficha de cliente ou
+   reserva abre aqui, separada da lista por baixo. */
+
+.bo-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, .5);
+}
+/* Mesmo bug de especificidade ja apanhado no site publico e no
+   login-gate do proprio backoffice: display:flex do autor ganha ao
+   [hidden] do user-agent stylesheet na mesma especificidade. */
+.bo-modal-overlay[hidden] { display: none; }
+
+.bo-modal-box {
+  width: min(760px, 100%);
+  max-height: min(85vh, 800px);
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: var(--shadow-lg, 0 24px 60px rgba(15, 23, 42, .22));
+  overflow: hidden;
+}
+
+.bo-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--line);
+  flex: 0 0 auto;
+}
+
+.bo-modal-title { margin: 0; font-size: 17px; }
+
+.bo-modal-close {
+  border: 0;
+  background: none;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+}
+.bo-modal-close:hover { background: var(--bg); color: var(--ink); }
+
+.bo-modal-body {
+  padding: 20px 22px 24px;
+  overflow-y: auto;
+  flex: 1 1 auto;
+}
+
+/* Tabelas de listagem (Clientes/Reservas) ao estilo de lista com colunas */
+.bo-table-wrap { overflow-x: auto; }
+
+.bo-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.bo-table th {
+  text-align: left;
+  padding: 10px 12px;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.bo-table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--line-soft, var(--line));
+  vertical-align: middle;
+}
+
+.bo-table tbody tr { cursor: pointer; transition: background .12s ease; }
+.bo-table tbody tr:hover { background: var(--bg); }
+.bo-table td.bo-table-actions { text-align: right; white-space: nowrap; }
+.bo-table td a { position: relative; z-index: 1; }
+
 /* Ficha do cliente com separadores (Geral / Viagens / Documentos /
    Contactos / Reclamacoes) - ver public/backoffice/js/customers/*.js */
 

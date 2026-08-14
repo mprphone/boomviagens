@@ -17,10 +17,11 @@ const TABS = [
 
 export async function openReservationDetail(container, reservationId, initialTab = 'resumo') {
   container.innerHTML = '<p class="muted">A carregar...</p>';
-  let reservation;
+  let reservation, statuses;
   try {
     const data = await api('/api/admin/reservations');
     reservation = data.reservations.find(r => r.id === reservationId);
+    statuses = data.statuses;
   } catch (err) {
     container.innerHTML = `<p class="error">${esc(err.message)}</p>`;
     return;
@@ -43,7 +44,7 @@ export async function openReservationDetail(container, reservationId, initialTab
   function showTab(key) {
     activeTab = key;
     container.querySelectorAll('.customer-tab').forEach(btn => btn.classList.toggle('is-active', btn.dataset.tab === key));
-    TABS.find(t => t.key === key).render(panel, reservation, reload);
+    TABS.find(t => t.key === key).render(panel, reservation, reload, statuses);
   }
 
   container.querySelectorAll('.customer-tab').forEach(btn => {

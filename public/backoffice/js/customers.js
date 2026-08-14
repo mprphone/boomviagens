@@ -1,8 +1,10 @@
-// Vista "Clientes": lista pesquisavel; cada cliente abre uma ficha
-// completa com separadores (Geral, Viagens, Documentos, Contactos,
-// Reclamacoes) - ver ./customers/customerDetail.js.
+// Vista "Clientes": lista em tabela (nome, email, telefone, NIF,
+// localidade, interesses, reservas); clicar numa linha abre a ficha
+// completa (Geral/Viagens/Documentos/Contactos/Reclamacoes) numa caixa
+// modal separada - ver ./customers/customerDetail.js e ./modal.js.
 
 import { $, esc, api } from './utils.js';
+import { openModal } from './modal.js';
 import { openCustomerDetail } from './customers/customerDetail.js';
 
 let allCustomers = [];
@@ -12,7 +14,7 @@ export async function renderClientes() {
   el.innerHTML = `
     <div class="panel">
       <input id="customersSearch" type="search" placeholder="Pesquisar por nome ou email..." style="margin-bottom:14px" />
-      <div id="customersList" class="customer-list"><p class="muted">A carregar...</p></div>
+      <div id="customersList"><p class="muted">A carregar...</p></div>
     </div>`;
 
   $('#customersSearch').addEventListener('input', renderList);
@@ -33,25 +35,39 @@ function renderList() {
   const query = $('#customersSearch').value.trim().toLowerCase();
   const filtered = allCustomers.filter(c => !query || `${c.name} ${c.email}`.toLowerCase().includes(query));
 
-  $('#customersList').innerHTML = filtered.map(c => `
-    <div class="customer-row">
-      <div class="customer-summary" data-email="${esc(c.email)}">
-        <b>${esc(c.name)}</b> - ${esc(c.email)}<br>
-        <span class="muted">${esc(c.phone)} · ${c.leadsCount} interesses · ${c.reservationsCount} reservas</span>
-      </div>
-      <div class="customer-detail" data-email="${esc(c.email)}" hidden></div>
-    </div>`).join('') || '<p class="empty-note">Sem clientes.</p>';
+  if (!filtered.length) {
+    $('#customersList').innerHTML = '<p class="empty-note">Sem clientes.</p>';
+    return;
+  }
 
-  document.querySelectorAll('.customer-summary').forEach(el => {
-    el.onclick = () => toggleDetail(el.dataset.email);
+  $('#customersList').innerHTML = `
+    <div class="bo-table-wrap">
+      <table class="bo-table">
+        <thead>
+          <tr>
+            <th>Nome</th><th>Email</th><th>Telefone</th><th>NIF</th><th>Localidade</th>
+            <th>Interesses</th><th>Reservas</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${filtered.map(c => `
+            <tr data-email="${esc(c.email)}">
+              <td><b>${esc(c.name)}</b></td>
+              <td><a href="mailto:${esc(c.email)}">${esc(c.email)}</a></td>
+              <td>${c.phone ? `<a href="tel:${esc(c.phone)}">${esc(c.phone)}</a>` : '—'}</td>
+              <td>${esc(c.nif || '—')}</td>
+              <td>${esc(c.city || '—')}</td>
+              <td>${c.leadsCount}</td>
+              <td>${c.reservationsCount}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+
+  document.querySelectorAll('#customersList tbody tr').forEach(row => {
+    row.onclick = () => {
+      const panel = openModal(`Cliente - ${row.dataset.email}`);
+      openCustomerDetail(panel, row.dataset.email);
+    };
   });
-}
-
-async function toggleDetail(email) {
-  const detailEl = document.querySelector(`.customer-detail[data-email="${email}"]`);
-  if (!detailEl) return;
-  if (!detailEl.hidden) { detailEl.hidden = true; return; }
-  document.querySelectorAll('.customer-detail').forEach(el => { el.hidden = true; });
-  detailEl.hidden = false;
-  await openCustomerDetail(detailEl, email);
 }

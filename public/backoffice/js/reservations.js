@@ -1,8 +1,10 @@
-// Vista "Reservas": lista pesquisavel/filtravel com mudanca rapida de
-// estado; cada linha abre a Ficha de Reserva completa por separadores
-// (Resumo, Passageiros, Documentos, Emissoes) - ver ./reservations/*.js.
+// Vista "Reservas": lista em tabela (id, cliente, destino, datas, pax,
+// estado, documentos, preco); clicar numa linha abre a Ficha de Reserva
+// completa (Resumo/Passageiros/Documentos/Emissoes) numa caixa modal
+// separada - ver ./reservations/reservationDetail.js e ./modal.js.
 
 import { $, esc, money, api } from './utils.js';
+import { openModal } from './modal.js';
 import { openReservationDetail } from './reservations/reservationDetail.js';
 
 let allReservations = [];
@@ -16,7 +18,7 @@ export async function renderReservas() {
         <input id="reservationsSearch" type="search" placeholder="Pesquisar por id, hotel, destino, cliente..." />
         <select id="reservationsStatusFilter"></select>
       </div>
-      <div id="reservationsList" class="reservation-list"><p class="muted">A carregar...</p></div>
+      <div id="reservationsList"><p class="muted">A carregar...</p></div>
     </div>`;
 
   $('#reservationsSearch').addEventListener('input', renderTable);
@@ -54,51 +56,41 @@ function renderTable() {
   const status = $('#reservationsStatusFilter').value;
   const filtered = allReservations.filter(r => matchesFilter(r, query, status));
 
-  $('#reservationsList').innerHTML = filtered.map(r => `
-    <div class="reservation-row">
-      <div class="reservation-row-top">
-        <div class="reservation-main">
-          <b>${esc(r.id)}</b> - ${esc(r.customer?.name)} (<a href="mailto:${esc(r.customer?.email)}">${esc(r.customer?.email)}</a>${r.customer?.phone ? ` · <a href="tel:${esc(r.customer.phone)}">${esc(r.customer.phone)}</a>` : ''})<br>
-          ${esc(r.offer?.hotel)} - ${esc(r.offer?.destination)} - ${money(r.offer?.finalPrice)}
-          <div class="muted">Criado em ${new Date(r.createdAt).toLocaleString('pt-PT')}</div>
-          ${r.status === 'PENDING_PAYMENT' ? '<div class="pill pill-warning">💬 Pagamento pendente - considerar contactar o cliente</div>' : ''}
-          ${r.missingDocuments?.length ? `<div class="pill pill-warning">Falta: ${esc(r.missingDocuments.join(', '))}</div>` : '<div class="pill pill-ok">Documentos completos</div>'}
-        </div>
-        <div class="reservation-actions">
-          <span class="pill">${esc(statusLabel(r.status))}</span>
-          <select class="reservation-status-select" data-reservation="${r.id}">
-            ${statuses.map(s => `<option value="${s.value}" ${s.value === r.status ? 'selected' : ''}>${s.label}</option>`).join('')}
-          </select>
-          <button class="ghost mini-action reservation-save" data-reservation="${r.id}">Guardar</button>
-          <button class="btn mini-action reservation-open" data-reservation="${r.id}">Abrir ficha</button>
-        </div>
-      </div>
-      <div class="reservation-file" data-reservation="${r.id}" hidden></div>
-    </div>`).join('') || '<p class="empty-note">Sem reservas.</p>';
-
-  document.querySelectorAll('.reservation-save').forEach(btn => {
-    btn.onclick = () => updateStatus(btn.dataset.reservation);
-  });
-  document.querySelectorAll('.reservation-open').forEach(btn => {
-    btn.onclick = () => toggleFicha(btn.dataset.reservation);
-  });
-}
-
-async function updateStatus(reservationId) {
-  const select = document.querySelector(`.reservation-status-select[data-reservation="${reservationId}"]`);
-  try {
-    await api('/api/admin/reservations/update', { method: 'POST', body: JSON.stringify({ reservationId, status: select.value }) });
-    await loadReservations();
-  } catch (err) {
-    alert(err.message);
+  if (!filtered.length) {
+    $('#reservationsList').innerHTML = '<p class="empty-note">Sem reservas.</p>';
+    return;
   }
-}
 
-async function toggleFicha(reservationId) {
-  const panel = document.querySelector(`.reservation-file[data-reservation="${reservationId}"]`);
-  if (!panel) return;
-  if (!panel.hidden) { panel.hidden = true; return; }
-  document.querySelectorAll('.reservation-file').forEach(el => { el.hidden = true; });
-  panel.hidden = false;
-  await openReservationDetail(panel, reservationId);
+  $('#reservationsList').innerHTML = `
+    <div class="bo-table-wrap">
+      <table class="bo-table">
+        <thead>
+          <tr>
+            <th>Reserva</th><th>Cliente</th><th>Destino</th><th>Datas</th><th>Pax</th>
+            <th>Estado</th><th>Doc</th><th>PVP</th><th>Pago</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${filtered.map(r => `
+            <tr data-reservation="${esc(r.id)}">
+              <td><b>${esc(r.id)}</b><div class="muted small">${new Date(r.createdAt).toLocaleDateString('pt-PT')}</div></td>
+              <td>${esc(r.customer?.name || '')}<div class="muted small">${esc(r.customer?.email || '')}</div></td>
+              <td>${esc(r.offer?.destination || '')}<div class="muted small">${esc(r.offer?.hotel || '')}</div></td>
+              <td class="muted small">${esc(r.offer?.checkin || '')} → ${esc(r.offer?.checkout || '')}</td>
+              <td>${(r.offer?.adults || 0) + (r.offer?.children || 0)}</td>
+              <td><span class="pill">${esc(statusLabel(r.status))}</span></td>
+              <td>${r.missingDocuments?.length ? '<span class="pill pill-warning">Falta</span>' : '<span class="pill pill-ok">OK</span>'}</td>
+              <td>${money(r.offer?.finalPrice)}</td>
+              <td>${r.status === 'PENDING_PAYMENT' ? '<span class="pill pill-warning">Pendente</span>' : '<span class="pill pill-ok">Pago</span>'}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+
+  document.querySelectorAll('#reservationsList tbody tr').forEach(row => {
+    row.onclick = () => {
+      const panel = openModal(`Reserva ${row.dataset.reservation}`);
+      openReservationDetail(panel, row.dataset.reservation);
+    };
+  });
 }
