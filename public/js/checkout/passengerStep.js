@@ -6,7 +6,7 @@
 import { $, esc, api, formToJson } from '../utils.js';
 import { getCurrentOffer, setLastPayment, setLastReservation } from '../state.js';
 import { setCheckoutStep } from './checkoutShell.js';
-import { getBilling, getPassengers, setPassenger, getPassengerIndex, setPassengerIndex } from './checkoutState.js';
+import { getBilling, getPassengers, setPassenger, getPassengerIndex, setPassengerIndex, setReservationCreated } from './checkoutState.js';
 import { renderCheckoutStep1 } from './billingStep.js';
 import { renderCheckoutStep3 } from './paymentStep.js';
 
@@ -141,6 +141,7 @@ async function submitCheckout(form) {
     });
     setLastPayment(data.payment);
     setLastReservation(data.reservation);
+    setReservationCreated(true);
     setCheckoutStep(3);
     renderCheckoutStep3(data);
   } catch (err) {

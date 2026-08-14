@@ -6,15 +6,23 @@
 import { $ } from './utils.js';
 import { getCurrentOffer } from './state.js';
 import { setCheckoutStep, renderCheckoutSummary, openCheckoutModal, closeCheckoutModal } from './checkout/checkoutShell.js';
-import { resetCheckoutState } from './checkout/checkoutState.js';
+import { resetCheckoutState, hasCheckoutProgress } from './checkout/checkoutState.js';
 import { renderCheckoutStep1 } from './checkout/billingStep.js';
 
-$('#closeCheckoutModal').onclick = closeCheckoutModal;
-$('#checkoutModal').addEventListener('click', e => {
-  if (e.target.id === 'checkoutModal') closeCheckoutModal();
-});
+// O checkout tem dados reais a perder (faturacao, passageiros) antes de
+// chegar ao pagamento - so ai a reserva fica guardada no servidor (e so
+// ai ha um botao "Guardar e continuar mais tarde"). Antes disso, fechar
+// por engano (clique no fundo, Escape) nao deve apagar tudo em silencio:
+// um clique no fundo passa a nao fazer nada, e o botao X pede confirmacao
+// enquanto houver progresso feito.
+function requestCloseCheckout() {
+  if (hasCheckoutProgress() && !confirm('Tem a certeza que quer sair? Os dados preenchidos nesta reserva vão perder-se.')) return;
+  closeCheckoutModal();
+}
+
+$('#closeCheckoutModal').onclick = requestCloseCheckout;
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && !$('#checkoutModal').hidden) closeCheckoutModal();
+  if (e.key === 'Escape' && !$('#checkoutModal').hidden) requestCloseCheckout();
   if (e.key === 'Escape' && !$('#passportModal').hidden) closePassportModal();
 });
 
