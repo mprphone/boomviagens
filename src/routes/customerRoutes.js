@@ -146,8 +146,13 @@ module.exports = function registerCustomerRoutes(router, ctx) {
     const updates = {
       name: cleanText(body.name, 120),
       phone: cleanText(body.phone, 40),
+      phone2: cleanText(body.phone2, 40),
       nif: cleanText(body.nif, 20),
-      address: cleanText(body.address, 200)
+      address: cleanText(body.address, 200),
+      postalCode: cleanText(body.postalCode, 20),
+      city: cleanText(body.city, 100),
+      birthdate: cleanText(body.birthdate, 30),
+      travelScope: ['LAZER', 'NEGOCIOS', 'AMBOS'].includes(body.travelScope) ? body.travelScope : ''
     };
     const customer = await updateDb(db => {
       ensureCollections(db);
@@ -169,13 +174,21 @@ module.exports = function registerCustomerRoutes(router, ctx) {
     return reservation;
   }
 
+  // Sem reservationId, o documento e do cliente diretamente - passaporte de
+  // um membro do agregado familiar, reutilizavel em reservas futuras sem
+  // ter de o anexar outra vez a cada reserva nova.
   router.get('/api/customer/documents', async (req, res, url) => {
     const customerEmail = customerSessionEmail(req);
     if (!customerEmail) return unauthorized(res);
     const reservationId = cleanText(url.searchParams.get('reservationId'), 120);
     const db = ensureCollections(await readDb());
-    if (!ownReservationOrNull(db, reservationId, customerEmail)) return json(res, 404, { ok: false, error: 'Reserva não encontrada' });
-    const documents = db.documents.filter(d => d.reservationId === reservationId);
+    let documents;
+    if (reservationId) {
+      if (!ownReservationOrNull(db, reservationId, customerEmail)) return json(res, 404, { ok: false, error: 'Reserva não encontrada' });
+      documents = db.documents.filter(d => d.reservationId === reservationId);
+    } else {
+      documents = db.documents.filter(d => d.customerEmail === customerEmail);
+    }
     const withUrls = await Promise.all(documents.map(async d => ({ ...d, signedUrl: await fileStorage.signedUrl(d.storagePath) })));
     return json(res, 200, { ok: true, documents: withUrls });
   });
@@ -192,25 +205,42 @@ module.exports = function registerCustomerRoutes(router, ctx) {
     if (!fileName || !body.fileBase64) return json(res, 400, { ok: false, error: 'Ficheiro inválido' });
 
     const db = ensureCollections(await readDb());
-    if (!ownReservationOrNull(db, reservationId, customerEmail)) return json(res, 404, { ok: false, error: 'Reserva não encontrada' });
+    let folder;
+    if (reservationId) {
+      if (!ownReservationOrNull(db, reservationId, customerEmail)) return json(res, 404, { ok: false, error: 'Reserva não encontrada' });
+      folder = reservationId;
+    } else {
+      folder = `cliente/${customerEmail.replace('@', '_')}`;
+    }
 
     const buffer = Buffer.from(body.fileBase64, 'base64');
     const docId = id('doc');
-    const storagePath = `${reservationId}/${docId}-${fileName}`;
+    const storagePath = `${folder}/${docId}-${fileName}`;
     try {
       await fileStorage.uploadFile(storagePath, buffer, body.mimeType);
     } catch (err) {
       return json(res, 502, { ok: false, error: `Falha ao guardar documento: ${err.message}` });
     }
 
-    const document = { id: docId, reservationId, type, passengerName, fileName, storagePath, createdAt: now(), uploadedBy: customerEmail };
+    const document = {
+      id: docId,
+      reservationId: reservationId || undefined,
+      customerEmail: reservationId ? undefined : customerEmail,
+      type, passengerName, fileName, storagePath, createdAt: now(), uploadedBy: customerEmail
+    };
     await updateDb(d => {
       ensureCollections(d);
       d.documents.unshift(document);
-      audit(d, customerEmail, 'DOCUMENT_UPLOADED', { reservationId, documentId: docId });
+      audit(d, customerEmail, 'DOCUMENT_UPLOADED', { reservationId: reservationId || null, documentId: docId });
     });
     return json(res, 200, { ok: true, document });
   });
+
+  function ownDocumentOrNull(db, document, customerEmail) {
+    if (!document) return null;
+    if (document.reservationId) return ownReservationOrNull(db, document.reservationId, customerEmail) ? document : null;
+    return document.customerEmail === customerEmail ? document : null;
+  }
 
   router.post('/api/customer/documents/delete', async (req, res) => {
     const customerEmail = customerSessionEmail(req);
@@ -219,7 +249,7 @@ module.exports = function registerCustomerRoutes(router, ctx) {
     const documentId = cleanText(body.documentId, 120);
     const db = ensureCollections(await readDb());
     const document = db.documents.find(d => d.id === documentId);
-    if (!document || !ownReservationOrNull(db, document.reservationId, customerEmail)) return json(res, 404, { ok: false, error: 'Documento não encontrado' });
+    if (!ownDocumentOrNull(db, document, customerEmail)) return json(res, 404, { ok: false, error: 'Documento não encontrado' });
 
     try {
       await fileStorage.deleteFile(document.storagePath);

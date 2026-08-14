@@ -31,7 +31,8 @@ CREATE TABLE IF NOT EXISTS margins (
 );
 CREATE TABLE IF NOT EXISTS customers (
   id TEXT PRIMARY KEY, created_at TEXT, updated_at TEXT, name TEXT, email TEXT,
-  phone TEXT, nif TEXT, address TEXT, passengers TEXT, notes TEXT, password_hash TEXT
+  phone TEXT, phone2 TEXT, nif TEXT, address TEXT, postal_code TEXT, city TEXT,
+  birthdate TEXT, travel_scope TEXT, passengers TEXT, notes TEXT, password_hash TEXT
 );
 CREATE TABLE IF NOT EXISTS leads (
   id TEXT PRIMARY KEY, created_at TEXT, updated_at TEXT, source TEXT, status TEXT,
@@ -62,10 +63,20 @@ CREATE TABLE IF NOT EXISTS idempotency_keys (
   idempotency_key TEXT PRIMARY KEY, reservation_id TEXT, payment_id TEXT, created_at TEXT
 );
 CREATE TABLE IF NOT EXISTS documents (
-  id TEXT PRIMARY KEY, created_at TEXT, reservation_id TEXT, type TEXT, passenger_name TEXT,
-  file_name TEXT, storage_path TEXT, uploaded_by TEXT
+  id TEXT PRIMARY KEY, created_at TEXT, reservation_id TEXT, customer_email TEXT, type TEXT,
+  passenger_name TEXT, file_name TEXT, storage_path TEXT, uploaded_by TEXT
 );
 CREATE INDEX IF NOT EXISTS documents_reservation_idx ON documents(reservation_id);
+CREATE INDEX IF NOT EXISTS documents_customer_idx ON documents(customer_email);
+CREATE TABLE IF NOT EXISTS contact_log (
+  id TEXT PRIMARY KEY, created_at TEXT, customer_email TEXT, actor TEXT, type TEXT, summary TEXT
+);
+CREATE INDEX IF NOT EXISTS contact_log_customer_idx ON contact_log(customer_email);
+CREATE TABLE IF NOT EXISTS complaints (
+  id TEXT PRIMARY KEY, created_at TEXT, updated_at TEXT, customer_email TEXT, reservation_id TEXT,
+  status TEXT, subject TEXT, description TEXT, resolution TEXT, resolved_at TEXT
+);
+CREATE INDEX IF NOT EXISTS complaints_customer_idx ON complaints(customer_email);
 `;
 
 const DEFAULT_COMPANY = () => ({
@@ -139,7 +150,12 @@ function rowToMargin(row) {
 }
 
 function rowToCustomer(row) {
-  return { id: row.id, createdAt: row.created_at, updatedAt: row.updated_at || undefined, name: row.name, email: row.email, phone: row.phone || '', nif: row.nif || '', address: row.address || '', passengers: parseJ(row.passengers, []), notes: row.notes || undefined, passwordHash: row.password_hash || '' };
+  return {
+    id: row.id, createdAt: row.created_at, updatedAt: row.updated_at || undefined, name: row.name, email: row.email,
+    phone: row.phone || '', phone2: row.phone2 || '', nif: row.nif || '', address: row.address || '',
+    postalCode: row.postal_code || '', city: row.city || '', birthdate: row.birthdate || '', travelScope: row.travel_scope || '',
+    passengers: parseJ(row.passengers, []), notes: row.notes || undefined, passwordHash: row.password_hash || ''
+  };
 }
 
 function rowToLead(row) {
@@ -174,7 +190,19 @@ function rowToAuditLog(row) {
 }
 
 function rowToDocument(row) {
-  return { id: row.id, createdAt: row.created_at, reservationId: row.reservation_id, type: row.type, passengerName: row.passenger_name || undefined, fileName: row.file_name, storagePath: row.storage_path, uploadedBy: row.uploaded_by || undefined };
+  return { id: row.id, createdAt: row.created_at, reservationId: row.reservation_id || undefined, customerEmail: row.customer_email || undefined, type: row.type, passengerName: row.passenger_name || undefined, fileName: row.file_name, storagePath: row.storage_path, uploadedBy: row.uploaded_by || undefined };
+}
+
+function rowToContactEntry(row) {
+  return { id: row.id, createdAt: row.created_at, customerEmail: row.customer_email, actor: row.actor || undefined, type: row.type, summary: row.summary || '' };
+}
+
+function rowToComplaint(row) {
+  return {
+    id: row.id, createdAt: row.created_at, updatedAt: row.updated_at || undefined, customerEmail: row.customer_email,
+    reservationId: row.reservation_id || undefined, status: row.status, subject: row.subject,
+    description: row.description || '', resolution: row.resolution || '', resolvedAt: row.resolved_at || undefined
+  };
 }
 
 function readDbSqlite() {
@@ -196,7 +224,9 @@ function readDbSqlite() {
     operatorLogs: conn.prepare('SELECT * FROM operator_logs ORDER BY created_at DESC LIMIT 100').all().map(rowToOperatorLog),
     auditLogs: conn.prepare('SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 200').all().map(rowToAuditLog),
     idempotencyKeys,
-    documents: conn.prepare('SELECT * FROM documents ORDER BY created_at DESC').all().map(rowToDocument)
+    documents: conn.prepare('SELECT * FROM documents ORDER BY created_at DESC').all().map(rowToDocument),
+    contactLog: conn.prepare('SELECT * FROM contact_log ORDER BY created_at DESC').all().map(rowToContactEntry),
+    complaints: conn.prepare('SELECT * FROM complaints ORDER BY created_at DESC').all().map(rowToComplaint)
   };
 }
 
@@ -213,14 +243,14 @@ function writeDbSqlite(dbState) {
       ON CONFLICT(id) DO UPDATE SET name=excluded.name, brand=excluded.brand, domain=excluded.domain, email=excluded.email, phone=excluded.phone, nif=excluded.nif, rnavt=excluded.rnavt, address=excluded.address, cae=excluded.cae, market_country=excluded.market_country, currency=excluded.currency, price_type=excluded.price_type, commission_included=excluded.commission_included, confirmation_mode=excluded.confirmation_mode, default_margin_percent=excluded.default_margin_percent`)
       .run(c.name, c.brand, c.domain || null, c.email || null, c.phone || null, c.nif || null, c.rnavt || null, c.address || null, c.cae || null, c.marketCountry || 'PT', c.currency || 'EUR', c.priceType || 'PVP', c.commissionIncluded !== false ? 1 : 0, c.confirmationMode || 'automatic', c.defaultMarginPercent ?? 5);
 
-    const tables = ['margins', 'customers', 'leads', 'reservations', 'payments', 'emails', 'operator_logs', 'audit_logs', 'idempotency_keys', 'documents'];
+    const tables = ['margins', 'customers', 'leads', 'reservations', 'payments', 'emails', 'operator_logs', 'audit_logs', 'idempotency_keys', 'documents', 'contact_log', 'complaints'];
     for (const t of tables) conn.exec(`DELETE FROM ${t}`);
 
     const insMargin = conn.prepare('INSERT INTO margins (id, name, match_rule, percent, min_value, round_to, active) VALUES (?,?,?,?,?,?,?)');
     for (const m of dbState.margins || []) insMargin.run(m.id, m.name, m.match || '*', m.percent ?? 5, m.min ?? 0, m.roundTo ?? 5, m.active !== false ? 1 : 0);
 
-    const insCustomer = conn.prepare('INSERT INTO customers (id, created_at, updated_at, name, email, phone, nif, address, passengers, notes, password_hash) VALUES (?,?,?,?,?,?,?,?,?,?,?)');
-    for (const c2 of dbState.customers || []) insCustomer.run(c2.id, c2.createdAt, c2.updatedAt || null, c2.name || 'Cliente', c2.email, c2.phone || null, c2.nif || null, c2.address || null, j(c2.passengers || []), c2.notes || null, c2.passwordHash || null);
+    const insCustomer = conn.prepare('INSERT INTO customers (id, created_at, updated_at, name, email, phone, phone2, nif, address, postal_code, city, birthdate, travel_scope, passengers, notes, password_hash) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+    for (const c2 of dbState.customers || []) insCustomer.run(c2.id, c2.createdAt, c2.updatedAt || null, c2.name || 'Cliente', c2.email, c2.phone || null, c2.phone2 || null, c2.nif || null, c2.address || null, c2.postalCode || null, c2.city || null, c2.birthdate || null, c2.travelScope || null, j(c2.passengers || []), c2.notes || null, c2.passwordHash || null);
 
     const insLead = conn.prepare('INSERT INTO leads (id, created_at, updated_at, source, status, search, top_result) VALUES (?,?,?,?,?,?,?)');
     for (const l of dbState.leads || []) insLead.run(l.id, l.createdAt, l.updatedAt || null, l.source || 'site', l.status, j(l.search || {}), j(l.topResult));
@@ -243,8 +273,14 @@ function writeDbSqlite(dbState) {
     const insIdem = conn.prepare('INSERT INTO idempotency_keys (idempotency_key, reservation_id, payment_id, created_at) VALUES (?,?,?,?)');
     for (const [key, value] of Object.entries(dbState.idempotencyKeys || {})) insIdem.run(key, value.reservationId, value.paymentId, value.createdAt || new Date().toISOString());
 
-    const insDoc = conn.prepare('INSERT INTO documents (id, created_at, reservation_id, type, passenger_name, file_name, storage_path, uploaded_by) VALUES (?,?,?,?,?,?,?,?)');
-    for (const d of dbState.documents || []) insDoc.run(d.id, d.createdAt, d.reservationId, d.type, d.passengerName || null, d.fileName, d.storagePath, d.uploadedBy || null);
+    const insDoc = conn.prepare('INSERT INTO documents (id, created_at, reservation_id, customer_email, type, passenger_name, file_name, storage_path, uploaded_by) VALUES (?,?,?,?,?,?,?,?,?)');
+    for (const d of dbState.documents || []) insDoc.run(d.id, d.createdAt, d.reservationId || null, d.customerEmail || null, d.type, d.passengerName || null, d.fileName, d.storagePath, d.uploadedBy || null);
+
+    const insContact = conn.prepare('INSERT INTO contact_log (id, created_at, customer_email, actor, type, summary) VALUES (?,?,?,?,?,?)');
+    for (const c3 of dbState.contactLog || []) insContact.run(c3.id, c3.createdAt, c3.customerEmail, c3.actor || null, c3.type, c3.summary || '');
+
+    const insComplaint = conn.prepare('INSERT INTO complaints (id, created_at, updated_at, customer_email, reservation_id, status, subject, description, resolution, resolved_at) VALUES (?,?,?,?,?,?,?,?,?,?)');
+    for (const co of dbState.complaints || []) insComplaint.run(co.id, co.createdAt, co.updatedAt || null, co.customerEmail, co.reservationId || null, co.status, co.subject, co.description || null, co.resolution || null, co.resolvedAt || null);
 
     conn.exec('COMMIT');
   } catch (err) {

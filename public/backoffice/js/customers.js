@@ -1,17 +1,9 @@
-// Vista "Clientes": lista pesquisavel, cada cliente expande para notas
-// internas e um resumo dos seus leads/reservas.
+// Vista "Clientes": lista pesquisavel; cada cliente abre uma ficha
+// completa com separadores (Geral, Viagens, Documentos, Contactos,
+// Reclamacoes) - ver ./customers/customerDetail.js.
 
 import { $, esc, api } from './utils.js';
-
-// Mesmo mapeamento de src/domain.js#leadStageLabel - duplicado aqui de
-// proposito (o backoffice nao importa ficheiros do servidor).
-const LEAD_STAGE_LABELS = {
-  NOVA: 'Novo interesse',
-  EM_CONSULTA: 'Em consulta',
-  PROPOSTA_ENVIADA: 'Proposta enviada',
-  RESERVADO: 'Reservado',
-  PERDIDA: 'Perdido'
-};
+import { openCustomerDetail } from './customers/customerDetail.js';
 
 let allCustomers = [];
 
@@ -61,33 +53,5 @@ async function toggleDetail(email) {
   if (!detailEl.hidden) { detailEl.hidden = true; return; }
   document.querySelectorAll('.customer-detail').forEach(el => { el.hidden = true; });
   detailEl.hidden = false;
-  detailEl.innerHTML = 'A carregar...';
-  try {
-    const data = await api(`/api/admin/customers/detail?email=${encodeURIComponent(email)}`);
-    detailEl.innerHTML = `
-      <label>Notas internas
-        <textarea class="customer-notes" rows="3">${esc(data.customer.notes)}</textarea>
-      </label>
-      <button class="ghost mini-action customer-save-notes">Guardar notas</button>
-      <div class="customer-detail-line"><b>Interesses:</b> ${data.leads.map(l => `${esc(l.search?.destination)} (${esc(LEAD_STAGE_LABELS[l.status] || 'Novo interesse')})`).join(', ') || 'nenhum'}</div>
-      <div class="customer-detail-line"><b>Reservas:</b> ${data.reservations.map(r => esc(r.id)).join(', ') || 'nenhuma'}</div>`;
-    detailEl.querySelector('.customer-save-notes').onclick = async ev => {
-      const btn = ev.target;
-      const notes = detailEl.querySelector('.customer-notes').value;
-      btn.disabled = true;
-      const originalLabel = btn.textContent;
-      btn.textContent = 'A guardar...';
-      try {
-        await api('/api/admin/customers/notes', { method: 'POST', body: JSON.stringify({ email, notes }) });
-        btn.textContent = 'Guardado ✓';
-        setTimeout(() => { btn.textContent = originalLabel; btn.disabled = false; }, 1500);
-      } catch (err) {
-        alert(err.message);
-        btn.textContent = originalLabel;
-        btn.disabled = false;
-      }
-    };
-  } catch (err) {
-    detailEl.innerHTML = `<p class="error">${esc(err.message)}</p>`;
-  }
+  await openCustomerDetail(detailEl, email);
 }

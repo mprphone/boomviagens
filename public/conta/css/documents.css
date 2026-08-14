@@ -10,6 +10,8 @@
   margin-bottom: 14px;
 }
 
+.doc-family { border-color: var(--accent); background: var(--accent-bg); }
+
 .doc-reservation-head {
   display: flex;
   align-items: center;

@@ -67,13 +67,20 @@ function searchPayload(body = {}) {
   };
 }
 
+const TRAVEL_SCOPES = ['LAZER', 'NEGOCIOS', 'AMBOS'];
+
 function customerPayload(body = {}) {
   return {
     name: requiredText(body.name || 'Cliente', 'Nome', 120),
     email: email(body.email),
     phone: phone(body.phone),
+    phone2: phone(body.phone2),
     nif: nif(body.nif),
     address: optionalText(body.address, 200),
+    postalCode: optionalText(body.postalCode, 20),
+    city: optionalText(body.city, 100),
+    birthdate: optionalText(body.birthdate, 30),
+    travelScope: TRAVEL_SCOPES.includes(body.travelScope) ? body.travelScope : '',
     passengers: Array.isArray(body.passengers) ? body.passengers.slice(0, 12).map(passengerPayload) : []
   };
 }

@@ -42,8 +42,13 @@ create table if not exists public.customers (
   name text not null,
   email text not null unique,
   phone text,
+  phone2 text,
   nif text,
   address text,
+  postal_code text,
+  city text,
+  birthdate text,
+  travel_scope text,
   notes text,
   password_hash text,
   passengers jsonb not null default '[]'::jsonb
@@ -53,7 +58,12 @@ alter table public.customers
   add column if not exists nif text,
   add column if not exists address text,
   add column if not exists notes text,
-  add column if not exists password_hash text;
+  add column if not exists password_hash text,
+  add column if not exists phone2 text,
+  add column if not exists postal_code text,
+  add column if not exists city text,
+  add column if not exists birthdate text,
+  add column if not exists travel_scope text;
 
 create table if not exists public.leads (
   id text primary key,
@@ -139,7 +149,8 @@ create table if not exists public.idempotency_keys (
 create table if not exists public.documents (
   id text primary key,
   created_at timestamptz not null default now(),
-  reservation_id text not null references public.reservations(id) on delete cascade,
+  reservation_id text references public.reservations(id) on delete cascade,
+  customer_email text,
   type text not null,
   passenger_name text,
   file_name text not null,
@@ -147,7 +158,39 @@ create table if not exists public.documents (
   uploaded_by text
 );
 
+-- reservation_id passa a opcional (documentos podem ficar ligados so ao
+-- cliente, ex.: passaporte do agregado familiar reutilizavel entre reservas).
+alter table public.documents alter column reservation_id drop not null;
+alter table public.documents add column if not exists customer_email text;
+
 create index if not exists documents_reservation_id_idx on public.documents(reservation_id);
+create index if not exists documents_customer_email_idx on public.documents(customer_email);
+
+create table if not exists public.contact_log (
+  id text primary key,
+  created_at timestamptz not null default now(),
+  customer_email text not null,
+  actor text,
+  type text not null,
+  summary text
+);
+
+create index if not exists contact_log_customer_email_idx on public.contact_log(customer_email);
+
+create table if not exists public.complaints (
+  id text primary key,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz,
+  customer_email text not null,
+  reservation_id text references public.reservations(id) on delete set null,
+  status text not null default 'OPEN',
+  subject text not null,
+  description text,
+  resolution text,
+  resolved_at timestamptz
+);
+
+create index if not exists complaints_customer_email_idx on public.complaints(customer_email);
 
 alter table public.company_settings enable row level security;
 alter table public.margins enable row level security;
@@ -160,6 +203,8 @@ alter table public.operator_logs enable row level security;
 alter table public.audit_logs enable row level security;
 alter table public.idempotency_keys enable row level security;
 alter table public.documents enable row level security;
+alter table public.contact_log enable row level security;
+alter table public.complaints enable row level security;
 
 -- Dados publicos que podem ser lidos pelo site sem expor clientes/reservas.
 create or replace view public.public_margins

@@ -37,3 +37,127 @@
 }
 
 .customer-detail-line { margin-top: 8px; font-size: 12.5px; color: var(--ink-soft); }
+
+/* Ficha do cliente com separadores (Geral / Viagens / Documentos /
+   Contactos / Reclamacoes) - ver public/backoffice/js/customers/*.js */
+
+.customer-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.customer-tab {
+  border: 0;
+  background: none;
+  padding: 8px 12px;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.customer-tab:hover { color: var(--ink); }
+.customer-tab.is-active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.customer-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.customer-profile-form textarea {
+  width: 100%;
+  min-height: 60px;
+  border: 1px solid #d7dee7;
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font: inherit;
+  resize: vertical;
+  margin-bottom: 10px;
+}
+
+.customer-form-message { margin: 8px 0 0; font-size: 12px; color: var(--red); }
+
+.customer-trip-list,
+.contact-log-list,
+.complaint-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.customer-trip-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 12.5px;
+}
+
+.customer-trip-side {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.contact-log-item,
+.complaint-item {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 12.5px;
+}
+
+.contact-log-item p,
+.complaint-item p { margin: 4px 0 0; }
+
+.contact-log-head,
+.complaint-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.contact-log-form,
+.complaint-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.contact-log-form textarea,
+.complaint-form textarea {
+  width: 100%;
+  min-height: 50px;
+  border: 1px solid #d7dee7;
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font: inherit;
+  resize: vertical;
+}
+
+.complaint-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.complaint-actions select,
+.complaint-actions input { width: auto; padding: 7px 8px; font-size: 12px; }
+
+@media (max-width: 640px) {
+  .customer-profile-grid { grid-template-columns: 1fr; }
+}

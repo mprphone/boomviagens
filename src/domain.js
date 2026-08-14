@@ -6,6 +6,8 @@ const crypto = require('crypto');
 const RESERVATION_STATUSES = ['NEW_LEAD', 'PROPOSAL_SENT', 'PENDING_PAYMENT', 'PAYMENT_RECEIVED', 'IN_VALIDATION', 'HUMAN_REVIEW', 'CONFIRMED', 'CANCELLED', 'OPERATOR_ERROR'];
 const LEAD_STAGES = ['NOVA', 'EM_CONSULTA', 'PROPOSTA_ENVIADA', 'RESERVADO', 'PERDIDA'];
 const DOCUMENT_TYPES = ['PASSPORT', 'INSURANCE', 'OTHER'];
+const CONTACT_TYPES = ['CALL', 'EMAIL', 'WHATSAPP', 'IN_PERSON', 'OTHER'];
+const COMPLAINT_STATUSES = ['OPEN', 'IN_PROGRESS', 'RESOLVED'];
 
 function id(prefix) {
   return `${prefix}-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
@@ -23,6 +25,8 @@ function ensureCollections(db) {
   db.auditLogs ||= [];
   db.idempotencyKeys ||= {};
   db.documents ||= [];
+  db.contactLog ||= [];
+  db.complaints ||= [];
   return db;
 }
 
@@ -114,6 +118,8 @@ module.exports = {
   RESERVATION_STATUSES,
   LEAD_STAGES,
   DOCUMENT_TYPES,
+  CONTACT_TYPES,
+  COMPLAINT_STATUSES,
   id,
   now,
   ensureCollections,

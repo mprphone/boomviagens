@@ -172,8 +172,13 @@ function rowToCustomer(row) {
     name: row.name,
     email: row.email,
     phone: row.phone || '',
+    phone2: row.phone2 || '',
     nif: row.nif || '',
     address: row.address || '',
+    postalCode: row.postal_code || '',
+    city: row.city || '',
+    birthdate: row.birthdate || '',
+    travelScope: row.travel_scope || '',
     notes: row.notes || '',
     passwordHash: row.password_hash || '',
     passengers: row.passengers || []
@@ -188,8 +193,13 @@ function customerToRow(c) {
     name: c.name || 'Cliente',
     email: c.email,
     phone: c.phone || null,
+    phone2: c.phone2 || null,
     nif: c.nif || null,
     address: c.address || null,
+    postal_code: c.postalCode || null,
+    city: c.city || null,
+    birthdate: c.birthdate || null,
+    travel_scope: c.travelScope || null,
     notes: c.notes || null,
     password_hash: c.passwordHash || null,
     passengers: c.passengers || []
@@ -330,7 +340,8 @@ function rowToDocument(row) {
   return {
     id: row.id,
     createdAt: row.created_at,
-    reservationId: row.reservation_id,
+    reservationId: row.reservation_id || undefined,
+    customerEmail: row.customer_email || undefined,
     type: row.type,
     passengerName: row.passenger_name || undefined,
     fileName: row.file_name,
@@ -343,12 +354,65 @@ function documentToRow(d) {
   return {
     id: d.id,
     created_at: d.createdAt,
-    reservation_id: d.reservationId,
+    reservation_id: d.reservationId || null,
+    customer_email: d.customerEmail || null,
     type: d.type,
     passenger_name: d.passengerName || null,
     file_name: d.fileName,
     storage_path: d.storagePath,
     uploaded_by: d.uploadedBy || null
+  };
+}
+
+function rowToContactEntry(row) {
+  return {
+    id: row.id,
+    createdAt: row.created_at,
+    customerEmail: row.customer_email,
+    actor: row.actor || undefined,
+    type: row.type,
+    summary: row.summary || ''
+  };
+}
+
+function contactEntryToRow(c) {
+  return {
+    id: c.id,
+    created_at: c.createdAt,
+    customer_email: c.customerEmail,
+    actor: c.actor || null,
+    type: c.type,
+    summary: c.summary || ''
+  };
+}
+
+function rowToComplaint(row) {
+  return {
+    id: row.id,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at || undefined,
+    customerEmail: row.customer_email,
+    reservationId: row.reservation_id || undefined,
+    status: row.status,
+    subject: row.subject,
+    description: row.description || '',
+    resolution: row.resolution || '',
+    resolvedAt: row.resolved_at || undefined
+  };
+}
+
+function complaintToRow(c) {
+  return {
+    id: c.id,
+    created_at: c.createdAt,
+    updated_at: c.updatedAt || null,
+    customer_email: c.customerEmail,
+    reservation_id: c.reservationId || null,
+    status: c.status,
+    subject: c.subject,
+    description: c.description || null,
+    resolution: c.resolution || null,
+    resolved_at: c.resolvedAt || null
   };
 }
 
@@ -370,7 +434,7 @@ function idemEntryToRow([key, value]) {
 }
 
 async function readDbSupabase() {
-  const [companyRows, marginRows, customerRows, leadRows, reservationRows, paymentRows, emailRows, operatorLogRows, auditLogRows, idemRows, documentRows] = await Promise.all([
+  const [companyRows, marginRows, customerRows, leadRows, reservationRows, paymentRows, emailRows, operatorLogRows, auditLogRows, idemRows, documentRows, contactRows, complaintRows] = await Promise.all([
     selectAll('company_settings', '&id=eq.main'),
     selectAll('margins', '&order=created_at.asc'),
     selectAll('customers', '&order=created_at.desc'),
@@ -381,7 +445,9 @@ async function readDbSupabase() {
     selectAll('operator_logs', '&order=created_at.desc&limit=100'),
     selectAll('audit_logs', '&order=created_at.desc&limit=200'),
     selectAll('idempotency_keys', ''),
-    selectAll('documents', '&order=created_at.desc')
+    selectAll('documents', '&order=created_at.desc'),
+    selectAll('contact_log', '&order=created_at.desc'),
+    selectAll('complaints', '&order=created_at.desc')
   ]);
 
   return {
@@ -395,7 +461,9 @@ async function readDbSupabase() {
     operatorLogs: (operatorLogRows || []).map(rowToOperatorLog),
     auditLogs: (auditLogRows || []).map(rowToAuditLog),
     idempotencyKeys: idemRowsToMap(idemRows),
-    documents: (documentRows || []).map(rowToDocument)
+    documents: (documentRows || []).map(rowToDocument),
+    contactLog: (contactRows || []).map(rowToContactEntry),
+    complaints: (complaintRows || []).map(rowToComplaint)
   };
 }
 
@@ -410,7 +478,9 @@ async function writeDbSupabase(db) {
     upsertRows('emails', (db.emails || []).map(emailToRow)),
     upsertRows('operator_logs', (db.operatorLogs || []).map(operatorLogToRow)),
     upsertRows('audit_logs', (db.auditLogs || []).map(auditLogToRow)),
-    upsertRows('documents', (db.documents || []).map(documentToRow))
+    upsertRows('documents', (db.documents || []).map(documentToRow)),
+    upsertRows('contact_log', (db.contactLog || []).map(contactEntryToRow)),
+    upsertRows('complaints', (db.complaints || []).map(complaintToRow))
   ]);
   await upsertRows('idempotency_keys', Object.entries(db.idempotencyKeys || {}).map(idemEntryToRow), 'idempotency_key');
   return db;
@@ -448,6 +518,8 @@ async function updateDbSupabase(mutator) {
   const operatorLogRows = diffById(before.operatorLogs, db.operatorLogs).map(operatorLogToRow);
   const auditLogRows = diffById(before.auditLogs, db.auditLogs).map(auditLogToRow);
   const documentRows = diffById(before.documents, db.documents).map(documentToRow);
+  const contactRows = diffById(before.contactLog, db.contactLog).map(contactEntryToRow);
+  const complaintRows = diffById(before.complaints, db.complaints).map(complaintToRow);
   const idemRows = diffMapEntries(before.idempotencyKeys, db.idempotencyKeys).map(idemEntryToRow);
 
   const firstTasks = [];
@@ -468,7 +540,9 @@ async function updateDbSupabase(mutator) {
     upsertRows('emails', emailRows),
     upsertRows('operator_logs', operatorLogRows),
     upsertRows('audit_logs', auditLogRows),
-    upsertRows('documents', documentRows)
+    upsertRows('documents', documentRows),
+    upsertRows('contact_log', contactRows),
+    upsertRows('complaints', complaintRows)
   ];
   if (removedDocIds.length) thirdTasks.push(deleteRows('documents', removedDocIds));
   await Promise.all(thirdTasks);
