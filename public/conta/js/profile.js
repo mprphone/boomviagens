@@ -27,6 +27,15 @@ export async function renderDados() {
         <button class="btn" type="submit">Guardar alterações</button>
         <p id="profileMessage" class="muted" style="margin:0"></p>
       </form>
+    </div>
+    <div class="panel" style="max-width:520px;margin-top:16px">
+      <div class="panel-head"><h2>Password</h2></div>
+      <p class="muted">${data.hasPassword ? 'Já tem password definida. Pode alterá-la aqui.' : 'Ainda entra sempre com código por email. Defina uma password para entrar mais depressa da próxima vez.'}</p>
+      <form id="passwordForm" style="display:flex;flex-direction:column;gap:14px">
+        <label>${data.hasPassword ? 'Nova password' : 'Password'} <input name="password" type="password" minlength="8" placeholder="mínimo 8 caracteres" required /></label>
+        <button class="btn" type="submit">${data.hasPassword ? 'Alterar password' : 'Definir password'}</button>
+        <p id="passwordMessage" class="muted" style="margin:0"></p>
+      </form>
     </div>`;
 
   $('#profileForm').addEventListener('submit', async e => {
@@ -41,6 +50,23 @@ export async function renderDados() {
         body: JSON.stringify({ name: e.target.name.value, phone: e.target.phone.value, nif: e.target.nif.value, address: e.target.address.value })
       });
       msg.textContent = 'Dados guardados.';
+    } catch (err) {
+      msg.textContent = err.message;
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  $('#passwordForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type="submit"]');
+    const msg = $('#passwordMessage');
+    btn.disabled = true;
+    msg.textContent = 'A guardar...';
+    try {
+      await api('/api/customer/set-password', { method: 'POST', body: JSON.stringify({ password: e.target.password.value }) });
+      msg.textContent = 'Password guardada.';
+      e.target.reset();
     } catch (err) {
       msg.textContent = err.message;
     } finally {

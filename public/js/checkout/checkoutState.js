@@ -8,6 +8,7 @@ let verifyChallenge = null;
 let passengers = [];
 let currentPassengerIndex = 0;
 let reservationCreated = false;
+let hasPassword = false;
 
 export const getBilling = () => billing;
 export const setBilling = value => { billing = value; };
@@ -26,6 +27,9 @@ export const setPassengerIndex = value => { currentPassengerIndex = value; };
 
 export const setReservationCreated = value => { reservationCreated = value; };
 
+export const hasExistingPassword = () => hasPassword;
+export const setHasExistingPassword = value => { hasPassword = value; };
+
 // Ha dados que se perdem ao fechar? So enquanto a reserva ainda nao foi
 // criada no servidor (etapas 1-2) e ja se escreveu ou verificou alguma
 // coisa - depois de criada, ja esta guardada (ver "Guardar e continuar
@@ -42,4 +46,5 @@ export function resetCheckoutState() {
   passengers = [];
   currentPassengerIndex = 0;
   reservationCreated = false;
+  hasPassword = false;
 }

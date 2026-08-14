@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS margins (
 );
 CREATE TABLE IF NOT EXISTS customers (
   id TEXT PRIMARY KEY, created_at TEXT, updated_at TEXT, name TEXT, email TEXT,
-  phone TEXT, nif TEXT, address TEXT, passengers TEXT, notes TEXT
+  phone TEXT, nif TEXT, address TEXT, passengers TEXT, notes TEXT, password_hash TEXT
 );
 CREATE TABLE IF NOT EXISTS leads (
   id TEXT PRIMARY KEY, created_at TEXT, updated_at TEXT, source TEXT, status TEXT,
@@ -139,7 +139,7 @@ function rowToMargin(row) {
 }
 
 function rowToCustomer(row) {
-  return { id: row.id, createdAt: row.created_at, updatedAt: row.updated_at || undefined, name: row.name, email: row.email, phone: row.phone || '', nif: row.nif || '', address: row.address || '', passengers: parseJ(row.passengers, []), notes: row.notes || undefined };
+  return { id: row.id, createdAt: row.created_at, updatedAt: row.updated_at || undefined, name: row.name, email: row.email, phone: row.phone || '', nif: row.nif || '', address: row.address || '', passengers: parseJ(row.passengers, []), notes: row.notes || undefined, passwordHash: row.password_hash || '' };
 }
 
 function rowToLead(row) {
@@ -219,8 +219,8 @@ function writeDbSqlite(dbState) {
     const insMargin = conn.prepare('INSERT INTO margins (id, name, match_rule, percent, min_value, round_to, active) VALUES (?,?,?,?,?,?,?)');
     for (const m of dbState.margins || []) insMargin.run(m.id, m.name, m.match || '*', m.percent ?? 5, m.min ?? 0, m.roundTo ?? 5, m.active !== false ? 1 : 0);
 
-    const insCustomer = conn.prepare('INSERT INTO customers (id, created_at, updated_at, name, email, phone, nif, address, passengers, notes) VALUES (?,?,?,?,?,?,?,?,?,?)');
-    for (const c2 of dbState.customers || []) insCustomer.run(c2.id, c2.createdAt, c2.updatedAt || null, c2.name || 'Cliente', c2.email, c2.phone || null, c2.nif || null, c2.address || null, j(c2.passengers || []), c2.notes || null);
+    const insCustomer = conn.prepare('INSERT INTO customers (id, created_at, updated_at, name, email, phone, nif, address, passengers, notes, password_hash) VALUES (?,?,?,?,?,?,?,?,?,?,?)');
+    for (const c2 of dbState.customers || []) insCustomer.run(c2.id, c2.createdAt, c2.updatedAt || null, c2.name || 'Cliente', c2.email, c2.phone || null, c2.nif || null, c2.address || null, j(c2.passengers || []), c2.notes || null, c2.passwordHash || null);
 
     const insLead = conn.prepare('INSERT INTO leads (id, created_at, updated_at, source, status, search, top_result) VALUES (?,?,?,?,?,?,?)');
     for (const l of dbState.leads || []) insLead.run(l.id, l.createdAt, l.updatedAt || null, l.source || 'site', l.status, j(l.search || {}), j(l.topResult));

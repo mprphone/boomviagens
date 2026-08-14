@@ -5,7 +5,7 @@
 
 module.exports = function registerAdminRoutes(router, ctx) {
   const { json, parseBody, readDb, updateDb, operators, cleanText, numberInRange, domain, fileStorage, reservationEmail } = ctx;
-  const { ensureCollections, audit, addOperatorLog, missingDocumentsFor, statusLabel, leadStage, leadStageLabel, id, now, RESERVATION_STATUSES, LEAD_STAGES, DOCUMENT_TYPES } = domain;
+  const { ensureCollections, audit, addOperatorLog, missingDocumentsFor, statusLabel, leadStage, leadStageLabel, id, now, RESERVATION_STATUSES, LEAD_STAGES, DOCUMENT_TYPES, sanitizeCustomer } = domain;
   const { sessionUser, signToken, safeEqual, setSessionCookie, clearSessionCookie, rateLimit, SESSION_TTL_MS } = ctx.auth;
 
   // Impede que um duplo clique em "Aprovar no operador" chame
@@ -285,7 +285,7 @@ module.exports = function registerAdminRoutes(router, ctx) {
   router.get('/api/admin/customers', async (req, res) => {
     const db = ensureCollections(await readDb());
     const customers = db.customers.map(c => ({
-      ...c,
+      ...sanitizeCustomer(c),
       leadsCount: db.leads.filter(l => l.search?.email === c.email).length,
       reservationsCount: db.reservations.filter(r => r.customer?.email === c.email).length
     }));
@@ -299,7 +299,7 @@ module.exports = function registerAdminRoutes(router, ctx) {
     if (!customer) return json(res, 404, { ok: false, error: 'Cliente nao encontrado' });
     const leads = db.leads.filter(l => l.search?.email === customerEmail);
     const reservations = db.reservations.filter(r => r.customer?.email === customerEmail);
-    return json(res, 200, { ok: true, customer, leads, reservations });
+    return json(res, 200, { ok: true, customer: sanitizeCustomer(customer), leads, reservations });
   }, { admin: true });
 
   router.post('/api/admin/customers/notes', async (req, res) => {
@@ -316,7 +316,7 @@ module.exports = function registerAdminRoutes(router, ctx) {
       return customer;
     });
     if (!saved) return json(res, 404, { ok: false, error: 'Cliente nao encontrado' });
-    return json(res, 200, { ok: true, customer: saved });
+    return json(res, 200, { ok: true, customer: sanitizeCustomer(saved) });
   }, { admin: true });
 
   router.get('/api/admin/leads', async (req, res) => {

@@ -45,13 +45,15 @@ create table if not exists public.customers (
   nif text,
   address text,
   notes text,
+  password_hash text,
   passengers jsonb not null default '[]'::jsonb
 );
 
 alter table public.customers
   add column if not exists nif text,
   add column if not exists address text,
-  add column if not exists notes text;
+  add column if not exists notes text,
+  add column if not exists password_hash text;
 
 create table if not exists public.leads (
   id text primary key,

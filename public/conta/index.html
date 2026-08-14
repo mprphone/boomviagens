@@ -20,7 +20,9 @@
       <h1>A minha conta</h1>
       <p class="muted">Entre com o email da sua reserva para aceder às suas viagens, documentos e pagamentos.</p>
       <label>Email <input name="email" type="email" placeholder="o-seu-email@exemplo.pt" required /></label>
-      <button class="btn wide" type="submit">Pedir código</button>
+      <label>Password <span class="muted">(se já tiver definida)</span> <input name="password" type="password" placeholder="opcional" /></label>
+      <button class="btn wide" type="submit" id="loginSubmitBtn">Entrar</button>
+      <button class="ghost wide" type="button" id="requestCodeBtn">Prefiro receber um código por email</button>
       <p id="loginEmailMessage" class="login-message"></p>
     </form>
 

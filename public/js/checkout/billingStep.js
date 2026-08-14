@@ -5,7 +5,7 @@
 
 import { $, esc, api, formToJson, isValidNif } from '../utils.js';
 import { setCheckoutStep } from './checkoutShell.js';
-import { getBilling, setBilling, isEmailVerified, setEmailVerified, getVerifyChallenge, setVerifyChallenge, setPassengerIndex } from './checkoutState.js';
+import { getBilling, setBilling, isEmailVerified, setEmailVerified, getVerifyChallenge, setVerifyChallenge, setPassengerIndex, hasExistingPassword, setHasExistingPassword } from './checkoutState.js';
 import { renderPassengerStep } from './passengerStep.js';
 
 export function renderCheckoutStep1() {
@@ -30,6 +30,15 @@ export function renderCheckoutStep1() {
         <p class="verify-panel-message" id="emailVerifyMessage"></p>
       </div>
       ${verified ? '<p class="field-success">✓ Email verificado</p>' : ''}
+      ${verified && !hasExistingPassword() ? `
+        <div class="verify-panel" id="passwordOptIn">
+          <label>Criar password <span class="muted">(opcional, para entrar mais facilmente da próxima vez)</span>
+            <input type="password" id="newPasswordInput" minlength="8" placeholder="mínimo 8 caracteres" />
+          </label>
+          <button type="button" class="ghost mini-action" id="setPasswordBtn">Guardar password</button>
+          <p class="verify-panel-message" id="setPasswordMessage"></p>
+        </div>` : ''}
+      ${verified && hasExistingPassword() ? '<p class="muted small">Já tem uma password definida para esta conta. Pode alterá-la em Os meus dados depois de entrar.</p>' : ''}
       <div class="form-row">
         <label>Telefone <input name="phone" value="${esc(billing.phone)}" required /></label>
         <label>Contribuinte (NIF) <input name="nif" id="billingNif" value="${esc(billing.nif)}" maxlength="9" placeholder="opcional" />
@@ -72,6 +81,7 @@ function wireStep1Form() {
   });
 
   $('#verifyEmailBtn').onclick = () => requestEmailCode(emailInput.value.trim());
+  $('#setPasswordBtn')?.addEventListener('click', setPassword);
 
   form.addEventListener('submit', e => {
     e.preventDefault();
@@ -129,15 +139,12 @@ async function confirmEmailCode(emailValue) {
       body: JSON.stringify({ email: emailValue, code: $('#emailVerifyCode').value.trim(), challenge: getVerifyChallenge() })
     });
     setEmailVerified(true);
-    setBilling({ ...getBilling(), email: emailValue });
-    $('#emailVerifyPanel').hidden = true;
-    $('#billingEmail').readOnly = true;
-    $('#verifyEmailBtn').textContent = 'Verificado ✓';
-    $('#step1Continue').disabled = false;
-    if (!$('.field-success')) {
-      $('#emailVerifyPanel').insertAdjacentHTML('afterend', '<p class="field-success">✓ Email verificado</p>');
-    }
+    // Guarda o que ja estava escrito no formulario antes de o recriar -
+    // prefillFromExistingProfile() so preenche por cima do que faltar.
+    const form = $('#checkoutStep1Form');
+    setBilling({ name: form.name.value.trim(), email: emailValue, phone: form.phone.value.trim(), nif: form.nif.value.trim(), address: form.address.value.trim() });
     await prefillFromExistingProfile();
+    renderCheckoutStep1();
   } catch (err) {
     msg.textContent = err.message;
     btn.disabled = false;
@@ -147,18 +154,44 @@ async function confirmEmailCode(emailValue) {
 
 // Depois de verificar o email, se ja existir uma conta com dados
 // guardados, sugere-os nos campos que o visitante ainda nao preencheu -
-// sem sobrepor nada que ja tenha escrito.
+// sem sobrepor nada que ja tenha escrito. Tambem sabe se ja ha password
+// definida, para nao mostrar o convite a criar uma outra vez.
 async function prefillFromExistingProfile() {
   try {
     const data = await api('/api/customer/profile');
     const c = data.customer;
-    const form = $('#checkoutStep1Form');
-    if (!form) return;
-    if (!form.name.value.trim() && c.name) form.name.value = c.name;
-    if (!form.phone.value.trim() && c.phone) form.phone.value = c.phone;
-    if (!form.nif.value.trim() && c.nif) form.nif.value = c.nif;
-    if (!form.address.value.trim() && c.address) form.address.value = c.address;
+    const current = getBilling();
+    setBilling({
+      name: current.name || c.name || '',
+      email: current.email,
+      phone: current.phone || c.phone || '',
+      nif: current.nif || c.nif || '',
+      address: current.address || c.address || ''
+    });
+    setHasExistingPassword(Boolean(data.hasPassword));
   } catch {
     // Sem conta existente para este email - nada a sugerir, segue normal.
+  }
+}
+
+async function setPassword() {
+  const btn = $('#setPasswordBtn');
+  const input = $('#newPasswordInput');
+  const msg = $('#setPasswordMessage');
+  const value = input.value;
+  if (value.length < 8) {
+    msg.textContent = 'A password deve ter pelo menos 8 caracteres.';
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = 'A guardar...';
+  try {
+    await api('/api/customer/set-password', { method: 'POST', body: JSON.stringify({ password: value }) });
+    setHasExistingPassword(true);
+    $('#passwordOptIn').outerHTML = '<p class="field-success">✓ Password criada - já pode usá-la para entrar da próxima vez</p>';
+  } catch (err) {
+    msg.textContent = err.message;
+    btn.disabled = false;
+    btn.textContent = 'Guardar password';
   }
 }

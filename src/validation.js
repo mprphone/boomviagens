@@ -93,6 +93,12 @@ function passengerPayload(body = {}) {
   };
 }
 
+function password(value) {
+  const cleaned = String(value || '');
+  if (cleaned.length < 8) throw new Error('Password deve ter pelo menos 8 caracteres');
+  return cleaned;
+}
+
 function paymentMethod(value) {
   const allowed = ['MB WAY', 'Referencia Multibanco', 'Referência Multibanco', 'Cartao', 'Cartão'];
   const cleaned = cleanText(value || 'MB WAY', 60);
@@ -107,6 +113,7 @@ module.exports = {
   numberInRange,
   email,
   phone,
+  password,
   searchPayload,
   customerPayload,
   passengerPayload,

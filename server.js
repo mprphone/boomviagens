@@ -11,7 +11,7 @@ const { readDb, updateDb } = require('./src/storage');
 const { baseOffers, searchOffers, getOfferById } = require('./src/mockOperators');
 const { proposalEmail, reservationEmail, loginCodeEmail } = require('./src/emailTemplates');
 const { OperatorRegistry, TourDiezAdapter } = require('./src/operatorAdapters');
-const { cleanText, searchPayload, customerPayload, paymentMethod, numberInRange, email: validateEmail } = require('./src/validation');
+const { cleanText, searchPayload, customerPayload, paymentMethod, numberInRange, email: validateEmail, password: validatePassword } = require('./src/validation');
 const fileStorage = require('./src/fileStorage');
 const { normalize } = require('./src/pricing');
 
@@ -51,6 +51,7 @@ const ctx = {
   paymentMethod,
   numberInRange,
   validateEmail,
+  validatePassword,
   normalize,
   rateLimit: auth.rateLimit
 };

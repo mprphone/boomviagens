@@ -30,6 +30,23 @@ function safeEqual(a, b) {
   return left.length === right.length && crypto.timingSafeEqual(left, right);
 }
 
+// Hash de password com scrypt nativo do Node (sem dependencias novas) -
+// salt aleatorio por password, guardado junto com o hash no mesmo campo
+// ("salt:hash" em hex), como e costume quando nao ha uma coluna dedicada
+// so para o salt.
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(String(password), salt, 64).toString('hex');
+  return `${salt}:${hash}`;
+}
+
+function verifyPassword(password, stored) {
+  if (!stored || typeof stored !== 'string' || !stored.includes(':')) return false;
+  const [salt, hash] = stored.split(':');
+  const candidate = crypto.scryptSync(String(password || ''), salt, 64).toString('hex');
+  return safeEqual(candidate, hash);
+}
+
 function signToken(payload) {
   const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
   const sig = crypto.createHmac('sha256', SESSION_SECRET).update(body).digest('base64url');
@@ -115,6 +132,8 @@ module.exports = {
   SESSION_TTL_MS,
   CUSTOMER_CODE_TTL_MS,
   safeEqual,
+  hashPassword,
+  verifyPassword,
   signToken,
   verifyToken,
   sessionUser,

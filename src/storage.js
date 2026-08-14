@@ -175,6 +175,7 @@ function rowToCustomer(row) {
     nif: row.nif || '',
     address: row.address || '',
     notes: row.notes || '',
+    passwordHash: row.password_hash || '',
     passengers: row.passengers || []
   };
 }
@@ -190,6 +191,7 @@ function customerToRow(c) {
     nif: c.nif || null,
     address: c.address || null,
     notes: c.notes || null,
+    password_hash: c.passwordHash || null,
     passengers: c.passengers || []
   };
 }

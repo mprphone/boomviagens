@@ -9,9 +9,9 @@
 const crypto = require('crypto');
 
 module.exports = function registerCustomerRoutes(router, ctx) {
-  const { json, unauthorized, parseBody, readDb, updateDb, customerPayload, validateEmail, rateLimit, domain, cleanText, fileStorage } = ctx;
-  const { ensureCollections, audit, id, now, missingDocumentsFor, DOCUMENT_TYPES } = domain;
-  const { signToken, verifyToken, customerSessionEmail, setCustomerSessionCookie, clearCustomerSessionCookie, safeEqual, CUSTOMER_CODE_TTL_MS, SESSION_TTL_MS } = ctx.auth;
+  const { json, unauthorized, parseBody, readDb, updateDb, customerPayload, validateEmail, validatePassword, rateLimit, domain, cleanText, fileStorage } = ctx;
+  const { ensureCollections, audit, id, now, missingDocumentsFor, DOCUMENT_TYPES, sanitizeCustomer } = domain;
+  const { signToken, verifyToken, customerSessionEmail, setCustomerSessionCookie, clearCustomerSessionCookie, safeEqual, hashPassword, verifyPassword, CUSTOMER_CODE_TTL_MS, SESSION_TTL_MS } = ctx.auth;
 
   router.post('/api/customer/register', async (req, res) => {
     const body = customerPayload(await parseBody(req));
@@ -26,7 +26,7 @@ module.exports = function registerCustomerRoutes(router, ctx) {
       audit(db, 'site', 'CUSTOMER_REGISTERED', { customerId: found.id });
       return found;
     });
-    return json(res, 200, { ok: true, customer });
+    return json(res, 200, { ok: true, customer: sanitizeCustomer(customer) });
   });
 
   router.get('/api/customer/session', async (req, res) => {
@@ -70,6 +70,45 @@ module.exports = function registerCustomerRoutes(router, ctx) {
     return json(res, 200, { ok: true, email: customerEmail, name: customer?.name || '' });
   });
 
+  // Alternativa ao codigo por email - so funciona se o cliente ja tiver
+  // definido uma password (ver /api/customer/set-password). Quem nao tem
+  // continua a usar o codigo normalmente.
+  router.post('/api/customer/login/password', async (req, res) => {
+    const limited = rateLimit(req, res, 'customer-login-password', 15, 15 * 60 * 1000);
+    if (limited) return limited;
+    const body = await parseBody(req);
+    const customerEmail = validateEmail(body.email);
+    const db = await readDb();
+    const customer = (db.customers || []).find(c => c.email === customerEmail);
+    if (!customer?.passwordHash || !verifyPassword(body.password, customer.passwordHash)) {
+      return json(res, 401, { ok: false, error: 'Email ou password incorretos.' });
+    }
+    const token = signToken({ scope: 'customer', email: customerEmail, exp: Date.now() + SESSION_TTL_MS });
+    setCustomerSessionCookie(res, token);
+    await updateDb(d => audit(d, customerEmail, 'CUSTOMER_LOGIN_PASSWORD', {}));
+    return json(res, 200, { ok: true, email: customerEmail, name: customer.name || '' });
+  });
+
+  // Exige sessao ja autenticada (por codigo ou password) - definir/mudar a
+  // password nunca aceita a identidade vinda do corpo do pedido.
+  router.post('/api/customer/set-password', async (req, res) => {
+    const customerEmail = customerSessionEmail(req);
+    if (!customerEmail) return unauthorized(res);
+    const limited = rateLimit(req, res, 'customer-set-password', 10, 15 * 60 * 1000);
+    if (limited) return limited;
+    const body = await parseBody(req);
+    const newPassword = validatePassword(body.password);
+    const passwordHash = hashPassword(newPassword);
+    await updateDb(db => {
+      ensureCollections(db);
+      let found = db.customers.find(c => c.email === customerEmail);
+      if (found) { found.passwordHash = passwordHash; found.updatedAt = now(); }
+      else { found = { id: id('cli'), createdAt: now(), email: customerEmail, passwordHash }; db.customers.unshift(found); }
+      audit(db, customerEmail, 'CUSTOMER_PASSWORD_SET', {});
+    });
+    return json(res, 200, { ok: true });
+  });
+
   router.post('/api/customer/logout', async (req, res) => {
     clearCustomerSessionCookie(res);
     return json(res, 200, { ok: true });
@@ -94,7 +133,7 @@ module.exports = function registerCustomerRoutes(router, ctx) {
     if (!customerEmail) return unauthorized(res);
     const db = ensureCollections(await readDb());
     const customer = db.customers.find(c => c.email === customerEmail) || { email: customerEmail };
-    return json(res, 200, { ok: true, customer });
+    return json(res, 200, { ok: true, customer: sanitizeCustomer(customer), hasPassword: Boolean(customer.passwordHash) });
   });
 
   // A identidade vem sempre da sessao (customerEmail), nunca do corpo do
@@ -121,7 +160,7 @@ module.exports = function registerCustomerRoutes(router, ctx) {
       audit(db, customerEmail, 'CUSTOMER_PROFILE_UPDATED', { customerId: found.id });
       return found;
     });
-    return json(res, 200, { ok: true, customer });
+    return json(res, 200, { ok: true, customer: sanitizeCustomer(customer) });
   });
 
   function ownReservationOrNull(db, reservationId, customerEmail) {

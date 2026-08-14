@@ -101,6 +101,15 @@ function publicDeals(db, baseOffers, getOfferById) {
   }).sort((a, b) => a.price - b.price);
 }
 
+// Nunca enviar o hash da password para o cliente, mesmo autenticado - o
+// hash nao precisa de sair do servidor para nada. Usar sempre que um
+// objeto de cliente for devolvido numa resposta (site publico ou admin).
+function sanitizeCustomer(customer) {
+  if (!customer) return customer;
+  const { passwordHash, ...rest } = customer;
+  return rest;
+}
+
 module.exports = {
   RESERVATION_STATUSES,
   LEAD_STAGES,
@@ -115,5 +124,6 @@ module.exports = {
   leadStageLabel,
   leadStage,
   offerImages,
-  publicDeals
+  publicDeals,
+  sanitizeCustomer
 };

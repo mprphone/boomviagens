@@ -45,6 +45,7 @@ create table if not exists public.customers (
   nif text,
   address text,
   notes text,
+  password_hash text,
   passengers jsonb not null default '[]'::jsonb
 );
 
