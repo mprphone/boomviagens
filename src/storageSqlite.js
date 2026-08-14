@@ -63,13 +63,24 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 CREATE TABLE IF NOT EXISTS idempotency_keys (
   idempotency_key TEXT PRIMARY KEY, reservation_id TEXT, payment_id TEXT, created_at TEXT
 );
+CREATE TABLE IF NOT EXISTS reservation_service_lines (
+  id TEXT PRIMARY KEY, created_at TEXT, updated_at TEXT, reservation_id TEXT, type TEXT, description TEXT,
+  supplier_name TEXT, reference TEXT, quantity REAL, date_start TEXT, date_end TEXT, status TEXT,
+  net_value REAL, pvp_value REAL, discount_percent REAL, notes TEXT
+);
+CREATE INDEX IF NOT EXISTS reservation_service_lines_reservation_idx ON reservation_service_lines(reservation_id);
+CREATE TABLE IF NOT EXISTS reservation_events (
+  id TEXT PRIMARY KEY, created_at TEXT, reservation_id TEXT, actor TEXT, type TEXT, description TEXT
+);
+CREATE INDEX IF NOT EXISTS reservation_events_reservation_idx ON reservation_events(reservation_id);
 CREATE TABLE IF NOT EXISTS documents (
-  id TEXT PRIMARY KEY, created_at TEXT, reservation_id TEXT, customer_email TEXT, supplier_id TEXT,
+  id TEXT PRIMARY KEY, created_at TEXT, reservation_id TEXT, customer_email TEXT, supplier_id TEXT, service_line_id TEXT,
   type TEXT, passenger_name TEXT, file_name TEXT, storage_path TEXT, uploaded_by TEXT
 );
 CREATE INDEX IF NOT EXISTS documents_reservation_idx ON documents(reservation_id);
 CREATE INDEX IF NOT EXISTS documents_customer_idx ON documents(customer_email);
 CREATE INDEX IF NOT EXISTS documents_supplier_idx ON documents(supplier_id);
+CREATE INDEX IF NOT EXISTS documents_service_line_idx ON documents(service_line_id);
 CREATE TABLE IF NOT EXISTS suppliers (
   id TEXT PRIMARY KEY, created_at TEXT, updated_at TEXT, name TEXT, type TEXT,
   email TEXT, phone TEXT, nif TEXT, notes TEXT
@@ -198,7 +209,21 @@ function rowToAuditLog(row) {
 }
 
 function rowToDocument(row) {
-  return { id: row.id, createdAt: row.created_at, reservationId: row.reservation_id || undefined, customerEmail: row.customer_email || undefined, supplierId: row.supplier_id || undefined, type: row.type, passengerName: row.passenger_name || undefined, fileName: row.file_name, storagePath: row.storage_path, uploadedBy: row.uploaded_by || undefined };
+  return { id: row.id, createdAt: row.created_at, reservationId: row.reservation_id || undefined, customerEmail: row.customer_email || undefined, supplierId: row.supplier_id || undefined, serviceLineId: row.service_line_id || undefined, type: row.type, passengerName: row.passenger_name || undefined, fileName: row.file_name, storagePath: row.storage_path, uploadedBy: row.uploaded_by || undefined };
+}
+
+function rowToServiceLine(row) {
+  return {
+    id: row.id, createdAt: row.created_at, updatedAt: row.updated_at || undefined, reservationId: row.reservation_id,
+    type: row.type, description: row.description, supplierName: row.supplier_name || '', reference: row.reference || '',
+    quantity: Number(row.quantity ?? 1), dateStart: row.date_start || '', dateEnd: row.date_end || '',
+    status: row.status || 'PENDENTE', netValue: Number(row.net_value ?? 0), pvpValue: Number(row.pvp_value ?? 0),
+    discountPercent: Number(row.discount_percent ?? 0), notes: row.notes || ''
+  };
+}
+
+function rowToReservationEvent(row) {
+  return { id: row.id, createdAt: row.created_at, reservationId: row.reservation_id, actor: row.actor || undefined, type: row.type, description: row.description || '' };
 }
 
 function rowToSupplier(row) {
@@ -239,7 +264,9 @@ function readDbSqlite() {
     documents: conn.prepare('SELECT * FROM documents ORDER BY created_at DESC').all().map(rowToDocument),
     contactLog: conn.prepare('SELECT * FROM contact_log ORDER BY created_at DESC').all().map(rowToContactEntry),
     complaints: conn.prepare('SELECT * FROM complaints ORDER BY created_at DESC').all().map(rowToComplaint),
-    suppliers: conn.prepare('SELECT * FROM suppliers ORDER BY name ASC').all().map(rowToSupplier)
+    suppliers: conn.prepare('SELECT * FROM suppliers ORDER BY name ASC').all().map(rowToSupplier),
+    serviceLines: conn.prepare('SELECT * FROM reservation_service_lines ORDER BY created_at ASC').all().map(rowToServiceLine),
+    reservationEvents: conn.prepare('SELECT * FROM reservation_events ORDER BY created_at DESC').all().map(rowToReservationEvent)
   };
 }
 
@@ -256,7 +283,7 @@ function writeDbSqlite(dbState) {
       ON CONFLICT(id) DO UPDATE SET name=excluded.name, brand=excluded.brand, domain=excluded.domain, email=excluded.email, phone=excluded.phone, nif=excluded.nif, rnavt=excluded.rnavt, address=excluded.address, cae=excluded.cae, market_country=excluded.market_country, currency=excluded.currency, price_type=excluded.price_type, commission_included=excluded.commission_included, confirmation_mode=excluded.confirmation_mode, default_margin_percent=excluded.default_margin_percent`)
       .run(c.name, c.brand, c.domain || null, c.email || null, c.phone || null, c.nif || null, c.rnavt || null, c.address || null, c.cae || null, c.marketCountry || 'PT', c.currency || 'EUR', c.priceType || 'PVP', c.commissionIncluded !== false ? 1 : 0, c.confirmationMode || 'automatic', c.defaultMarginPercent ?? 5);
 
-    const tables = ['margins', 'customers', 'leads', 'reservations', 'payments', 'emails', 'operator_logs', 'audit_logs', 'idempotency_keys', 'documents', 'contact_log', 'complaints', 'suppliers'];
+    const tables = ['margins', 'customers', 'leads', 'reservations', 'payments', 'emails', 'operator_logs', 'audit_logs', 'idempotency_keys', 'documents', 'contact_log', 'complaints', 'suppliers', 'reservation_service_lines', 'reservation_events'];
     for (const t of tables) conn.exec(`DELETE FROM ${t}`);
 
     const insMargin = conn.prepare('INSERT INTO margins (id, name, match_rule, percent, min_value, round_to, active) VALUES (?,?,?,?,?,?,?)');
@@ -286,8 +313,14 @@ function writeDbSqlite(dbState) {
     const insIdem = conn.prepare('INSERT INTO idempotency_keys (idempotency_key, reservation_id, payment_id, created_at) VALUES (?,?,?,?)');
     for (const [key, value] of Object.entries(dbState.idempotencyKeys || {})) insIdem.run(key, value.reservationId, value.paymentId, value.createdAt || new Date().toISOString());
 
-    const insDoc = conn.prepare('INSERT INTO documents (id, created_at, reservation_id, customer_email, supplier_id, type, passenger_name, file_name, storage_path, uploaded_by) VALUES (?,?,?,?,?,?,?,?,?,?)');
-    for (const d of dbState.documents || []) insDoc.run(d.id, d.createdAt, d.reservationId || null, d.customerEmail || null, d.supplierId || null, d.type, d.passengerName || null, d.fileName, d.storagePath, d.uploadedBy || null);
+    const insServiceLine = conn.prepare('INSERT INTO reservation_service_lines (id, created_at, updated_at, reservation_id, type, description, supplier_name, reference, quantity, date_start, date_end, status, net_value, pvp_value, discount_percent, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+    for (const s of dbState.serviceLines || []) insServiceLine.run(s.id, s.createdAt, s.updatedAt || null, s.reservationId, s.type, s.description, s.supplierName || null, s.reference || null, s.quantity ?? 1, s.dateStart || null, s.dateEnd || null, s.status || 'PENDENTE', s.netValue ?? 0, s.pvpValue ?? 0, s.discountPercent ?? 0, s.notes || null);
+
+    const insEvent = conn.prepare('INSERT INTO reservation_events (id, created_at, reservation_id, actor, type, description) VALUES (?,?,?,?,?,?)');
+    for (const e of dbState.reservationEvents || []) insEvent.run(e.id, e.createdAt, e.reservationId, e.actor || null, e.type, e.description || null);
+
+    const insDoc = conn.prepare('INSERT INTO documents (id, created_at, reservation_id, customer_email, supplier_id, service_line_id, type, passenger_name, file_name, storage_path, uploaded_by) VALUES (?,?,?,?,?,?,?,?,?,?,?)');
+    for (const d of dbState.documents || []) insDoc.run(d.id, d.createdAt, d.reservationId || null, d.customerEmail || null, d.supplierId || null, d.serviceLineId || null, d.type, d.passengerName || null, d.fileName, d.storagePath, d.uploadedBy || null);
 
     const insSupplier = conn.prepare('INSERT INTO suppliers (id, created_at, updated_at, name, type, email, phone, nif, notes) VALUES (?,?,?,?,?,?,?,?,?)');
     for (const s of dbState.suppliers || []) insSupplier.run(s.id, s.createdAt, s.updatedAt || null, s.name, s.type || 'OUTRO', s.email || null, s.phone || null, s.nif || null, s.notes || null);

@@ -139,16 +139,60 @@ create table if not exists public.idempotency_keys (
   created_at timestamptz not null default now()
 );
 
+-- Linhas de servico (compras/vendas) de uma reserva - separador "Servicos"
+-- da Ficha de Reserva. A soma destas linhas da os valores reais da
+-- reserva (custo/venda/margem), em contraste com a proposta original
+-- guardada em reservations.offer.
+create table if not exists public.reservation_service_lines (
+  id text primary key,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz,
+  reservation_id text not null references public.reservations(id) on delete cascade,
+  type text not null,
+  description text not null,
+  supplier_name text,
+  reference text,
+  quantity numeric(8,2) not null default 1,
+  date_start text,
+  date_end text,
+  status text not null default 'PENDENTE',
+  net_value numeric(12,2) not null default 0,
+  pvp_value numeric(12,2) not null default 0,
+  discount_percent numeric(5,2) not null default 0,
+  notes text
+);
+
+create index if not exists reservation_service_lines_reservation_id_idx on public.reservation_service_lines(reservation_id);
+
+-- Historico/timeline de uma reserva: mudancas de estado, linhas de servico
+-- adicionadas/editadas/removidas e documentos anexados sao registados aqui
+-- automaticamente pelo servidor; atrasos, cancelamentos, contactos e notas
+-- livres sao registados manualmente pelo operador no separador "Historico".
+create table if not exists public.reservation_events (
+  id text primary key,
+  created_at timestamptz not null default now(),
+  reservation_id text not null references public.reservations(id) on delete cascade,
+  actor text,
+  type text not null,
+  description text
+);
+
+create index if not exists reservation_events_reservation_id_idx on public.reservation_events(reservation_id);
+
 -- reservation_id fica opcional: documentos podem estar ligados a uma
 -- reserva especifica, a um cliente (passaporte de um membro do agregado
 -- familiar, reutilizavel em reservas futuras) OU a um fornecedor
--- (contratos/acordos), sem reserva nenhuma associada.
+-- (contratos/acordos), sem reserva nenhuma associada. service_line_id e
+-- um extra opcional: quando o documento pertence a uma reserva, pode
+-- ainda ficar ligado a uma linha de servico especifica dessa reserva
+-- (ex.: o voucher do hotel, o bilhete de aviao).
 create table if not exists public.documents (
   id text primary key,
   created_at timestamptz not null default now(),
   reservation_id text references public.reservations(id) on delete cascade,
   customer_email text,
   supplier_id text,
+  service_line_id text references public.reservation_service_lines(id) on delete set null,
   type text not null,
   passenger_name text,
   file_name text not null,
@@ -159,6 +203,7 @@ create table if not exists public.documents (
 create index if not exists documents_reservation_id_idx on public.documents(reservation_id);
 create index if not exists documents_customer_email_idx on public.documents(customer_email);
 create index if not exists documents_supplier_id_idx on public.documents(supplier_id);
+create index if not exists documents_service_line_id_idx on public.documents(service_line_id);
 
 create table if not exists public.suppliers (
   id text primary key,
@@ -214,6 +259,8 @@ alter table public.documents enable row level security;
 alter table public.contact_log enable row level security;
 alter table public.complaints enable row level security;
 alter table public.suppliers enable row level security;
+alter table public.reservation_service_lines enable row level security;
+alter table public.reservation_events enable row level security;
 
 -- Dados publicos que podem ser lidos pelo site sem expor clientes/reservas.
 create or replace view public.public_margins

@@ -351,6 +351,7 @@ function rowToDocument(row) {
     reservationId: row.reservation_id || undefined,
     customerEmail: row.customer_email || undefined,
     supplierId: row.supplier_id || undefined,
+    serviceLineId: row.service_line_id || undefined,
     type: row.type,
     passengerName: row.passenger_name || undefined,
     fileName: row.file_name,
@@ -366,11 +367,76 @@ function documentToRow(d) {
     reservation_id: d.reservationId || null,
     customer_email: d.customerEmail || null,
     supplier_id: d.supplierId || null,
+    service_line_id: d.serviceLineId || null,
     type: d.type,
     passenger_name: d.passengerName || null,
     file_name: d.fileName,
     storage_path: d.storagePath,
     uploaded_by: d.uploadedBy || null
+  };
+}
+
+function rowToServiceLine(row) {
+  return {
+    id: row.id,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at || undefined,
+    reservationId: row.reservation_id,
+    type: row.type,
+    description: row.description,
+    supplierName: row.supplier_name || '',
+    reference: row.reference || '',
+    quantity: Number(row.quantity ?? 1),
+    dateStart: row.date_start || '',
+    dateEnd: row.date_end || '',
+    status: row.status || 'PENDENTE',
+    netValue: Number(row.net_value ?? 0),
+    pvpValue: Number(row.pvp_value ?? 0),
+    discountPercent: Number(row.discount_percent ?? 0),
+    notes: row.notes || ''
+  };
+}
+
+function serviceLineToRow(s) {
+  return {
+    id: s.id,
+    created_at: s.createdAt,
+    updated_at: s.updatedAt || null,
+    reservation_id: s.reservationId,
+    type: s.type,
+    description: s.description,
+    supplier_name: s.supplierName || null,
+    reference: s.reference || null,
+    quantity: s.quantity ?? 1,
+    date_start: s.dateStart || null,
+    date_end: s.dateEnd || null,
+    status: s.status || 'PENDENTE',
+    net_value: s.netValue ?? 0,
+    pvp_value: s.pvpValue ?? 0,
+    discount_percent: s.discountPercent ?? 0,
+    notes: s.notes || null
+  };
+}
+
+function rowToReservationEvent(row) {
+  return {
+    id: row.id,
+    createdAt: row.created_at,
+    reservationId: row.reservation_id,
+    actor: row.actor || undefined,
+    type: row.type,
+    description: row.description || ''
+  };
+}
+
+function reservationEventToRow(e) {
+  return {
+    id: e.id,
+    created_at: e.createdAt,
+    reservation_id: e.reservationId,
+    actor: e.actor || null,
+    type: e.type,
+    description: e.description || null
   };
 }
 
@@ -472,7 +538,7 @@ function idemEntryToRow([key, value]) {
 }
 
 async function readDbSupabase() {
-  const [companyRows, marginRows, customerRows, leadRows, reservationRows, paymentRows, emailRows, operatorLogRows, auditLogRows, idemRows, documentRows, contactRows, complaintRows, supplierRows] = await Promise.all([
+  const [companyRows, marginRows, customerRows, leadRows, reservationRows, paymentRows, emailRows, operatorLogRows, auditLogRows, idemRows, documentRows, contactRows, complaintRows, supplierRows, serviceLineRows, eventRows] = await Promise.all([
     selectAll('company_settings', '&id=eq.main'),
     selectAll('margins', '&order=created_at.asc'),
     selectAll('customers', '&order=created_at.desc'),
@@ -486,7 +552,9 @@ async function readDbSupabase() {
     selectAll('documents', '&order=created_at.desc'),
     selectAll('contact_log', '&order=created_at.desc'),
     selectAll('complaints', '&order=created_at.desc'),
-    selectAll('suppliers', '&order=name.asc')
+    selectAll('suppliers', '&order=name.asc'),
+    selectAll('reservation_service_lines', '&order=created_at.asc'),
+    selectAll('reservation_events', '&order=created_at.desc')
   ]);
 
   return {
@@ -503,7 +571,9 @@ async function readDbSupabase() {
     documents: (documentRows || []).map(rowToDocument),
     contactLog: (contactRows || []).map(rowToContactEntry),
     complaints: (complaintRows || []).map(rowToComplaint),
-    suppliers: (supplierRows || []).map(rowToSupplier)
+    suppliers: (supplierRows || []).map(rowToSupplier),
+    serviceLines: (serviceLineRows || []).map(rowToServiceLine),
+    reservationEvents: (eventRows || []).map(rowToReservationEvent)
   };
 }
 
@@ -521,7 +591,9 @@ async function writeDbSupabase(db) {
     upsertRows('documents', (db.documents || []).map(documentToRow)),
     upsertRows('contact_log', (db.contactLog || []).map(contactEntryToRow)),
     upsertRows('complaints', (db.complaints || []).map(complaintToRow)),
-    upsertRows('suppliers', (db.suppliers || []).map(supplierToRow))
+    upsertRows('suppliers', (db.suppliers || []).map(supplierToRow)),
+    upsertRows('reservation_service_lines', (db.serviceLines || []).map(serviceLineToRow)),
+    upsertRows('reservation_events', (db.reservationEvents || []).map(reservationEventToRow))
   ]);
   await upsertRows('idempotency_keys', Object.entries(db.idempotencyKeys || {}).map(idemEntryToRow), 'idempotency_key');
   return db;
@@ -562,6 +634,8 @@ async function updateDbSupabase(mutator) {
   const contactRows = diffById(before.contactLog, db.contactLog).map(contactEntryToRow);
   const complaintRows = diffById(before.complaints, db.complaints).map(complaintToRow);
   const supplierRows = diffById(before.suppliers, db.suppliers).map(supplierToRow);
+  const serviceLineRows = diffById(before.serviceLines, db.serviceLines).map(serviceLineToRow);
+  const eventRows = diffById(before.reservationEvents, db.reservationEvents).map(reservationEventToRow);
   const idemRows = diffMapEntries(before.idempotencyKeys, db.idempotencyKeys).map(idemEntryToRow);
 
   const firstTasks = [];
@@ -576,8 +650,14 @@ async function updateDbSupabase(mutator) {
   const beforeDocIds = new Set((before.documents || []).map(d => d.id));
   const afterDocIds = new Set((db.documents || []).map(d => d.id));
   const removedDocIds = [...beforeDocIds].filter(docId => !afterDocIds.has(docId));
+  const beforeServiceLineIds = new Set((before.serviceLines || []).map(s => s.id));
+  const afterServiceLineIds = new Set((db.serviceLines || []).map(s => s.id));
+  const removedServiceLineIds = [...beforeServiceLineIds].filter(lineId => !afterServiceLineIds.has(lineId));
   await Promise.all(firstTasks);
   await upsertRows('payments', paymentRows);
+  // Linhas de servico removidas tem de ser apagadas antes dos documentos
+  // (que podem referenciar service_line_id) para nao violar a FK.
+  if (removedServiceLineIds.length) await deleteRows('reservation_service_lines', removedServiceLineIds);
   const thirdTasks = [
     upsertRows('emails', emailRows),
     upsertRows('operator_logs', operatorLogRows),
@@ -585,7 +665,9 @@ async function updateDbSupabase(mutator) {
     upsertRows('documents', documentRows),
     upsertRows('contact_log', contactRows),
     upsertRows('complaints', complaintRows),
-    upsertRows('suppliers', supplierRows)
+    upsertRows('suppliers', supplierRows),
+    upsertRows('reservation_service_lines', serviceLineRows),
+    upsertRows('reservation_events', eventRows)
   ];
   if (removedDocIds.length) thirdTasks.push(deleteRows('documents', removedDocIds));
   await Promise.all(thirdTasks);

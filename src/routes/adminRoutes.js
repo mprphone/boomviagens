@@ -5,7 +5,7 @@
 
 module.exports = function registerAdminRoutes(router, ctx) {
   const { json, parseBody, readDb, updateDb, operators, cleanText, numberInRange, domain, fileStorage, reservationEmail } = ctx;
-  const { ensureCollections, audit, addOperatorLog, missingDocumentsFor, statusLabel, leadStage, leadStageLabel, id, now, RESERVATION_STATUSES, LEAD_STAGES, DOCUMENT_TYPES, CONTACT_TYPES, COMPLAINT_STATUSES, VAT_REGIMES, SUPPLIER_TYPES, sanitizeCustomer } = domain;
+  const { ensureCollections, audit, addOperatorLog, missingDocumentsFor, statusLabel, leadStage, leadStageLabel, id, now, RESERVATION_STATUSES, LEAD_STAGES, DOCUMENT_TYPES, CONTACT_TYPES, COMPLAINT_STATUSES, VAT_REGIMES, SUPPLIER_TYPES, SERVICE_TYPES, SERVICE_STATUSES, MANUAL_EVENT_TYPES, sanitizeCustomer, computeServiceTotals, serviceTypeLabel, serviceStatusLabel, eventTypeLabel } = domain;
   const { sessionUser, signToken, safeEqual, setSessionCookie, clearSessionCookie, rateLimit, SESSION_TTL_MS } = ctx.auth;
 
   // Impede que um duplo clique em "Aprovar no operador" chame
@@ -216,6 +216,9 @@ module.exports = function registerAdminRoutes(router, ctx) {
       const p = d.payments.find(x => x.reservationId === r.id);
       const email = reservationEmail({ reservation: r, payment: p });
       d.emails.unshift({ id: id('email'), createdAt: now(), to: r.customer?.email || 'cliente@exemplo.pt', status: 'GERADO_DEMO', ...email });
+      if (previousStatus !== status) {
+        d.reservationEvents.unshift({ id: id('evt'), createdAt: now(), reservationId: r.id, actor: sessionUser(req), type: 'STATUS_CHANGE', description: `De "${statusLabel(previousStatus)}" para "${statusLabel(status)}"` });
+      }
       audit(d, sessionUser(req), 'RESERVATION_STATUS_UPDATED', { reservationId: r.id, from: previousStatus, to: status });
       resultPayload = { reservation: r };
     });
@@ -247,6 +250,116 @@ module.exports = function registerAdminRoutes(router, ctx) {
     });
     if (!saved) return json(res, 404, { ok: false, error: 'Reserva nao encontrada' });
     return json(res, 200, { ok: true, reservation: saved });
+  }, { admin: true });
+
+  // Separador "Serviços": linhas de compra/venda de uma reserva (voos,
+  // hoteis, seguros, transfers...). A soma destas linhas da os valores
+  // reais da reserva, a comparar com a proposta original guardada em
+  // reservation.offer (essa e so a estimativa feita na altura da venda).
+  router.get('/api/admin/reservations/services', async (req, res, url) => {
+    const reservationId = cleanText(url.searchParams.get('reservationId'), 120);
+    const db = ensureCollections(await readDb());
+    const reservation = db.reservations.find(r => r.id === reservationId);
+    if (!reservation) return json(res, 404, { ok: false, error: 'Reserva nao encontrada' });
+    const serviceLines = db.serviceLines.filter(s => s.reservationId === reservationId).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    const events = db.reservationEvents.filter(e => e.reservationId === reservationId);
+    return json(res, 200, {
+      ok: true,
+      serviceLines,
+      events,
+      totals: computeServiceTotals(serviceLines),
+      types: SERVICE_TYPES.map(value => ({ value, label: serviceTypeLabel(value) })),
+      statuses: SERVICE_STATUSES.map(value => ({ value, label: serviceStatusLabel(value) })),
+      eventTypes: MANUAL_EVENT_TYPES.map(value => ({ value, label: eventTypeLabel(value) }))
+    });
+  }, { admin: true });
+
+  router.post('/api/admin/reservations/services', async (req, res) => {
+    const body = await parseBody(req);
+    const reservationId = cleanText(body.reservationId, 120);
+    const lineId = cleanText(body.id, 120);
+    const type = cleanText(body.type, 30);
+    if (!SERVICE_TYPES.includes(type)) return json(res, 400, { ok: false, error: 'Tipo de serviço inválido' });
+    const description = cleanText(body.description, 200);
+    if (!description) return json(res, 400, { ok: false, error: 'Descrição obrigatória' });
+    const status = SERVICE_STATUSES.includes(body.status) ? body.status : 'PENDENTE';
+    const updates = {
+      type, description, status,
+      supplierName: cleanText(body.supplierName, 150),
+      reference: cleanText(body.reference, 100),
+      quantity: numberInRange(body.quantity, 'Quantidade', 0.01, 999, 1),
+      dateStart: cleanText(body.dateStart, 30),
+      dateEnd: cleanText(body.dateEnd, 30),
+      netValue: numberInRange(body.netValue, 'Custo (NET)', 0, 1000000, 0),
+      pvpValue: numberInRange(body.pvpValue, 'Venda (PVP)', 0, 1000000, 0),
+      discountPercent: numberInRange(body.discountPercent, 'Desconto', 0, 100, 0),
+      notes: cleanText(body.notes, 1000)
+    };
+
+    const db = ensureCollections(await readDb());
+    const reservation = db.reservations.find(r => r.id === reservationId);
+    if (!reservation) return json(res, 404, { ok: false, error: 'Reserva nao encontrada' });
+
+    let resultLine = null;
+    await updateDb(d => {
+      ensureCollections(d);
+      let line = lineId && d.serviceLines.find(s => s.id === lineId && s.reservationId === reservationId);
+      if (line) {
+        Object.assign(line, updates);
+        line.updatedAt = now();
+        d.reservationEvents.unshift({ id: id('evt'), createdAt: now(), reservationId, actor: sessionUser(req), type: 'SERVICE_UPDATED', description: `${serviceTypeLabel(type)}: ${description}` });
+      } else {
+        line = { id: id('svc'), createdAt: now(), reservationId, ...updates };
+        d.serviceLines.push(line);
+        d.reservationEvents.unshift({ id: id('evt'), createdAt: now(), reservationId, actor: sessionUser(req), type: 'SERVICE_ADDED', description: `${serviceTypeLabel(type)}: ${description}` });
+      }
+      audit(d, sessionUser(req), lineId ? 'SERVICE_LINE_UPDATED' : 'SERVICE_LINE_CREATED', { reservationId, lineId: line.id });
+      resultLine = line;
+    });
+    return json(res, 200, { ok: true, serviceLine: resultLine });
+  }, { admin: true });
+
+  router.post('/api/admin/reservations/services/delete', async (req, res) => {
+    const body = await parseBody(req);
+    const reservationId = cleanText(body.reservationId, 120);
+    const lineId = cleanText(body.id, 120);
+    const db = ensureCollections(await readDb());
+    const line = db.serviceLines.find(s => s.id === lineId && s.reservationId === reservationId);
+    if (!line) return json(res, 404, { ok: false, error: 'Linha de serviço não encontrada' });
+
+    await updateDb(d => {
+      ensureCollections(d);
+      d.serviceLines = d.serviceLines.filter(s => s.id !== lineId);
+      d.reservationEvents.unshift({ id: id('evt'), createdAt: now(), reservationId, actor: sessionUser(req), type: 'SERVICE_REMOVED', description: `${serviceTypeLabel(line.type)}: ${line.description}` });
+      audit(d, sessionUser(req), 'SERVICE_LINE_DELETED', { reservationId, lineId });
+    });
+    return json(res, 200, { ok: true });
+  }, { admin: true });
+
+  // Separador "Histórico": registo manual de atrasos, cancelamentos,
+  // contactos e notas livres sobre o processo. Os outros tipos de evento
+  // (mudança de estado, serviços, documentos) são gerados automaticamente
+  // pelas rotas correspondentes, não têm entrada direta aqui.
+  router.post('/api/admin/reservations/events', async (req, res) => {
+    const body = await parseBody(req);
+    const reservationId = cleanText(body.reservationId, 120);
+    const type = cleanText(body.type, 30);
+    if (!MANUAL_EVENT_TYPES.includes(type)) return json(res, 400, { ok: false, error: 'Tipo de registo inválido' });
+    const description = cleanText(body.description, 1000);
+    if (!description) return json(res, 400, { ok: false, error: 'Descrição obrigatória' });
+
+    const db = ensureCollections(await readDb());
+    const reservation = db.reservations.find(r => r.id === reservationId);
+    if (!reservation) return json(res, 404, { ok: false, error: 'Reserva nao encontrada' });
+
+    let event = null;
+    await updateDb(d => {
+      ensureCollections(d);
+      event = { id: id('evt'), createdAt: now(), reservationId, actor: sessionUser(req), type, description };
+      d.reservationEvents.unshift(event);
+      audit(d, sessionUser(req), 'RESERVATION_EVENT_ADDED', { reservationId, type });
+    });
+    return json(res, 200, { ok: true, event });
   }, { admin: true });
 
   router.get('/api/admin/suppliers', async (req, res) => {
@@ -316,6 +429,7 @@ module.exports = function registerAdminRoutes(router, ctx) {
     const reservationId = cleanText(body.reservationId, 120);
     const customerEmail = cleanText(body.customerEmail, 254).toLowerCase();
     const supplierId = cleanText(body.supplierId, 120);
+    const serviceLineId = reservationId ? cleanText(body.serviceLineId, 120) : '';
     const type = cleanText(body.type, 20);
     if (!DOCUMENT_TYPES.includes(type)) return json(res, 400, { ok: false, error: 'Tipo de documento invalido' });
     const fileName = cleanText(body.fileName, 200);
@@ -351,11 +465,15 @@ module.exports = function registerAdminRoutes(router, ctx) {
       reservationId: reservationId || undefined,
       customerEmail: reservationId ? undefined : (customerEmail || undefined),
       supplierId: (reservationId || customerEmail) ? undefined : (supplierId || undefined),
+      serviceLineId: reservationId ? (serviceLineId || undefined) : undefined,
       type, passengerName, fileName, storagePath, uploadedBy: sessionUser(req)
     };
     await updateDb(d => {
       ensureCollections(d);
       d.documents.unshift(document);
+      if (reservationId) {
+        d.reservationEvents.unshift({ id: id('evt'), createdAt: now(), reservationId, actor: sessionUser(req), type: 'DOCUMENT_UPLOADED', description: fileName });
+      }
       audit(d, sessionUser(req), 'DOCUMENT_UPLOADED', { reservationId: reservationId || null, customerEmail: customerEmail || null, supplierId: supplierId || null, documentId: docId, type });
     });
     return json(res, 200, { ok: true, document });

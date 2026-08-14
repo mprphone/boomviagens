@@ -13,11 +13,17 @@ function marginSchemeVat(marginValue, vatRate = 23) {
   return { vatAmount, netMargin: Number((margin - vatAmount).toFixed(2)) };
 }
 
-export function renderSummaryTab(panel, reservation, reload, statuses = []) {
+export function renderSummaryTab(panel, reservation, reload, ctx = {}) {
+  const statuses = ctx.statuses || [];
+  const services = ctx.services || {};
+  const serviceLines = services.serviceLines || [];
   const offer = reservation.offer || {};
   const costPrice = Number(offer.costPrice) || 0;
   const finalPrice = Number(offer.finalPrice) || 0;
-  const margin = Number(offer.marginValue ?? (finalPrice - costPrice));
+  const hasRealValues = serviceLines.length > 0;
+  const margin = hasRealValues
+    ? Number(services.totals?.margin ?? 0)
+    : Number(offer.marginValue ?? (finalPrice - costPrice));
   const vatRegime = reservation.vatRegime || 'MARGEM';
   const { vatAmount, netMargin } = marginSchemeVat(margin);
 
@@ -31,6 +37,7 @@ export function renderSummaryTab(panel, reservation, reload, statuses = []) {
       <button type="button" class="btn mini-action summary-status-save">Guardar estado</button>
       <p class="customer-form-message"></p>
     </div>
+    <p class="summary-block-label">Valores estimados <span class="muted small">(proposta original)</span></p>
     <div class="summary-financial-grid">
       <div class="summary-financial-block">
         <span class="muted small">Custo (NET)</span>
@@ -42,13 +49,21 @@ export function renderSummaryTab(panel, reservation, reload, statuses = []) {
       </div>
       <div class="summary-financial-block">
         <span class="muted small">Margem</span>
-        <strong>${money(margin)}</strong>
+        <strong>${money(offer.marginValue ?? (finalPrice - costPrice))}</strong>
       </div>
       <div class="summary-financial-block">
         <span class="muted small">Regime de IVA</span>
         <strong>${vatRegime === 'MARGEM' ? 'Regime da margem' : vatRegime === 'ISENTO' ? 'Isento' : vatRegime === 'REDUZIDA' ? 'Taxa reduzida' : 'Normal'}</strong>
       </div>
     </div>
+    <p class="summary-block-label">Valores reais <span class="muted small">(soma dos serviços registados)</span></p>
+    ${hasRealValues ? `
+      <div class="summary-financial-grid">
+        <div class="summary-financial-block"><span class="muted small">Custo real (NET)</span><strong>${money(services.totals?.netTotal)}</strong></div>
+        <div class="summary-financial-block"><span class="muted small">Venda real (PVP)</span><strong>${money(services.totals?.pvpTotal)}</strong></div>
+        <div class="summary-financial-block"><span class="muted small">Margem real</span><strong>${money(services.totals?.margin)}</strong></div>
+        <div class="summary-financial-block"><span class="muted small">Nº de serviços</span><strong>${serviceLines.length}</strong></div>
+      </div>` : `<p class="empty-note">Ainda sem serviços registados - use o separador "Serviços" para lançar as compras e vendas reais desta reserva.</p>`}
     ${vatRegime === 'MARGEM' ? `
       <div class="summary-vat-note">
         <p><b>Estimativa - regime da margem (Art. 308º CIVA):</b> o IVA incide só sobre a margem, à taxa normal (23%), já incluído no seu valor.</p>

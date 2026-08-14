@@ -93,6 +93,58 @@
 .reservation-status-row label { flex: 0 0 220px; }
 .reservation-status-row .customer-form-message { flex-basis: 100%; margin: 0; }
 
+.summary-block-label {
+  margin: 18px 0 10px;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.summary-block-label:first-of-type { margin-top: 0; }
+
+.service-lines-table tbody tr { cursor: default; }
+.service-lines-table tbody tr:hover { background: transparent; }
+
+.service-lines-table tfoot td {
+  border-top: 2px solid var(--line);
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.service-line-actions {
+  display: flex;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.service-line-form {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--line);
+}
+
+.service-line-form-title {
+  margin: 0 0 10px;
+  font-family: var(--font-display);
+  font-size: 14px;
+}
+
+.service-line-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+  font-size: 12.5px;
+}
+
+.service-line-notes textarea { width: 100%; }
+
+.service-line-form-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
 .summary-financial-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));

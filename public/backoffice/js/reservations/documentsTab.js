@@ -1,10 +1,18 @@
 // Separador "Documentos": documentos anexados especificamente a esta
 // reserva (passaporte/CC, seguro, outros) - mesma logica que ja existia,
-// agora dentro da Ficha de Reserva por separadores.
+// agora dentro da Ficha de Reserva por separadores. Cada documento pode
+// ainda ficar ligado a uma linha de servico especifica (ex.: o voucher do
+// hotel, o bilhete de aviao) - ver ./serviceLinesTab.js.
 
 import { esc, api } from '../utils.js';
 
-export async function renderDocumentsTab(panel, reservation, reload) {
+export async function renderDocumentsTab(panel, reservation, reload, ctx = {}) {
+  const serviceLines = ctx.services?.serviceLines || [];
+  const serviceLineLabel = lineId => {
+    const line = serviceLines.find(l => l.id === lineId);
+    return line ? line.description : '';
+  };
+
   panel.innerHTML = '<p class="muted">A carregar...</p>';
   let documents;
   try {
@@ -21,6 +29,7 @@ export async function renderDocumentsTab(panel, reservation, reload) {
         <div class="doc-item">
           <span class="doc-type">${d.type === 'PASSPORT' ? 'Passaporte/CC' : d.type === 'INSURANCE' ? 'Seguro' : 'Outro'}</span>
           ${d.passengerName ? `<span class="muted">${esc(d.passengerName)}</span>` : ''}
+          ${d.serviceLineId ? `<span class="pill">${esc(serviceLineLabel(d.serviceLineId))}</span>` : ''}
           <span class="muted">${esc(d.fileName)}</span>
           <a href="${esc(d.signedUrl)}" target="_blank" rel="noopener">Ver</a>
           <button class="ghost mini-action doc-delete" data-doc="${d.id}">Remover</button>
@@ -33,6 +42,11 @@ export async function renderDocumentsTab(panel, reservation, reload) {
         <option value="OTHER">Outro</option>
       </select>
       <input type="text" class="doc-passenger-name" placeholder="Nome do passageiro">
+      ${serviceLines.length ? `
+        <select class="doc-service-line-select">
+          <option value="">Sem associação a serviço específico</option>
+          ${serviceLines.map(l => `<option value="${esc(l.id)}">${esc(l.description)}</option>`).join('')}
+        </select>` : ''}
       <input type="file" class="doc-file-input" required>
       <button type="submit" class="ghost mini-action">Anexar</button>
     </form>`;
@@ -68,12 +82,14 @@ export async function renderDocumentsTab(panel, reservation, reload) {
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
+      const serviceLineSelect = panel.querySelector('.doc-service-line-select');
       await api('/api/admin/documents/upload', {
         method: 'POST',
         body: JSON.stringify({
           reservationId: reservation.id,
           type: typeSelect.value,
           passengerName: typeSelect.value === 'PASSPORT' ? passengerInput.value : undefined,
+          serviceLineId: serviceLineSelect ? (serviceLineSelect.value || undefined) : undefined,
           fileName: file.name,
           mimeType: file.type,
           fileBase64

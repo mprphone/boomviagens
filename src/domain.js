@@ -15,6 +15,19 @@ const COMPLAINT_STATUSES = ['OPEN', 'IN_PROGRESS', 'RESOLVED'];
 // nao substitui software certificado para emitir a fatura real.
 const VAT_REGIMES = ['MARGEM', 'NORMAL', 'ISENTO', 'REDUZIDA'];
 const SUPPLIER_TYPES = ['OPERADOR', 'HOTEL', 'SEGURADORA', 'TRANSPORTE', 'OUTRO'];
+// Linhas de servico (compras/vendas) dentro de uma reserva - separador
+// "Servicos" da Ficha de Reserva. Cada linha e um item comprado a um
+// fornecedor e revendido ao cliente (voo, hotel, seguro...), com o seu
+// proprio custo/venda - a soma destas linhas da os "Valores Reais" da
+// reserva, em contraste com os "Valores Estimados" da proposta original.
+const SERVICE_TYPES = ['VOO', 'ALOJAMENTO', 'TRANSFER', 'CRUZEIRO', 'RENT_A_CAR', 'SEGURO', 'VISTO', 'RESTAURACAO', 'TOUR', 'DIVERSOS'];
+const SERVICE_STATUSES = ['PENDENTE', 'OK', 'ATRASADO', 'CANCELADO'];
+// Historico/timeline da reserva (separador "Historico"). Os primeiros tres
+// tipos sao gerados automaticamente pelo servidor (mudanca de estado,
+// linhas de servico, documentos); os restantes sao para registo manual do
+// operador (atrasos, cancelamentos, contactos, notas livres).
+const EVENT_TYPES = ['STATUS_CHANGE', 'SERVICE_ADDED', 'SERVICE_UPDATED', 'SERVICE_REMOVED', 'DOCUMENT_UPLOADED', 'DELAY', 'CANCELLATION', 'CONTACT', 'NOTE'];
+const MANUAL_EVENT_TYPES = ['DELAY', 'CANCELLATION', 'CONTACT', 'NOTE'];
 
 function id(prefix) {
   return `${prefix}-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
@@ -35,7 +48,50 @@ function ensureCollections(db) {
   db.contactLog ||= [];
   db.complaints ||= [];
   db.suppliers ||= [];
+  db.serviceLines ||= [];
+  db.reservationEvents ||= [];
   return db;
+}
+
+// Soma as linhas de servico de uma reserva para obter os valores reais
+// (custo/venda/margem), a comparar com os valores estimados da proposta
+// original (offer.costPrice/finalPrice/marginValue). Cada linha pode ter
+// desconto (%) sobre o valor de venda.
+function computeServiceTotals(lines = []) {
+  let netTotal = 0;
+  let pvpTotal = 0;
+  for (const line of lines) {
+    const quantity = Number(line.quantity) || 1;
+    const net = (Number(line.netValue) || 0) * quantity;
+    const gross = (Number(line.pvpValue) || 0) * quantity;
+    const discount = gross * (Number(line.discountPercent) || 0) / 100;
+    netTotal += net;
+    pvpTotal += gross - discount;
+  }
+  netTotal = Number(netTotal.toFixed(2));
+  pvpTotal = Number(pvpTotal.toFixed(2));
+  return { netTotal, pvpTotal, margin: Number((pvpTotal - netTotal).toFixed(2)) };
+}
+
+function serviceTypeLabel(type) {
+  return ({
+    VOO: 'Voo', ALOJAMENTO: 'Alojamento', TRANSFER: 'Transfer', CRUZEIRO: 'Cruzeiro',
+    RENT_A_CAR: 'Aluguer de carro', SEGURO: 'Seguro de viagem', VISTO: 'Visto',
+    RESTAURACAO: 'Restauração', TOUR: 'Tour/Excursão', DIVERSOS: 'Diversos'
+  })[type] || type;
+}
+
+function serviceStatusLabel(status) {
+  return ({ PENDENTE: 'Pendente', OK: 'OK', ATRASADO: 'Atrasado', CANCELADO: 'Cancelado' })[status] || status;
+}
+
+function eventTypeLabel(type) {
+  return ({
+    STATUS_CHANGE: 'Mudança de estado', SERVICE_ADDED: 'Serviço adicionado',
+    SERVICE_UPDATED: 'Serviço atualizado', SERVICE_REMOVED: 'Serviço removido',
+    DOCUMENT_UPLOADED: 'Documento anexado', DELAY: 'Atraso', CANCELLATION: 'Cancelamento',
+    CONTACT: 'Contacto', NOTE: 'Nota'
+  })[type] || type;
 }
 
 function missingDocumentsFor(reservation, documents) {
@@ -130,6 +186,10 @@ module.exports = {
   COMPLAINT_STATUSES,
   VAT_REGIMES,
   SUPPLIER_TYPES,
+  SERVICE_TYPES,
+  SERVICE_STATUSES,
+  EVENT_TYPES,
+  MANUAL_EVENT_TYPES,
   id,
   now,
   ensureCollections,
@@ -141,5 +201,9 @@ module.exports = {
   leadStage,
   offerImages,
   publicDeals,
-  sanitizeCustomer
+  sanitizeCustomer,
+  computeServiceTotals,
+  serviceTypeLabel,
+  serviceStatusLabel,
+  eventTypeLabel
 };
