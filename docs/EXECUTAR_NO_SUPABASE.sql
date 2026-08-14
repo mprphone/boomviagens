@@ -161,6 +161,7 @@ create table if not exists public.documents (
   created_at timestamptz not null default now(),
   reservation_id text references public.reservations(id) on delete cascade,
   customer_email text,
+  supplier_id text,
   type text not null,
   passenger_name text,
   file_name text not null,
@@ -169,12 +170,27 @@ create table if not exists public.documents (
 );
 
 -- reservation_id passa a opcional (documentos podem ficar ligados so ao
--- cliente, ex.: passaporte do agregado familiar reutilizavel entre reservas).
+-- cliente, ex.: passaporte do agregado familiar reutilizavel entre reservas,
+-- ou a um fornecedor).
 alter table public.documents alter column reservation_id drop not null;
 alter table public.documents add column if not exists customer_email text;
+alter table public.documents add column if not exists supplier_id text;
 
 create index if not exists documents_reservation_id_idx on public.documents(reservation_id);
 create index if not exists documents_customer_email_idx on public.documents(customer_email);
+create index if not exists documents_supplier_id_idx on public.documents(supplier_id);
+
+create table if not exists public.suppliers (
+  id text primary key,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz,
+  name text not null,
+  type text not null default 'OUTRO',
+  email text,
+  phone text,
+  nif text,
+  notes text
+);
 
 create table if not exists public.contact_log (
   id text primary key,
@@ -215,6 +231,7 @@ alter table public.idempotency_keys enable row level security;
 alter table public.documents enable row level security;
 alter table public.contact_log enable row level security;
 alter table public.complaints enable row level security;
+alter table public.suppliers enable row level security;
 
 -- Dados publicos que podem ser lidos pelo site sem expor clientes/reservas.
 create or replace view public.public_margins

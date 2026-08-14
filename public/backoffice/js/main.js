@@ -7,6 +7,7 @@ import { renderResumo } from './dashboard.js';
 import { renderInteresses } from './pipeline.js';
 import { renderReservas } from './reservations.js';
 import { renderClientes } from './customers.js';
+import { renderFornecedores } from './suppliers.js';
 import { renderMargens, renderEmails, renderOperador } from './system.js';
 
 const VIEWS = {
@@ -14,6 +15,7 @@ const VIEWS = {
   interesses: { title: 'Interesses', render: renderInteresses },
   reservas: { title: 'Reservas', render: renderReservas },
   clientes: { title: 'Clientes', render: renderClientes },
+  fornecedores: { title: 'Fornecedores', render: renderFornecedores },
   margens: { title: 'Margens', render: renderMargens },
   emails: { title: 'Emails', render: renderEmails },
   operador: { title: 'Operador', render: renderOperador }

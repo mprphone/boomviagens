@@ -5,7 +5,7 @@
 
 module.exports = function registerAdminRoutes(router, ctx) {
   const { json, parseBody, readDb, updateDb, operators, cleanText, numberInRange, domain, fileStorage, reservationEmail } = ctx;
-  const { ensureCollections, audit, addOperatorLog, missingDocumentsFor, statusLabel, leadStage, leadStageLabel, id, now, RESERVATION_STATUSES, LEAD_STAGES, DOCUMENT_TYPES, CONTACT_TYPES, COMPLAINT_STATUSES, VAT_REGIMES, sanitizeCustomer } = domain;
+  const { ensureCollections, audit, addOperatorLog, missingDocumentsFor, statusLabel, leadStage, leadStageLabel, id, now, RESERVATION_STATUSES, LEAD_STAGES, DOCUMENT_TYPES, CONTACT_TYPES, COMPLAINT_STATUSES, VAT_REGIMES, SUPPLIER_TYPES, sanitizeCustomer } = domain;
   const { sessionUser, signToken, safeEqual, setSessionCookie, clearSessionCookie, rateLimit, SESSION_TTL_MS } = ctx.auth;
 
   // Impede que um duplo clique em "Aprovar no operador" chame
@@ -249,19 +249,79 @@ module.exports = function registerAdminRoutes(router, ctx) {
     return json(res, 200, { ok: true, reservation: saved });
   }, { admin: true });
 
-  // Documento pode ficar ligado a uma reserva OU diretamente ao cliente
-  // (ex.: passaporte de um familiar, guardado uma vez e reutilizavel em
-  // reservas futuras sem reserva nenhuma associada ainda).
+  router.get('/api/admin/suppliers', async (req, res) => {
+    const db = ensureCollections(await readDb());
+    const suppliers = db.suppliers.map(s => {
+      const purchases = db.reservations.filter(r => matchesSupplier(r, s.name));
+      return {
+        ...s,
+        purchasesCount: purchases.length,
+        totalCost: Number(purchases.reduce((sum, r) => sum + (Number(r.offer?.costPrice) || 0), 0).toFixed(2))
+      };
+    });
+    return json(res, 200, { ok: true, suppliers, types: SUPPLIER_TYPES });
+  }, { admin: true });
+
+  // Sem uma tabela relacional de reservas-por-fornecedor, o historico de
+  // compras e obtido comparando reservation.operator (texto livre, ex.:
+  // "TourDiez Demo") com o nome do fornecedor - substring case-insensitive,
+  // dos dois lados, para "TourDiez" apanhar "TourDiez Demo" e vice-versa.
+  function matchesSupplier(reservation, supplierName) {
+    const operator = String(reservation.operator || '').toLowerCase();
+    const name = String(supplierName || '').toLowerCase();
+    if (!operator || !name) return false;
+    return operator.includes(name) || name.includes(operator);
+  }
+
+  router.get('/api/admin/suppliers/detail', async (req, res, url) => {
+    const supplierId = cleanText(url.searchParams.get('id'), 120);
+    const db = ensureCollections(await readDb());
+    const supplier = db.suppliers.find(s => s.id === supplierId);
+    if (!supplier) return json(res, 404, { ok: false, error: 'Fornecedor nao encontrado' });
+    const purchases = db.reservations.filter(r => matchesSupplier(r, supplier.name));
+    const documents = db.documents.filter(d => d.supplierId === supplierId);
+    const documentsWithUrls = await Promise.all(documents.map(async d => ({ ...d, signedUrl: await fileStorage.signedUrl(d.storagePath) })));
+    return json(res, 200, { ok: true, supplier, purchases, documents: documentsWithUrls });
+  }, { admin: true });
+
+  router.post('/api/admin/suppliers', async (req, res) => {
+    const body = await parseBody(req);
+    const name = cleanText(body.name, 150);
+    if (!name) return json(res, 400, { ok: false, error: 'Nome obrigatorio' });
+    const supplierId = cleanText(body.id, 120);
+    const updates = {
+      name,
+      type: SUPPLIER_TYPES.includes(body.type) ? body.type : 'OUTRO',
+      email: cleanText(body.email, 254),
+      phone: cleanText(body.phone, 40),
+      nif: cleanText(body.nif, 20),
+      notes: cleanText(body.notes, 2000)
+    };
+    const saved = await updateDb(d => {
+      ensureCollections(d);
+      let supplier = supplierId && d.suppliers.find(s => s.id === supplierId);
+      if (supplier) { Object.assign(supplier, updates); supplier.updatedAt = now(); }
+      else { supplier = { id: id('sup'), createdAt: now(), ...updates }; d.suppliers.unshift(supplier); }
+      audit(d, sessionUser(req), supplierId ? 'SUPPLIER_UPDATED' : 'SUPPLIER_CREATED', { supplierId: supplier.id, name });
+      return supplier;
+    });
+    return json(res, 200, { ok: true, supplier: saved });
+  }, { admin: true });
+
+  // Documento pode ficar ligado a uma reserva, a um cliente (ex.: passaporte
+  // de um familiar, reutilizavel em reservas futuras) ou a um fornecedor
+  // (ex.: contrato, acordo comercial) - so um dos tres por documento.
   router.post('/api/admin/documents/upload', async (req, res) => {
     const body = await parseBody(req);
     const reservationId = cleanText(body.reservationId, 120);
     const customerEmail = cleanText(body.customerEmail, 254).toLowerCase();
+    const supplierId = cleanText(body.supplierId, 120);
     const type = cleanText(body.type, 20);
     if (!DOCUMENT_TYPES.includes(type)) return json(res, 400, { ok: false, error: 'Tipo de documento invalido' });
     const fileName = cleanText(body.fileName, 200);
     const passengerName = body.passengerName ? cleanText(body.passengerName, 200) : undefined;
     if (!fileName || !body.fileBase64) return json(res, 400, { ok: false, error: 'Ficheiro invalido' });
-    if (!reservationId && !customerEmail) return json(res, 400, { ok: false, error: 'Indique a reserva ou o cliente' });
+    if (!reservationId && !customerEmail && !supplierId) return json(res, 400, { ok: false, error: 'Indique a reserva, o cliente ou o fornecedor' });
 
     const db = ensureCollections(await readDb());
     let folder;
@@ -269,8 +329,12 @@ module.exports = function registerAdminRoutes(router, ctx) {
       const reservation = db.reservations.find(r => r.id === reservationId);
       if (!reservation) return json(res, 404, { ok: false, error: 'Reserva nao encontrada' });
       folder = reservationId;
-    } else {
+    } else if (customerEmail) {
       folder = `cliente/${customerEmail.replace('@', '_')}`;
+    } else {
+      const supplier = db.suppliers.find(s => s.id === supplierId);
+      if (!supplier) return json(res, 404, { ok: false, error: 'Fornecedor nao encontrado' });
+      folder = `fornecedor/${supplierId}`;
     }
 
     const buffer = Buffer.from(body.fileBase64, 'base64');
@@ -285,13 +349,14 @@ module.exports = function registerAdminRoutes(router, ctx) {
     const document = {
       id: docId, createdAt: now(),
       reservationId: reservationId || undefined,
-      customerEmail: reservationId ? undefined : customerEmail,
+      customerEmail: reservationId ? undefined : (customerEmail || undefined),
+      supplierId: (reservationId || customerEmail) ? undefined : (supplierId || undefined),
       type, passengerName, fileName, storagePath, uploadedBy: sessionUser(req)
     };
     await updateDb(d => {
       ensureCollections(d);
       d.documents.unshift(document);
-      audit(d, sessionUser(req), 'DOCUMENT_UPLOADED', { reservationId: reservationId || null, customerEmail: customerEmail || null, documentId: docId, type });
+      audit(d, sessionUser(req), 'DOCUMENT_UPLOADED', { reservationId: reservationId || null, customerEmail: customerEmail || null, supplierId: supplierId || null, documentId: docId, type });
     });
     return json(res, 200, { ok: true, document });
   }, { admin: true });
@@ -299,10 +364,12 @@ module.exports = function registerAdminRoutes(router, ctx) {
   router.get('/api/admin/documents', async (req, res, url) => {
     const reservationId = cleanText(url.searchParams.get('reservationId'), 120);
     const customerEmail = cleanText(url.searchParams.get('customerEmail'), 254).toLowerCase();
+    const supplierId = cleanText(url.searchParams.get('supplierId'), 120);
     const db = ensureCollections(await readDb());
-    const documents = reservationId
-      ? db.documents.filter(d => d.reservationId === reservationId)
-      : db.documents.filter(d => d.customerEmail === customerEmail);
+    let documents;
+    if (reservationId) documents = db.documents.filter(d => d.reservationId === reservationId);
+    else if (customerEmail) documents = db.documents.filter(d => d.customerEmail === customerEmail);
+    else documents = db.documents.filter(d => d.supplierId === supplierId);
     const withUrls = await Promise.all(documents.map(async d => ({ ...d, signedUrl: await fileStorage.signedUrl(d.storagePath) })));
     return json(res, 200, { ok: true, documents: withUrls });
   }, { admin: true });

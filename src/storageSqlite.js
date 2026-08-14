@@ -64,11 +64,16 @@ CREATE TABLE IF NOT EXISTS idempotency_keys (
   idempotency_key TEXT PRIMARY KEY, reservation_id TEXT, payment_id TEXT, created_at TEXT
 );
 CREATE TABLE IF NOT EXISTS documents (
-  id TEXT PRIMARY KEY, created_at TEXT, reservation_id TEXT, customer_email TEXT, type TEXT,
-  passenger_name TEXT, file_name TEXT, storage_path TEXT, uploaded_by TEXT
+  id TEXT PRIMARY KEY, created_at TEXT, reservation_id TEXT, customer_email TEXT, supplier_id TEXT,
+  type TEXT, passenger_name TEXT, file_name TEXT, storage_path TEXT, uploaded_by TEXT
 );
 CREATE INDEX IF NOT EXISTS documents_reservation_idx ON documents(reservation_id);
 CREATE INDEX IF NOT EXISTS documents_customer_idx ON documents(customer_email);
+CREATE INDEX IF NOT EXISTS documents_supplier_idx ON documents(supplier_id);
+CREATE TABLE IF NOT EXISTS suppliers (
+  id TEXT PRIMARY KEY, created_at TEXT, updated_at TEXT, name TEXT, type TEXT,
+  email TEXT, phone TEXT, nif TEXT, notes TEXT
+);
 CREATE TABLE IF NOT EXISTS contact_log (
   id TEXT PRIMARY KEY, created_at TEXT, customer_email TEXT, actor TEXT, type TEXT, summary TEXT
 );
@@ -193,7 +198,11 @@ function rowToAuditLog(row) {
 }
 
 function rowToDocument(row) {
-  return { id: row.id, createdAt: row.created_at, reservationId: row.reservation_id || undefined, customerEmail: row.customer_email || undefined, type: row.type, passengerName: row.passenger_name || undefined, fileName: row.file_name, storagePath: row.storage_path, uploadedBy: row.uploaded_by || undefined };
+  return { id: row.id, createdAt: row.created_at, reservationId: row.reservation_id || undefined, customerEmail: row.customer_email || undefined, supplierId: row.supplier_id || undefined, type: row.type, passengerName: row.passenger_name || undefined, fileName: row.file_name, storagePath: row.storage_path, uploadedBy: row.uploaded_by || undefined };
+}
+
+function rowToSupplier(row) {
+  return { id: row.id, createdAt: row.created_at, updatedAt: row.updated_at || undefined, name: row.name, type: row.type || 'OUTRO', email: row.email || '', phone: row.phone || '', nif: row.nif || '', notes: row.notes || '' };
 }
 
 function rowToContactEntry(row) {
@@ -229,7 +238,8 @@ function readDbSqlite() {
     idempotencyKeys,
     documents: conn.prepare('SELECT * FROM documents ORDER BY created_at DESC').all().map(rowToDocument),
     contactLog: conn.prepare('SELECT * FROM contact_log ORDER BY created_at DESC').all().map(rowToContactEntry),
-    complaints: conn.prepare('SELECT * FROM complaints ORDER BY created_at DESC').all().map(rowToComplaint)
+    complaints: conn.prepare('SELECT * FROM complaints ORDER BY created_at DESC').all().map(rowToComplaint),
+    suppliers: conn.prepare('SELECT * FROM suppliers ORDER BY name ASC').all().map(rowToSupplier)
   };
 }
 
@@ -246,7 +256,7 @@ function writeDbSqlite(dbState) {
       ON CONFLICT(id) DO UPDATE SET name=excluded.name, brand=excluded.brand, domain=excluded.domain, email=excluded.email, phone=excluded.phone, nif=excluded.nif, rnavt=excluded.rnavt, address=excluded.address, cae=excluded.cae, market_country=excluded.market_country, currency=excluded.currency, price_type=excluded.price_type, commission_included=excluded.commission_included, confirmation_mode=excluded.confirmation_mode, default_margin_percent=excluded.default_margin_percent`)
       .run(c.name, c.brand, c.domain || null, c.email || null, c.phone || null, c.nif || null, c.rnavt || null, c.address || null, c.cae || null, c.marketCountry || 'PT', c.currency || 'EUR', c.priceType || 'PVP', c.commissionIncluded !== false ? 1 : 0, c.confirmationMode || 'automatic', c.defaultMarginPercent ?? 5);
 
-    const tables = ['margins', 'customers', 'leads', 'reservations', 'payments', 'emails', 'operator_logs', 'audit_logs', 'idempotency_keys', 'documents', 'contact_log', 'complaints'];
+    const tables = ['margins', 'customers', 'leads', 'reservations', 'payments', 'emails', 'operator_logs', 'audit_logs', 'idempotency_keys', 'documents', 'contact_log', 'complaints', 'suppliers'];
     for (const t of tables) conn.exec(`DELETE FROM ${t}`);
 
     const insMargin = conn.prepare('INSERT INTO margins (id, name, match_rule, percent, min_value, round_to, active) VALUES (?,?,?,?,?,?,?)');
@@ -276,8 +286,11 @@ function writeDbSqlite(dbState) {
     const insIdem = conn.prepare('INSERT INTO idempotency_keys (idempotency_key, reservation_id, payment_id, created_at) VALUES (?,?,?,?)');
     for (const [key, value] of Object.entries(dbState.idempotencyKeys || {})) insIdem.run(key, value.reservationId, value.paymentId, value.createdAt || new Date().toISOString());
 
-    const insDoc = conn.prepare('INSERT INTO documents (id, created_at, reservation_id, customer_email, type, passenger_name, file_name, storage_path, uploaded_by) VALUES (?,?,?,?,?,?,?,?,?)');
-    for (const d of dbState.documents || []) insDoc.run(d.id, d.createdAt, d.reservationId || null, d.customerEmail || null, d.type, d.passengerName || null, d.fileName, d.storagePath, d.uploadedBy || null);
+    const insDoc = conn.prepare('INSERT INTO documents (id, created_at, reservation_id, customer_email, supplier_id, type, passenger_name, file_name, storage_path, uploaded_by) VALUES (?,?,?,?,?,?,?,?,?,?)');
+    for (const d of dbState.documents || []) insDoc.run(d.id, d.createdAt, d.reservationId || null, d.customerEmail || null, d.supplierId || null, d.type, d.passengerName || null, d.fileName, d.storagePath, d.uploadedBy || null);
+
+    const insSupplier = conn.prepare('INSERT INTO suppliers (id, created_at, updated_at, name, type, email, phone, nif, notes) VALUES (?,?,?,?,?,?,?,?,?)');
+    for (const s of dbState.suppliers || []) insSupplier.run(s.id, s.createdAt, s.updatedAt || null, s.name, s.type || 'OUTRO', s.email || null, s.phone || null, s.nif || null, s.notes || null);
 
     const insContact = conn.prepare('INSERT INTO contact_log (id, created_at, customer_email, actor, type, summary) VALUES (?,?,?,?,?,?)');
     for (const c3 of dbState.contactLog || []) insContact.run(c3.id, c3.createdAt, c3.customerEmail, c3.actor || null, c3.type, c3.summary || '');

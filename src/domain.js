@@ -14,6 +14,7 @@ const COMPLAINT_STATUSES = ['OPEN', 'IN_PROGRESS', 'RESOLVED'];
 // especificos que a equipa identifique. So classificacao/calculo interno;
 // nao substitui software certificado para emitir a fatura real.
 const VAT_REGIMES = ['MARGEM', 'NORMAL', 'ISENTO', 'REDUZIDA'];
+const SUPPLIER_TYPES = ['OPERADOR', 'HOTEL', 'SEGURADORA', 'TRANSPORTE', 'OUTRO'];
 
 function id(prefix) {
   return `${prefix}-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
@@ -33,6 +34,7 @@ function ensureCollections(db) {
   db.documents ||= [];
   db.contactLog ||= [];
   db.complaints ||= [];
+  db.suppliers ||= [];
   return db;
 }
 
@@ -127,6 +129,7 @@ module.exports = {
   CONTACT_TYPES,
   COMPLAINT_STATUSES,
   VAT_REGIMES,
+  SUPPLIER_TYPES,
   id,
   now,
   ensureCollections,
