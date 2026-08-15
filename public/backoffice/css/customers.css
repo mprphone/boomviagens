@@ -57,8 +57,11 @@
 .bo-modal-overlay[hidden] { display: none; }
 
 .bo-modal-box {
-  width: min(760px, 100%);
-  max-height: min(85vh, 800px);
+  width: min(1200px, 94vw);
+  /* Altura fixa (nao max-height) de proposito: com max-height a caixa
+     encolhia para o conteudo de cada separador e "saltava" de tamanho
+     ao mudar de aba. Com height fixo o corpo e que rola por dentro. */
+  height: min(88vh, 860px);
   display: flex;
   flex-direction: column;
   border-radius: var(--radius);
