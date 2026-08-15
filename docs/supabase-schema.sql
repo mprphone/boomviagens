@@ -51,7 +51,14 @@ create table if not exists public.customers (
   travel_scope text,
   notes text,
   password_hash text,
-  passengers jsonb not null default '[]'::jsonb
+  -- Agregado familiar/passageiros habituais do cliente (nome, nascimento,
+  -- nacionalidade, documento, relacao) - reutilizavel entre viagens, ver
+  -- separador "Passageiros" da ficha do cliente.
+  passengers jsonb not null default '[]'::jsonb,
+  -- Preferencias comerciais e alertas permanentes - ver separadores
+  -- "Preferencias" e "Resumo" da ficha do cliente.
+  preferences jsonb not null default '{}'::jsonb,
+  alerts jsonb not null default '[]'::jsonb
 );
 
 create table if not exists public.leads (
@@ -263,7 +270,11 @@ create table if not exists public.documents (
   -- nunca gerados aqui, so registados para ficar ligado ao anexo.
   document_number text,
   document_date text,
-  amount numeric(12,2)
+  amount numeric(12,2),
+  -- So para documentos pessoais (passaporte/CC/visto): permite alertar
+  -- "passaporte expira em N meses" na ficha do cliente.
+  expiry_date text,
+  issuing_country text
 );
 
 create index if not exists documents_reservation_id_idx on public.documents(reservation_id);

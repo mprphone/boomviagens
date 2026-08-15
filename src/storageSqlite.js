@@ -32,7 +32,8 @@ CREATE TABLE IF NOT EXISTS margins (
 CREATE TABLE IF NOT EXISTS customers (
   id TEXT PRIMARY KEY, created_at TEXT, updated_at TEXT, name TEXT, email TEXT,
   phone TEXT, phone2 TEXT, nif TEXT, address TEXT, postal_code TEXT, city TEXT,
-  birthdate TEXT, travel_scope TEXT, passengers TEXT, notes TEXT, password_hash TEXT
+  birthdate TEXT, travel_scope TEXT, passengers TEXT, notes TEXT, password_hash TEXT,
+  preferences TEXT, alerts TEXT
 );
 CREATE TABLE IF NOT EXISTS leads (
   id TEXT PRIMARY KEY, created_at TEXT, updated_at TEXT, source TEXT, status TEXT,
@@ -85,7 +86,8 @@ CREATE TABLE IF NOT EXISTS documents (
   id TEXT PRIMARY KEY, created_at TEXT, reservation_id TEXT, customer_email TEXT, supplier_id TEXT, service_line_id TEXT,
   event_id TEXT, complaint_id TEXT,
   type TEXT, passenger_name TEXT, file_name TEXT, storage_path TEXT, uploaded_by TEXT,
-  document_number TEXT, document_date TEXT, amount REAL
+  document_number TEXT, document_date TEXT, amount REAL,
+  expiry_date TEXT, issuing_country TEXT
 );
 CREATE INDEX IF NOT EXISTS documents_reservation_idx ON documents(reservation_id);
 CREATE INDEX IF NOT EXISTS documents_customer_idx ON documents(customer_email);
@@ -185,7 +187,8 @@ function rowToCustomer(row) {
     id: row.id, createdAt: row.created_at, updatedAt: row.updated_at || undefined, name: row.name, email: row.email,
     phone: row.phone || '', phone2: row.phone2 || '', nif: row.nif || '', address: row.address || '',
     postalCode: row.postal_code || '', city: row.city || '', birthdate: row.birthdate || '', travelScope: row.travel_scope || '',
-    passengers: parseJ(row.passengers, []), notes: row.notes || undefined, passwordHash: row.password_hash || ''
+    passengers: parseJ(row.passengers, []), notes: row.notes || undefined, passwordHash: row.password_hash || '',
+    preferences: parseJ(row.preferences, {}), alerts: parseJ(row.alerts, [])
   };
 }
 
@@ -225,7 +228,7 @@ function rowToAuditLog(row) {
 }
 
 function rowToDocument(row) {
-  return { id: row.id, createdAt: row.created_at, reservationId: row.reservation_id || undefined, customerEmail: row.customer_email || undefined, supplierId: row.supplier_id || undefined, serviceLineId: row.service_line_id || undefined, eventId: row.event_id || undefined, complaintId: row.complaint_id || undefined, type: row.type, passengerName: row.passenger_name || undefined, fileName: row.file_name, storagePath: row.storage_path, uploadedBy: row.uploaded_by || undefined, documentNumber: row.document_number || undefined, documentDate: row.document_date || undefined, amount: row.amount ?? undefined };
+  return { id: row.id, createdAt: row.created_at, reservationId: row.reservation_id || undefined, customerEmail: row.customer_email || undefined, supplierId: row.supplier_id || undefined, serviceLineId: row.service_line_id || undefined, eventId: row.event_id || undefined, complaintId: row.complaint_id || undefined, type: row.type, passengerName: row.passenger_name || undefined, fileName: row.file_name, storagePath: row.storage_path, uploadedBy: row.uploaded_by || undefined, documentNumber: row.document_number || undefined, documentDate: row.document_date || undefined, amount: row.amount ?? undefined, expiryDate: row.expiry_date || undefined, issuingCountry: row.issuing_country || undefined };
 }
 
 function rowToServiceLine(row) {
@@ -319,8 +322,8 @@ function writeDbSqlite(dbState) {
     const insMargin = conn.prepare('INSERT INTO margins (id, name, match_rule, percent, min_value, round_to, active) VALUES (?,?,?,?,?,?,?)');
     for (const m of dbState.margins || []) insMargin.run(m.id, m.name, m.match || '*', m.percent ?? 5, m.min ?? 0, m.roundTo ?? 5, m.active !== false ? 1 : 0);
 
-    const insCustomer = conn.prepare('INSERT INTO customers (id, created_at, updated_at, name, email, phone, phone2, nif, address, postal_code, city, birthdate, travel_scope, passengers, notes, password_hash) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
-    for (const c2 of dbState.customers || []) insCustomer.run(c2.id, c2.createdAt, c2.updatedAt || null, c2.name || 'Cliente', c2.email, c2.phone || null, c2.phone2 || null, c2.nif || null, c2.address || null, c2.postalCode || null, c2.city || null, c2.birthdate || null, c2.travelScope || null, j(c2.passengers || []), c2.notes || null, c2.passwordHash || null);
+    const insCustomer = conn.prepare('INSERT INTO customers (id, created_at, updated_at, name, email, phone, phone2, nif, address, postal_code, city, birthdate, travel_scope, passengers, notes, password_hash, preferences, alerts) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+    for (const c2 of dbState.customers || []) insCustomer.run(c2.id, c2.createdAt, c2.updatedAt || null, c2.name || 'Cliente', c2.email, c2.phone || null, c2.phone2 || null, c2.nif || null, c2.address || null, c2.postalCode || null, c2.city || null, c2.birthdate || null, c2.travelScope || null, j(c2.passengers || []), c2.notes || null, c2.passwordHash || null, j(c2.preferences || {}), j(c2.alerts || []));
 
     const insLead = conn.prepare('INSERT INTO leads (id, created_at, updated_at, source, status, search, top_result) VALUES (?,?,?,?,?,?,?)');
     for (const l of dbState.leads || []) insLead.run(l.id, l.createdAt, l.updatedAt || null, l.source || 'site', l.status, j(l.search || {}), j(l.topResult));
@@ -349,8 +352,8 @@ function writeDbSqlite(dbState) {
     const insEvent = conn.prepare('INSERT INTO reservation_events (id, created_at, reservation_id, actor, type, description, resolved, resolution) VALUES (?,?,?,?,?,?,?,?)');
     for (const e of dbState.reservationEvents || []) insEvent.run(e.id, e.createdAt, e.reservationId, e.actor || null, e.type, e.description || null, e.resolved ? 1 : 0, e.resolution || null);
 
-    const insDoc = conn.prepare('INSERT INTO documents (id, created_at, reservation_id, customer_email, supplier_id, service_line_id, event_id, complaint_id, type, passenger_name, file_name, storage_path, uploaded_by, document_number, document_date, amount) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
-    for (const d of dbState.documents || []) insDoc.run(d.id, d.createdAt, d.reservationId || null, d.customerEmail || null, d.supplierId || null, d.serviceLineId || null, d.eventId || null, d.complaintId || null, d.type, d.passengerName || null, d.fileName, d.storagePath, d.uploadedBy || null, d.documentNumber || null, d.documentDate || null, d.amount ?? null);
+    const insDoc = conn.prepare('INSERT INTO documents (id, created_at, reservation_id, customer_email, supplier_id, service_line_id, event_id, complaint_id, type, passenger_name, file_name, storage_path, uploaded_by, document_number, document_date, amount, expiry_date, issuing_country) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+    for (const d of dbState.documents || []) insDoc.run(d.id, d.createdAt, d.reservationId || null, d.customerEmail || null, d.supplierId || null, d.serviceLineId || null, d.eventId || null, d.complaintId || null, d.type, d.passengerName || null, d.fileName, d.storagePath, d.uploadedBy || null, d.documentNumber || null, d.documentDate || null, d.amount ?? null, d.expiryDate || null, d.issuingCountry || null);
 
     const insSupplier = conn.prepare('INSERT INTO suppliers (id, created_at, updated_at, name, type, email, phone, nif, notes) VALUES (?,?,?,?,?,?,?,?,?)');
     for (const s of dbState.suppliers || []) insSupplier.run(s.id, s.createdAt, s.updatedAt || null, s.name, s.type || 'OUTRO', s.email || null, s.phone || null, s.nif || null, s.notes || null);

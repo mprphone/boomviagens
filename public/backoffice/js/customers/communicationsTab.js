@@ -1,5 +1,6 @@
-// Separador "Contactos": registo de chamadas/emails/notas com o cliente -
-// visao tipo CRM simples, cada entrada e permanente (sem editar/apagar).
+// Separador "Comunicações": cronologia de chamadas/emails/WhatsApp com o
+// cliente - visao tipo CRM simples, cada entrada e permanente (sem
+// editar/apagar).
 
 import { esc, api } from '../utils.js';
 
@@ -15,7 +16,7 @@ function typeLabel(type) {
   return CONTACT_TYPES.find(t => t.value === type)?.label || type;
 }
 
-export function renderContactsTab(panel, data, email, reload) {
+export function renderCommunicationsTab(panel, data, email, reload) {
   panel.innerHTML = `
     <div class="contact-log-list">
       ${data.contacts.map(c => `
@@ -25,14 +26,14 @@ export function renderContactsTab(panel, data, email, reload) {
             <span class="muted small">${new Date(c.createdAt).toLocaleString('pt-PT')}${c.actor ? ` · ${esc(c.actor)}` : ''}</span>
           </div>
           <p>${esc(c.summary)}</p>
-        </div>`).join('') || '<p class="empty-note">Ainda sem contactos registados.</p>'}
+        </div>`).join('') || '<p class="empty-note">Ainda sem comunicações registadas.</p>'}
     </div>
     <form class="contact-log-form">
       <select name="type">
         ${CONTACT_TYPES.map(t => `<option value="${t.value}">${t.label}</option>`).join('')}
       </select>
       <textarea name="summary" rows="2" placeholder="O que foi falado/combinado..." required></textarea>
-      <button class="btn mini-action" type="submit">Registar contacto</button>
+      <button class="btn mini-action" type="submit">Registar comunicação</button>
       <p class="customer-form-message"></p>
     </form>`;
 
@@ -51,7 +52,7 @@ export function renderContactsTab(panel, data, email, reload) {
     } catch (err) {
       msg.textContent = err.message;
       btn.disabled = false;
-      btn.textContent = 'Registar contacto';
+      btn.textContent = 'Registar comunicação';
     }
   });
 }

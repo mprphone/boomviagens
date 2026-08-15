@@ -1,10 +1,11 @@
 // Vista "Clientes": lista em tabela (nome, email, telefone, NIF,
 // localidade, interesses, reservas); clicar numa linha abre a ficha
-// completa (Geral/Viagens/Documentos/Contactos/Reclamacoes) numa caixa
-// modal separada - ver ./customers/customerDetail.js e ./modal.js.
+// completa como pagina inteira dentro da mesma vista (nao uma caixa modal -
+// com viagens, passageiros, documentos, preferencias, comunicacoes e
+// reclamacoes nao cabia bem numa caixa), com um botao "← Clientes" para
+// voltar a lista - ver ./customers/customerDetail.js.
 
 import { $, esc, api } from './utils.js';
-import { openModal } from './modal.js';
 import { openCustomerDetail } from './customers/customerDetail.js';
 
 let allCustomers = [];
@@ -65,9 +66,15 @@ function renderList() {
     </div>`;
 
   document.querySelectorAll('#customersList tbody tr').forEach(row => {
-    row.onclick = () => {
-      const panel = openModal(`Cliente - ${row.dataset.email}`);
-      openCustomerDetail(panel, row.dataset.email);
-    };
+    row.onclick = () => openCustomerPage(row.dataset.email);
   });
+}
+
+export async function openCustomerPage(email) {
+  const el = $('#view-clientes');
+  el.innerHTML = `
+    <button type="button" class="back-link">← Clientes</button>
+    <div class="panel process-page"></div>`;
+  el.querySelector('.back-link').onclick = () => renderClientes();
+  await openCustomerDetail(el.querySelector('.process-page'), email);
 }

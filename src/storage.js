@@ -181,7 +181,9 @@ function rowToCustomer(row) {
     travelScope: row.travel_scope || '',
     notes: row.notes || '',
     passwordHash: row.password_hash || '',
-    passengers: row.passengers || []
+    passengers: row.passengers || [],
+    preferences: row.preferences || {},
+    alerts: row.alerts || []
   };
 }
 
@@ -202,7 +204,9 @@ function customerToRow(c) {
     travel_scope: c.travelScope || null,
     notes: c.notes || null,
     password_hash: c.passwordHash || null,
-    passengers: c.passengers || []
+    passengers: c.passengers || [],
+    preferences: c.preferences || {},
+    alerts: c.alerts || []
   };
 }
 
@@ -365,7 +369,9 @@ function rowToDocument(row) {
     uploadedBy: row.uploaded_by || undefined,
     documentNumber: row.document_number || undefined,
     documentDate: row.document_date || undefined,
-    amount: row.amount ?? undefined
+    amount: row.amount ?? undefined,
+    expiryDate: row.expiry_date || undefined,
+    issuingCountry: row.issuing_country || undefined
   };
 }
 
@@ -386,7 +392,9 @@ function documentToRow(d) {
     uploaded_by: d.uploadedBy || null,
     document_number: d.documentNumber || null,
     document_date: d.documentDate || null,
-    amount: d.amount ?? null
+    amount: d.amount ?? null,
+    expiry_date: d.expiryDate || null,
+    issuing_country: d.issuingCountry || null
   };
 }
 

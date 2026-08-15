@@ -1,32 +1,74 @@
-// Separador "Documentos": arquivo de documentos do cliente e do agregado
-// familiar, reutilizavel entre reservas - ao contrario dos documentos
-// anexados a uma reserva especifica (ver reservations.js), estes nao
-// exigem nenhuma reserva para existir.
+// Separador "Documentos": documentos pessoais do cliente/agregado familiar
+// (passaporte, CC, visto...), organizados por titular/tipo/validade - com
+// alerta quando um documento esta perto de expirar - e, abaixo, um resumo
+// so de leitura dos documentos financeiros (faturas/recibos) de todas as
+// reservas do cliente, cada um ja ligado ao seu processo.
 
 import { esc, api } from '../utils.js';
 
+const DOC_TYPE_LABELS = { PASSPORT: 'Passaporte/CC', VISA: 'Visto', INSURANCE: 'Seguro', OTHER: 'Outro' };
+const FINANCIAL_TYPE_LABELS = { INVOICE_SALE: 'Fatura', RECEIPT: 'Recibo', CREDIT_NOTE: 'Nota de crédito' };
+
+function expiryPill(dateStr) {
+  if (!dateStr) return '';
+  const months = (new Date(dateStr) - new Date()) / (1000 * 60 * 60 * 24 * 30);
+  const cls = months < 6 ? 'pill-warning' : 'pill-ok';
+  const label = months < 0 ? `expirou em ${esc(dateStr)}` : `válido até ${esc(dateStr)}`;
+  return `<span class="pill ${cls}">${label}</span>`;
+}
+
 export function renderDocumentsTab(panel, data, email, reload) {
+  const documents = data.documents || [];
+  const financialDocuments = data.financialDocuments || [];
+
   panel.innerHTML = `
-    <div class="doc-list">
-      ${data.documents.map(d => `
-        <div class="doc-item">
-          <span class="doc-type">${d.type === 'PASSPORT' ? 'Passaporte/CC' : d.type === 'INSURANCE' ? 'Seguro' : 'Outro'}</span>
-          ${d.passengerName ? `<span class="muted">${esc(d.passengerName)}</span>` : ''}
-          <span class="muted">${esc(d.fileName)}</span>
-          <a href="${esc(d.signedUrl)}" target="_blank" rel="noopener">Ver</a>
-          <button class="ghost mini-action doc-delete" data-doc="${d.id}">Remover</button>
-        </div>`).join('') || '<div class="muted">Sem documentos guardados para este cliente/agregado.</div>'}
+    <p class="summary-block-label" style="margin-top:0">Documentos pessoais</p>
+    <div class="bo-table-wrap">
+      <table class="bo-table">
+        <thead><tr><th>Titular</th><th>Tipo</th><th>Nº documento</th><th>Validade</th><th>País emissor</th><th>Anexo</th><th></th></tr></thead>
+        <tbody>
+          ${documents.map(d => `
+            <tr>
+              <td>${esc(d.passengerName || data.customer.name)}</td>
+              <td>${DOC_TYPE_LABELS[d.type] || d.type}</td>
+              <td>${esc(d.documentNumber || '—')}</td>
+              <td>${expiryPill(d.expiryDate) || '—'}</td>
+              <td>${esc(d.issuingCountry || '—')}</td>
+              <td><a href="${esc(d.signedUrl)}" target="_blank" rel="noopener">${esc(d.fileName)}</a></td>
+              <td><button class="ghost mini-action doc-delete" data-doc="${d.id}">Remover</button></td>
+            </tr>`).join('') || '<tr><td colspan="7" class="empty-note">Sem documentos pessoais guardados.</td></tr>'}
+        </tbody>
+      </table>
     </div>
     <form class="doc-upload-form">
-      <select class="doc-type-select">
-        <option value="PASSPORT">Passaporte/Cartão de cidadão</option>
-        <option value="INSURANCE">Seguro de viagem</option>
-        <option value="OTHER">Outro</option>
+      <select class="doc-type-select" name="type">
+        ${Object.entries(DOC_TYPE_LABELS).map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}
       </select>
-      <input type="text" class="doc-passenger-name" placeholder="Nome da pessoa (ex.: filho, cônjuge)">
+      <input type="text" class="doc-passenger-name" name="passengerName" placeholder="Titular (ex.: filho, cônjuge)">
+      <input type="text" class="doc-number" name="documentNumber" placeholder="Nº documento">
+      <input type="date" class="doc-expiry" name="expiryDate" title="Validade">
+      <input type="text" class="doc-country" name="issuingCountry" placeholder="País emissor">
       <input type="file" class="doc-file-input" required>
       <button type="submit" class="ghost mini-action">Anexar</button>
-    </form>`;
+    </form>
+
+    <p class="summary-block-label">Documentos financeiros</p>
+    <div class="bo-table-wrap">
+      <table class="bo-table">
+        <thead><tr><th>Processo</th><th>Tipo</th><th>Nº documento</th><th>Data</th><th>Valor</th><th>Anexo</th></tr></thead>
+        <tbody>
+          ${financialDocuments.map(d => `
+            <tr>
+              <td>${esc(d.processNumber || '')}</td>
+              <td>${FINANCIAL_TYPE_LABELS[d.type] || d.type}</td>
+              <td>${esc(d.documentNumber || '—')}</td>
+              <td>${esc(d.documentDate || '—')}</td>
+              <td>${d.amount != null ? new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(d.amount) : '—'}</td>
+              <td><a href="${esc(d.signedUrl)}" target="_blank" rel="noopener">${esc(d.fileName)}</a></td>
+            </tr>`).join('') || '<tr><td colspan="6" class="empty-note">Sem documentos financeiros nas reservas deste cliente.</td></tr>'}
+        </tbody>
+      </table>
+    </div>`;
 
   panel.querySelectorAll('.doc-delete').forEach(btn => {
     btn.onclick = async () => {
@@ -40,12 +82,10 @@ export function renderDocumentsTab(panel, data, email, reload) {
 
   panel.querySelector('.doc-upload-form').onsubmit = async ev => {
     ev.preventDefault();
-    const fileInput = panel.querySelector('.doc-file-input');
-    const typeSelect = panel.querySelector('.doc-type-select');
-    const passengerInput = panel.querySelector('.doc-passenger-name');
-    const file = fileInput.files[0];
+    const f = ev.target;
+    const file = f.querySelector('.doc-file-input').files[0];
     if (!file) return;
-    const submitBtn = ev.target.querySelector('button[type="submit"]');
+    const submitBtn = f.querySelector('button[type="submit"]');
     submitBtn.disabled = true;
     submitBtn.textContent = 'A anexar...';
     try {
@@ -59,8 +99,11 @@ export function renderDocumentsTab(panel, data, email, reload) {
         method: 'POST',
         body: JSON.stringify({
           customerEmail: email,
-          type: typeSelect.value,
-          passengerName: passengerInput.value,
+          type: f.type.value,
+          passengerName: f.passengerName.value,
+          documentNumber: f.documentNumber.value,
+          expiryDate: f.expiryDate.value,
+          issuingCountry: f.issuingCountry.value,
           fileName: file.name,
           mimeType: file.type,
           fileBase64

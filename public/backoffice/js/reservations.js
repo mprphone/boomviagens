@@ -94,7 +94,15 @@ function renderTable() {
   });
 }
 
-async function openReservationPage(reservationId) {
+// Exportado para poder ser chamado a partir de outra vista (ex.: separador
+// "Viagens" da ficha do cliente) - troca a vista ativa para "Reservas" e so
+// depois abre o processo, tal como um clique normal na sidebar faria.
+export async function openReservationPage(reservationId) {
+  document.querySelectorAll('.nav-item[data-view]').forEach(btn => btn.classList.toggle('is-active', btn.dataset.view === 'reservas'));
+  document.querySelectorAll('.view').forEach(sec => { sec.hidden = sec.id !== 'view-reservas'; });
+  const title = $('#pageTitle');
+  if (title) title.textContent = 'Reservas';
+
   const el = $('#view-reservas');
   el.innerHTML = `
     <button type="button" class="back-link">← Reservas</button>

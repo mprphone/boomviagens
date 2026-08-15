@@ -252,6 +252,82 @@
 .complaint-actions select,
 .complaint-actions input { width: auto; padding: 7px 8px; font-size: 12px; }
 
+.customer-preferences-form textarea {
+  width: 100%;
+  min-height: 60px;
+  border: 1px solid #d7dee7;
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font: inherit;
+  resize: vertical;
+  margin-bottom: 10px;
+}
+
+/* Separador "Passageiros" - cartoes do agregado familiar, clicaveis para
+   abrir a gaveta de edicao (ver ./drawer.js). */
+.passenger-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.passenger-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: border-color .12s ease;
+}
+.passenger-card:hover { border-color: var(--accent); }
+
+.passenger-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+/* Separador "Resumo" - alertas permanentes do cliente e proxima viagem. */
+.customer-alert-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.customer-alert-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 12.5px;
+  background: #fff8ec;
+}
+
+.alert-add-form {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.alert-add-form input { flex: 1; }
+
+.next-trip-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  font-size: 12.5px;
+}
+
 @media (max-width: 640px) {
   .customer-profile-grid { grid-template-columns: 1fr; }
 }

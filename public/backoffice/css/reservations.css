@@ -231,6 +231,7 @@
 
 .doc-upload-form select,
 .doc-upload-form input[type="text"],
+.doc-upload-form input[type="date"],
 .doc-upload-form input[type="file"] {
   width: auto;
   padding: 7px 8px;

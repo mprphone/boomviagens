@@ -292,6 +292,19 @@ create index if not exists documents_service_line_id_idx on public.documents(ser
 create index if not exists documents_event_id_idx on public.documents(event_id);
 create index if not exists documents_complaint_id_idx on public.documents(complaint_id);
 
+-- Validade/pais emissor: so relevante para documentos pessoais
+-- (passaporte/cartao de cidadao/visto) do cliente ou do agregado familiar -
+-- permite alertar "passaporte expira em N meses" na ficha do cliente.
+alter table public.documents add column if not exists expiry_date text;
+alter table public.documents add column if not exists issuing_country text;
+
+-- Preferencias comerciais (destinos, tipo de viagem, hotel, regime,
+-- companhia aerea, orcamento habitual...) e alertas permanentes do cliente
+-- (ex.: "necessita assistencia no aeroporto") - guardados como jsonb por
+-- serem estruturas pequenas e variaveis, sem justificar tabelas propias.
+alter table public.customers add column if not exists preferences jsonb not null default '{}'::jsonb;
+alter table public.customers add column if not exists alerts jsonb not null default '[]'::jsonb;
+
 create table if not exists public.suppliers (
   id text primary key,
   created_at timestamptz not null default now(),

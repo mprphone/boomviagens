@@ -18,13 +18,15 @@ export function renderComplaintsTab(panel, data, email, reload) {
     <div class="complaint-list">
       ${data.complaints.map(c => {
         const meta = statusMeta(c.status);
+        const context = [c.processNumber, c.hotel].filter(Boolean).join(' · ');
+        const compensation = c.paidToCustomer ? `Compensação ${new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(c.paidToCustomer)}` : '';
         return `
         <div class="complaint-item">
           <div class="complaint-head">
             <b>${esc(c.subject)}</b>
             <span class="pill ${meta.pillClass}">${meta.label}</span>
           </div>
-          <p class="muted small">${new Date(c.createdAt).toLocaleString('pt-PT')}${c.reservationId ? ` · ${esc(c.reservationId)}` : ''}</p>
+          <p class="muted small">${context ? `${esc(context)} · ` : ''}${new Date(c.createdAt).toLocaleString('pt-PT')}${compensation ? ` · ${esc(compensation)}` : ''}</p>
           ${c.description ? `<p>${esc(c.description)}</p>` : ''}
           ${c.resolution ? `<p class="muted"><b>Resolução:</b> ${esc(c.resolution)}</p>` : ''}
           ${c.status !== 'RESOLVED' ? `

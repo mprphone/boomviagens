@@ -8,7 +8,7 @@ module.exports = function registerAdminRoutes(router, ctx) {
   const {
     ensureCollections, audit, addOperatorLog, missingDocumentsFor, statusLabel, leadStage, leadStageLabel, id, now,
     RESERVATION_STATUSES, LEAD_STAGES, DOCUMENT_TYPES, CUSTOMER_FINANCIAL_DOC_TYPES, CONTACT_TYPES, COMPLAINT_STATUSES, COMPLAINT_DIRECTIONS,
-    VAT_REGIMES, SUPPLIER_TYPES, SERVICE_TYPES, SERVICE_STATUSES, MANUAL_EVENT_TYPES, TASK_STATUSES, TASK_PRIORITIES,
+    VAT_REGIMES, SUPPLIER_TYPES, SERVICE_TYPES, SERVICE_STATUSES, MANUAL_EVENT_TYPES, OCCURRENCE_EVENT_TYPES, TASK_STATUSES, TASK_PRIORITIES,
     sanitizeCustomer, computeServiceTotals, serviceTypeLabel, serviceStatusLabel, serviceStatusesForType, eventTypeLabel,
     taskStatusLabel, taskPriorityLabel, complaintStatusLabel, documentTypeLabel, processNumber, computeAlerts
   } = domain;
@@ -633,11 +633,17 @@ module.exports = function registerAdminRoutes(router, ctx) {
     const passengerName = body.passengerName ? cleanText(body.passengerName, 200) : undefined;
     if (!fileName || !body.fileBase64) return json(res, 400, { ok: false, error: 'Ficheiro invalido' });
     if (!reservationId && !customerEmail && !supplierId) return json(res, 400, { ok: false, error: 'Indique a reserva, o cliente ou o fornecedor' });
-    // So preenchidos para documentos financeiros (Financeiro > Faturas e
-    // Documentos) - numero/data/valor do documento emitido externamente.
-    const documentNumber = reservationId ? cleanText(body.documentNumber, 60) : '';
+    // documentNumber serve tanto para documentos financeiros (Financeiro >
+    // Faturas e Documentos, ligados a uma reserva) como para o nº de
+    // passaporte/CC de um documento pessoal (ligado ao cliente); data/valor
+    // so fazem sentido no caso financeiro.
+    const documentNumber = cleanText(body.documentNumber, 60);
     const documentDate = reservationId ? cleanText(body.documentDate, 30) : '';
     const amount = reservationId && body.amount !== undefined && body.amount !== '' ? numberInRange(body.amount, 'Valor', 0, 1000000, 0) : undefined;
+    // So preenchidos para documentos pessoais (passaporte/CC/visto) -
+    // permite alertar "passaporte expira em N meses" na ficha do cliente.
+    const expiryDate = cleanText(body.expiryDate, 30);
+    const issuingCountry = cleanText(body.issuingCountry, 80);
 
     const db = ensureCollections(await readDb());
     let folder;
@@ -677,6 +683,8 @@ module.exports = function registerAdminRoutes(router, ctx) {
       documentNumber: documentNumber || undefined,
       documentDate: documentDate || undefined,
       amount,
+      expiryDate: expiryDate || undefined,
+      issuingCountry: issuingCountry || undefined,
       type, passengerName, fileName, storagePath, uploadedBy: sessionUser(req)
     };
     await updateDb(d => {
@@ -740,20 +748,105 @@ module.exports = function registerAdminRoutes(router, ctx) {
     const customer = db.customers.find(c => c.email === customerEmail);
     if (!customer) return json(res, 404, { ok: false, error: 'Cliente nao encontrado' });
     const leads = db.leads.filter(l => l.search?.email === customerEmail);
+
     const reservations = db.reservations.filter(r => r.customer?.email === customerEmail)
-      .map(r => ({ ...r, payment: db.payments.find(p => p.reservationId === r.id) || null }));
+      .map(r => {
+        const offer = r.offer || {};
+        const margin = Number(offer.marginValue ?? ((offer.finalPrice || 0) - (offer.costPrice || 0)));
+        const marginPercent = offer.finalPrice ? (margin / offer.finalPrice) * 100 : 0;
+        const occurrencesCount = db.reservationEvents.filter(e => e.reservationId === r.id && OCCURRENCE_EVENT_TYPES.includes(e.type)).length;
+        return {
+          ...r,
+          processNumber: processNumber(r),
+          payment: db.payments.find(p => p.reservationId === r.id) || null,
+          margin, marginPercent, occurrencesCount
+        };
+      })
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
     const documents = db.documents.filter(d => d.customerEmail === customerEmail);
     const documentsWithUrls = await Promise.all(documents.map(async d => ({ ...d, signedUrl: await fileStorage.signedUrl(d.storagePath) })));
     const contacts = db.contactLog.filter(c => c.customerEmail === customerEmail);
-    const complaints = db.complaints.filter(c => c.customerEmail === customerEmail);
+    const complaints = db.complaints.filter(c => c.customerEmail === customerEmail).map(c => {
+      const r = c.reservationId ? reservations.find(x => x.id === c.reservationId) : null;
+      return { ...c, processNumber: r?.processNumber, hotel: r?.offer?.hotel };
+    });
+
+    // Extrato de conta corrente do cliente: agrega faturas emitidas,
+    // recebimentos e pagamentos a fornecedores de TODAS as reservas dele -
+    // a mesma logica do separador Financeiro > Conta do Processo, aqui a
+    // nivel do cliente em vez de por processo.
+    const reservationIds = reservations.map(r => r.id);
+    const allPayments = db.payments.filter(p => reservationIds.includes(p.reservationId));
+    const financialDocs = db.documents.filter(d => d.reservationId && reservationIds.includes(d.reservationId) && d.type === 'INVOICE_SALE');
+
+    // Documentos financeiros (separador "Documentos" > Documentos
+    // financeiros): faturas/recibos/notas de credito de TODAS as reservas
+    // do cliente - ficam ligados a reserva, nao ao cliente, por isso nao
+    // aparecem no filtro `documents` acima.
+    const allFinancialDocs = db.documents.filter(d => d.reservationId && reservationIds.includes(d.reservationId) && CUSTOMER_FINANCIAL_DOC_TYPES.includes(d.type));
+    const financialDocumentsWithUrls = await Promise.all(allFinancialDocs.map(async d => {
+      const r = reservations.find(x => x.id === d.reservationId);
+      return { ...d, processNumber: r?.processNumber, signedUrl: await fileStorage.signedUrl(d.storagePath) };
+    }));
+    const paidServiceLines = db.serviceLines.filter(l => reservationIds.includes(l.reservationId) && l.status !== 'CANCELADO' && l.paid);
+
+    const vendaTotal = reservations.reduce((sum, r) => sum + (r.offer?.finalPrice || 0), 0);
+    const faturado = financialDocs.reduce((sum, d) => sum + (Number(d.amount) || 0), 0) || vendaTotal;
+    const recebido = allPayments.filter(p => p.status === 'PAID').reduce((sum, p) => sum + (p.amount || 0), 0);
+    const porReceber = Math.max(0, vendaTotal - recebido);
+
+    const movements = [
+      ...financialDocs.map(d => {
+        const r = reservations.find(x => x.id === d.reservationId);
+        return { date: d.documentDate || d.createdAt, label: `Fatura${d.documentNumber ? ` ${d.documentNumber}` : ''} · ${r?.processNumber || ''}`, amount: Number(d.amount) || 0, reservationId: d.reservationId };
+      }),
+      ...allPayments.filter(p => p.status === 'PAID').map(p => {
+        const r = reservations.find(x => x.id === p.reservationId);
+        return { date: p.paidAt || p.createdAt, label: `Recebimento (${p.method}) · ${r?.processNumber || ''}`, amount: p.amount, reservationId: p.reservationId };
+      }),
+      ...paidServiceLines.map(l => {
+        const r = reservations.find(x => x.id === l.reservationId);
+        return { date: l.paidAt || l.updatedAt || l.createdAt, label: `Pagamento a ${l.supplierName || l.description} · ${r?.processNumber || ''}`, amount: -((Number(l.netValue) || 0) * (Number(l.quantity) || 1)), reservationId: l.reservationId };
+      })
+    ].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    const accountStatement = { vendaTotal, faturado, recebido, porReceber, movements };
+
+    // Indicadores do separador Resumo.
+    const activeTrips = reservations.filter(r => r.status !== 'CANCELLED');
+    const today = new Date();
+    const nextTrip = activeTrips
+      .filter(r => r.offer?.checkin && new Date(r.offer.checkin) >= today)
+      .sort((a, b) => new Date(a.offer.checkin) - new Date(b.offer.checkin))[0] || null;
+    const lastTrip = activeTrips
+      .filter(r => r.offer?.checkout && new Date(r.offer.checkout) < today)
+      .sort((a, b) => new Date(b.offer.checkout) - new Date(a.offer.checkout))[0]
+      || [...activeTrips].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0]
+      || null;
+    const customerSinceYear = reservations.length
+      ? new Date([...reservations].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))[0].createdAt).getFullYear()
+      : new Date(customer.createdAt).getFullYear();
+    const indicators = {
+      customerSinceYear,
+      tripsCount: activeTrips.length,
+      totalBilled: faturado,
+      lastTrip: lastTrip ? { processNumber: lastTrip.processNumber, hotel: lastTrip.offer?.hotel, destination: lastTrip.offer?.destination } : null,
+      nextTrip: nextTrip ? { processNumber: nextTrip.processNumber, hotel: nextTrip.offer?.hotel, destination: nextTrip.offer?.destination, checkin: nextTrip.offer?.checkin, status: nextTrip.status } : null,
+      estado: nextTrip ? statusLabel(nextTrip.status) : (reservations.length ? 'Cliente' : 'Lead')
+    };
+
     return json(res, 200, {
       ok: true,
       customer: sanitizeCustomer(customer),
       leads,
       reservations,
       documents: documentsWithUrls,
+      financialDocuments: financialDocumentsWithUrls,
       contacts,
-      complaints
+      complaints,
+      accountStatement,
+      indicators
     });
   }, { admin: true });
 
@@ -882,6 +975,92 @@ module.exports = function registerAdminRoutes(router, ctx) {
     });
     if (!saved) return json(res, 404, { ok: false, error: 'Reclamacao nao encontrada' });
     return json(res, 200, { ok: true, complaint: saved });
+  }, { admin: true });
+
+  // Separador "Passageiros" da ficha do cliente: agregado familiar/pessoas
+  // que viajam habitualmente com o cliente, reutilizavel entre reservas.
+  // Guarda a lista completa de cada vez (poucos registos por cliente - nao
+  // justifica CRUD por linha como as linhas de servico de uma reserva).
+  router.post('/api/admin/customers/passengers', async (req, res) => {
+    const body = await parseBody(req);
+    const customerEmail = cleanText(body.email, 254);
+    if (!Array.isArray(body.passengers)) return json(res, 400, { ok: false, error: 'Lista de passageiros inválida' });
+    const passengers = body.passengers.map(p => ({
+      id: cleanText(p.id, 60) || id('pax'),
+      name: cleanText(p.name, 120),
+      birthdate: cleanText(p.birthdate, 30),
+      nationality: cleanText(p.nationality, 80),
+      documentType: cleanText(p.documentType, 30),
+      documentNumber: cleanText(p.documentNumber, 60),
+      documentExpiry: cleanText(p.documentExpiry, 30),
+      relationship: cleanText(p.relationship, 60),
+      notes: cleanText(p.notes, 500)
+    })).filter(p => p.name);
+    const saved = await updateDb(d => {
+      ensureCollections(d);
+      const customer = d.customers.find(c => c.email === customerEmail);
+      if (!customer) return null;
+      customer.passengers = passengers;
+      customer.updatedAt = now();
+      audit(d, sessionUser(req), 'CUSTOMER_PASSENGERS_UPDATED', { email: customerEmail, count: passengers.length });
+      return customer;
+    });
+    if (!saved) return json(res, 404, { ok: false, error: 'Cliente não encontrado' });
+    return json(res, 200, { ok: true, customer: sanitizeCustomer(saved) });
+  }, { admin: true });
+
+  // Separador "Preferências": informação comercial (destinos, tipo de
+  // viagem, hotel, regime, companhia aérea, orçamento habitual...) que
+  // ajuda a propor a próxima viagem sem ter de perguntar tudo de novo.
+  router.post('/api/admin/customers/preferences', async (req, res) => {
+    const body = await parseBody(req);
+    const customerEmail = cleanText(body.email, 254);
+    const p = body.preferences || {};
+    const preferences = {
+      preferredDestinations: cleanText(p.preferredDestinations, 300),
+      tripType: cleanText(p.tripType, 200),
+      hotelCategory: cleanText(p.hotelCategory, 100),
+      boardPreference: cleanText(p.boardPreference, 100),
+      preferredAirline: cleanText(p.preferredAirline, 100),
+      seatPreference: cleanText(p.seatPreference, 100),
+      roomType: cleanText(p.roomType, 100),
+      usualBudget: cleanText(p.usualBudget, 100),
+      preferredPeriods: cleanText(p.preferredPeriods, 200),
+      departureAirport: cleanText(p.departureAirport, 100),
+      specialNeeds: cleanText(p.specialNeeds, 500),
+      commercialNotes: cleanText(p.commercialNotes, 1000)
+    };
+    const saved = await updateDb(d => {
+      ensureCollections(d);
+      const customer = d.customers.find(c => c.email === customerEmail);
+      if (!customer) return null;
+      customer.preferences = preferences;
+      customer.updatedAt = now();
+      audit(d, sessionUser(req), 'CUSTOMER_PREFERENCES_UPDATED', { email: customerEmail });
+      return customer;
+    });
+    if (!saved) return json(res, 404, { ok: false, error: 'Cliente não encontrado' });
+    return json(res, 200, { ok: true, customer: sanitizeCustomer(saved) });
+  }, { admin: true });
+
+  // Alertas permanentes do cliente (ex.: "necessita assistência no
+  // aeroporto") - visíveis logo no Resumo da ficha, em qualquer processo.
+  router.post('/api/admin/customers/alerts', async (req, res) => {
+    const body = await parseBody(req);
+    const customerEmail = cleanText(body.email, 254);
+    if (!Array.isArray(body.alerts)) return json(res, 400, { ok: false, error: 'Lista de alertas inválida' });
+    const alerts = body.alerts.map(a => cleanText(typeof a === 'string' ? a : a.text, 200)).filter(Boolean);
+    const saved = await updateDb(d => {
+      ensureCollections(d);
+      const customer = d.customers.find(c => c.email === customerEmail);
+      if (!customer) return null;
+      customer.alerts = alerts;
+      customer.updatedAt = now();
+      audit(d, sessionUser(req), 'CUSTOMER_ALERTS_UPDATED', { email: customerEmail, count: alerts.length });
+      return customer;
+    });
+    if (!saved) return json(res, 404, { ok: false, error: 'Cliente não encontrado' });
+    return json(res, 200, { ok: true, customer: sanitizeCustomer(saved) });
   }, { admin: true });
 
   router.get('/api/admin/leads', async (req, res) => {
