@@ -5,7 +5,7 @@
 
 import { esc, api } from '../utils.js';
 
-export function renderPreferencesTab(panel, data, email) {
+export function renderPreferencesTab(panel, data, email, reload) {
   const p = data.customer.preferences || {};
 
   panel.innerHTML = `
@@ -57,7 +57,7 @@ export function renderPreferencesTab(panel, data, email) {
         })
       });
       btn.textContent = 'Guardado ✓';
-      setTimeout(() => { btn.textContent = 'Guardar'; btn.disabled = false; }, 1500);
+      await reload();
     } catch (err) {
       msg.textContent = err.message;
       btn.disabled = false;

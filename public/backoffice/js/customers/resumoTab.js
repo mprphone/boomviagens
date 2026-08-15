@@ -11,59 +11,69 @@ export function renderResumoTab(panel, data, email, reload) {
   const nextTrip = data.indicators?.nextTrip;
 
   panel.innerHTML = `
-    ${nextTrip ? `
-      <p class="summary-block-label" style="margin-top:0">Próxima viagem</p>
-      <div class="next-trip-block">
-        <b>${esc(nextTrip.hotel || nextTrip.destination || nextTrip.processNumber)}</b>
-        <span class="muted">${esc(nextTrip.destination || '')}</span>
-        <span class="muted small">${esc(nextTrip.processNumber)} · ${esc(nextTrip.checkin || '')}</span>
-      </div>` : ''}
+    <div class="summary-cards-row">
+      ${nextTrip ? `
+        <div class="summary-card">
+          <p class="summary-block-label" style="margin-top:0">Próxima viagem</p>
+          <div class="next-trip-block">
+            <b>${esc(nextTrip.hotel || nextTrip.destination || nextTrip.processNumber)}</b>
+            <span class="muted">${esc(nextTrip.destination || '')}</span>
+            <span class="muted small">${esc(nextTrip.processNumber)} · ${esc(nextTrip.checkin || '')}</span>
+          </div>
+        </div>` : ''}
 
-    <p class="summary-block-label">Alertas do cliente</p>
-    <div class="customer-alert-list">
-      ${(c.alerts || []).map((a, i) => `
-        <div class="customer-alert-item">
-          <span>⚠ ${esc(a)}</span>
-          <button type="button" class="ghost mini-action alert-remove" data-index="${i}">Remover</button>
-        </div>`).join('') || '<p class="empty-note">Sem alertas registados.</p>'}
-    </div>
-    <form class="alert-add-form">
-      <input type="text" name="alertText" placeholder="ex.: Necessita assistência no aeroporto" maxlength="200" required />
-      <button class="ghost mini-action" type="submit">Adicionar alerta</button>
-    </form>
-
-    <p class="summary-block-label">Dados principais</p>
-    <form class="customer-profile-form">
-      <div class="customer-profile-grid">
-        <label>Nome <input name="name" value="${esc(c.name || '')}" required /></label>
-        <label>Email <input value="${esc(c.email)}" disabled /></label>
-        <label>Telefone <input name="phone" value="${esc(c.phone || '')}" /></label>
-        <label>Telefone alternativo <input name="phone2" value="${esc(c.phone2 || '')}" /></label>
-        <label>NIF <input name="nif" value="${esc(c.nif || '')}" maxlength="9" /></label>
-        <label>Data de nascimento <input name="birthdate" type="date" value="${esc(c.birthdate || '')}" /></label>
-        <label>Morada <input name="address" value="${esc(c.address || '')}" /></label>
-        <label>Código postal <input name="postalCode" value="${esc(c.postalCode || '')}" placeholder="0000-000" /></label>
-        <label>Localidade <input name="city" value="${esc(c.city || '')}" /></label>
+      <div class="summary-card">
+        <p class="summary-block-label" style="margin-top:0">Alertas do cliente</p>
+        <div class="customer-alert-list">
+          ${(c.alerts || []).map((a, i) => `
+            <div class="customer-alert-item">
+              <span>⚠ ${esc(a)}</span>
+              <button type="button" class="ghost mini-action alert-remove" data-index="${i}">Remover</button>
+            </div>`).join('') || '<p class="empty-note">Sem alertas registados.</p>'}
+        </div>
+        <form class="alert-add-form">
+          <input type="text" name="alertText" placeholder="ex.: Necessita assistência no aeroporto" maxlength="200" required />
+          <button class="ghost mini-action" type="submit">Adicionar</button>
+        </form>
       </div>
-      <label>Notas internas <textarea name="notes" rows="3">${esc(c.notes || '')}</textarea></label>
-      <button class="btn mini-action" type="submit">Guardar</button>
-      <p class="customer-form-message"></p>
-    </form>
-
-    <p class="summary-block-label">Conta corrente</p>
-    <div class="summary-financial-grid">
-      <div class="summary-financial-block"><span class="muted small">Venda total</span><strong>${money(stmt.vendaTotal)}</strong></div>
-      <div class="summary-financial-block"><span class="muted small">Faturado</span><strong>${money(stmt.faturado)}</strong></div>
-      <div class="summary-financial-block"><span class="muted small">Recebido</span><strong>${money(stmt.recebido)}</strong></div>
-      <div class="summary-financial-block"><span class="muted small">Por receber</span><strong>${money(stmt.porReceber)}</strong></div>
     </div>
-    <div class="account-movements">
-      ${stmt.movements.map(m => `
-        <div class="account-movement-row">
-          <span class="muted small">${m.date ? new Date(m.date).toLocaleDateString('pt-PT') : ''}</span>
-          <span>${esc(m.label)}</span>
-          <b class="${m.amount < 0 ? 'margin-diff-negative' : 'margin-diff-positive'}">${m.amount >= 0 ? '+' : ''}${money(m.amount)}</b>
-        </div>`).join('') || '<p class="empty-note">Sem movimentos registados.</p>'}
+
+    <div class="summary-card">
+      <p class="summary-block-label" style="margin-top:0">Dados principais</p>
+      <form class="customer-profile-form">
+        <div class="customer-profile-grid">
+          <label>Nome <input name="name" value="${esc(c.name || '')}" required /></label>
+          <label>Email <input value="${esc(c.email)}" disabled /></label>
+          <label>Telefone <input name="phone" value="${esc(c.phone || '')}" /></label>
+          <label>Telefone alternativo <input name="phone2" value="${esc(c.phone2 || '')}" /></label>
+          <label>NIF <input name="nif" value="${esc(c.nif || '')}" maxlength="9" /></label>
+          <label>Data de nascimento <input name="birthdate" type="date" value="${esc(c.birthdate || '')}" /></label>
+          <label>Morada <input name="address" value="${esc(c.address || '')}" /></label>
+          <label>Código postal <input name="postalCode" value="${esc(c.postalCode || '')}" placeholder="0000-000" /></label>
+          <label>Localidade <input name="city" value="${esc(c.city || '')}" /></label>
+        </div>
+        <label>Notas internas <textarea name="notes" rows="3">${esc(c.notes || '')}</textarea></label>
+        <button class="btn mini-action" type="submit">Guardar</button>
+        <p class="customer-form-message"></p>
+      </form>
+    </div>
+
+    <div class="summary-card">
+      <p class="summary-block-label" style="margin-top:0">Conta corrente</p>
+      <div class="summary-financial-grid">
+        <div class="summary-financial-block"><span class="muted small">Venda total</span><strong>${money(stmt.vendaTotal)}</strong></div>
+        <div class="summary-financial-block"><span class="muted small">Faturado</span><strong>${money(stmt.faturado)}</strong></div>
+        <div class="summary-financial-block"><span class="muted small">Recebido</span><strong>${money(stmt.recebido)}</strong></div>
+        <div class="summary-financial-block"><span class="muted small">Por receber</span><strong>${money(stmt.porReceber)}</strong></div>
+      </div>
+      <div class="account-movements">
+        ${stmt.movements.map(m => `
+          <div class="account-movement-row">
+            <span class="muted small">${m.date ? new Date(m.date).toLocaleDateString('pt-PT') : ''}</span>
+            <span>${esc(m.label)}</span>
+            <b class="${m.amount < 0 ? 'margin-diff-negative' : 'margin-diff-positive'}">${m.amount >= 0 ? '+' : ''}${money(m.amount)}</b>
+          </div>`).join('') || '<p class="empty-note">Sem movimentos registados.</p>'}
+      </div>
     </div>`;
 
   panel.querySelectorAll('.alert-remove').forEach(btn => {

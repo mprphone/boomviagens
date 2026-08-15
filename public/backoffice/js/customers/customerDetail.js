@@ -36,7 +36,7 @@ function renderHeader(data) {
         <b>${esc(c.name)}</b> · ${esc(c.email)}${c.phone ? ` · ${esc(c.phone)}` : ''}
       </div>
       <div class="process-header-trip">
-        Cliente desde ${ind.customerSinceYear} · ${ind.tripsCount} viagem${ind.tripsCount === 1 ? '' : 'ns'} · ${new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(ind.totalBilled || 0)} faturados
+        Cliente desde ${ind.customerSinceYear} · ${ind.tripsCount} ${ind.tripsCount === 1 ? 'viagem' : 'viagens'} · ${new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(ind.totalBilled || 0)} faturados
       </div>
       <div class="process-header-status">
         <span class="pill process-status-pill">${esc(ind.estado)}</span>

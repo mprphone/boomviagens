@@ -626,7 +626,10 @@ module.exports = function registerAdminRoutes(router, ctx) {
     const supplierId = cleanText(body.supplierId, 120);
     const serviceLineId = reservationId ? cleanText(body.serviceLineId, 120) : '';
     const eventId = reservationId ? cleanText(body.eventId, 120) : '';
-    const complaintId = reservationId ? cleanText(body.complaintId, 120) : '';
+    // Ao contrario de serviceLineId/eventId, uma reclamacao pode nao estar
+    // ligada a nenhuma reserva (reclamacao ao nivel do cliente) - por isso
+    // complaintId nao depende de reservationId estar preenchido.
+    const complaintId = cleanText(body.complaintId, 120);
     const type = cleanText(body.type, 20);
     if (!DOCUMENT_TYPES.includes(type)) return json(res, 400, { ok: false, error: 'Tipo de documento invalido' });
     const fileName = cleanText(body.fileName, 200);
@@ -656,7 +659,7 @@ module.exports = function registerAdminRoutes(router, ctx) {
       else if (CUSTOMER_FINANCIAL_DOC_TYPES.includes(type) || type === 'INVOICE_PURCHASE') folder = `${reservationId}/financeiro`;
       else folder = reservationId;
     } else if (customerEmail) {
-      folder = `cliente/${customerEmail.replace('@', '_')}`;
+      folder = complaintId ? `cliente/${customerEmail.replace('@', '_')}/reclamacoes` : `cliente/${customerEmail.replace('@', '_')}`;
     } else {
       const supplier = db.suppliers.find(s => s.id === supplierId);
       if (!supplier) return json(res, 404, { ok: false, error: 'Fornecedor nao encontrado' });
@@ -679,7 +682,7 @@ module.exports = function registerAdminRoutes(router, ctx) {
       supplierId: (reservationId || customerEmail) ? undefined : (supplierId || undefined),
       serviceLineId: reservationId ? (serviceLineId || undefined) : undefined,
       eventId: reservationId ? (eventId || undefined) : undefined,
-      complaintId: reservationId ? (complaintId || undefined) : undefined,
+      complaintId: complaintId || undefined,
       documentNumber: documentNumber || undefined,
       documentDate: documentDate || undefined,
       amount,
@@ -771,6 +774,13 @@ module.exports = function registerAdminRoutes(router, ctx) {
       const r = c.reservationId ? reservations.find(x => x.id === c.reservationId) : null;
       return { ...c, processNumber: r?.processNumber, hotel: r?.offer?.hotel };
     });
+    // Anexos das reclamacoes: uma reclamacao associada a uma reserva tem os
+    // seus documentos ligados via reservation_id (nao customer_email), por
+    // isso nao aparecem no filtro `documents` acima - vao a procura por
+    // complaint_id em vez de customer_email/reservation_id.
+    const complaintIds = complaints.map(c => c.id);
+    const complaintDocs = db.documents.filter(d => d.complaintId && complaintIds.includes(d.complaintId));
+    const complaintDocumentsWithUrls = await Promise.all(complaintDocs.map(async d => ({ ...d, signedUrl: await fileStorage.signedUrl(d.storagePath) })));
 
     // Extrato de conta corrente do cliente: agrega faturas emitidas,
     // recebimentos e pagamentos a fornecedores de TODAS as reservas dele -
@@ -845,6 +855,10 @@ module.exports = function registerAdminRoutes(router, ctx) {
       financialDocuments: financialDocumentsWithUrls,
       contacts,
       complaints,
+      complaintDocuments: complaintDocumentsWithUrls,
+      complaintStatuses: COMPLAINT_STATUSES.map(value => ({ value, label: complaintStatusLabel(value) })),
+      complaintDirections: COMPLAINT_DIRECTIONS,
+      suppliers: db.suppliers.map(s => ({ id: s.id, name: s.name })),
       accountStatement,
       indicators
     });
