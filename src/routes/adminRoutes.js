@@ -305,6 +305,7 @@ module.exports = function registerAdminRoutes(router, ctx) {
     const complaints = db.complaints.filter(c => c.reservationId === reservationId);
     const payments = db.payments.filter(p => p.reservationId === reservationId);
     const documents = db.documents.filter(d => d.reservationId === reservationId);
+    const documentsWithUrls = await Promise.all(documents.map(async d => ({ ...d, signedUrl: await fileStorage.signedUrl(d.storagePath) })));
     const communications = db.contactLog.filter(c => c.reservationId === reservationId);
 
     return json(res, 200, {
@@ -324,6 +325,7 @@ module.exports = function registerAdminRoutes(router, ctx) {
       complaintStatuses: COMPLAINT_STATUSES.map(value => ({ value, label: complaintStatusLabel(value) })),
       complaintDirections: COMPLAINT_DIRECTIONS,
       payments,
+      documents: documentsWithUrls,
       communications,
       suppliers: db.suppliers.map(s => ({ id: s.id, name: s.name })),
       alerts: computeAlerts(reservation, { serviceLines, documents, payments, tasks })

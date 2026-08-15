@@ -1,10 +1,11 @@
-// Vista "Reservas": lista em tabela (id, cliente, destino, datas, pax,
-// estado, documentos, preco); clicar numa linha abre a Ficha de Reserva
-// completa (Resumo/Passageiros/Documentos/Emissoes) numa caixa modal
-// separada - ver ./reservations/reservationDetail.js e ./modal.js.
+// Vista "Reservas": lista em tabela (processo, cliente, destino, datas,
+// pax, estado, documentos, preco); clicar numa linha abre a Ficha de
+// Reserva completa como pagina inteira dentro da mesma vista (nao um
+// modal - a quantidade de separadores e informacao nao cabia bem numa
+// caixa), com um botao "← Reservas" para voltar a lista - ver
+// ./reservations/reservationDetail.js.
 
 import { $, esc, money, api } from './utils.js';
-import { openModal } from './modal.js';
 import { openReservationDetail } from './reservations/reservationDetail.js';
 
 let allReservations = [];
@@ -89,9 +90,15 @@ function renderTable() {
     </div>`;
 
   document.querySelectorAll('#reservationsList tbody tr').forEach(row => {
-    row.onclick = () => {
-      const panel = openModal(`Reserva ${row.dataset.reservation}`);
-      openReservationDetail(panel, row.dataset.reservation);
-    };
+    row.onclick = () => openReservationPage(row.dataset.reservation);
   });
+}
+
+async function openReservationPage(reservationId) {
+  const el = $('#view-reservas');
+  el.innerHTML = `
+    <button type="button" class="back-link">← Reservas</button>
+    <div class="panel process-page"></div>`;
+  el.querySelector('.back-link').onclick = () => renderReservas();
+  await openReservationDetail(el.querySelector('.process-page'), reservationId);
 }

@@ -22,19 +22,10 @@ const DOC_TYPES = [
 ];
 const DOC_TYPE_LABEL = Object.fromEntries(DOC_TYPES.map(t => [t.value, t.label]));
 
-export async function renderDocumentsTab(panel, reservation, reload, detail = {}) {
+export function renderDocumentsTab(panel, reservation, reload, detail = {}) {
   const serviceLines = detail.serviceLines || [];
+  const documents = detail.documents || [];
   const serviceLineLabel = lineId => serviceLines.find(l => l.id === lineId)?.description || '';
-
-  panel.innerHTML = '<p class="muted">A carregar...</p>';
-  let documents;
-  try {
-    const res = await api(`/api/admin/documents?reservationId=${encodeURIComponent(reservation.id)}`);
-    documents = res.documents;
-  } catch (err) {
-    panel.innerHTML = `<p class="error">${esc(err.message)}</p>`;
-    return;
-  }
 
   panel.innerHTML = `
     <div class="doc-list">

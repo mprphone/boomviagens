@@ -238,78 +238,122 @@
 }
 
 /* Cabecalho fixo do processo - sempre visivel no topo da ficha,
-   independentemente do separador aberto. */
+   independentemente do separador aberto, com o essencial em 4 linhas
+   compactas (nao repetido depois no Resumo). */
 .process-header {
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  padding: 10px 14px;
+  padding: 12px 16px;
   margin-bottom: 14px;
   background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.process-header-main {
+.process-header-title { font-family: var(--font-display); font-size: 15px; }
+
+.process-header-trip { font-size: 12.5px; color: var(--ink-soft); }
+
+.process-header-status {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px 16px;
-  font-size: 12.5px;
+  gap: 8px;
+  margin-top: 2px;
 }
 
-.process-header-main b { font-family: var(--font-display); font-size: 14px; }
+.process-status-part { font-size: 12px; font-weight: 600; color: var(--ink-soft); white-space: nowrap; }
 
-.process-flag {
-  margin-left: auto;
-  font-size: 12px;
+.process-header-money { font-size: 13px; font-weight: 600; margin-top: 2px; }
+
+/* Botao de voltar da Ficha de Reserva (pagina inteira, nao modal) */
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: none;
+  padding: 6px 0;
+  margin-bottom: 12px;
+  font-size: 13px;
   font-weight: 700;
+  color: var(--blue);
+  cursor: pointer;
+}
+.back-link:hover { text-decoration: underline; }
+
+/* Separador "Resumo" - secao "A tratar" (o mais importante: excecoes e
+   pendencias, nao o que ja esta bem). */
+.to-handle-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.to-handle-item {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+  font-size: 12.5px;
+  background: #fdf6ea;
+}
+
+/* Estado da documentacao (Resumo) - chips compactos, um por categoria. */
+.doc-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.doc-status-chip {
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
   white-space: nowrap;
 }
 
-.summary-status-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 8px;
-  margin-bottom: 12px;
-  font-size: 12.5px;
-}
+.doc-status-ok { background: var(--green-bg); color: var(--green); }
+.doc-status-pending { background: var(--bg); color: var(--ink-soft); border: 1px solid var(--line); }
 
-.summary-status-item {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  padding: 8px 10px;
-}
-
-.summary-alerts-list {
+/* Sub-separadores dentro do separador "Financeiro" (Vendas/Compras/
+   Recebimentos/Pagamentos/Margem/IVA). */
+.bo-subtabs {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
 }
 
-.summary-alert {
-  border-radius: var(--radius-sm);
-  padding: 8px 10px;
+.bo-subtab {
+  border: 0;
+  background: var(--bg);
+  border-radius: 999px;
+  padding: 6px 14px;
   font-size: 12.5px;
-  border: 1px solid var(--line);
+  font-weight: 600;
+  color: var(--ink-soft);
+  cursor: pointer;
 }
 
-.summary-alert-critical { background: var(--red-bg); border-color: transparent; }
-.summary-alert-warning { background: #fdf6ea; border-color: #f0d3ae; }
+.bo-subtab.is-active { background: var(--blue); color: #fff; }
 
-.summary-task-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.summary-task-item {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  padding: 8px 10px;
+/* Explicacao do regime de IVA, escondida por omissao (separador
+   Financeiro > IVA). */
+.vat-explain summary {
+  cursor: pointer;
   font-size: 12.5px;
+  font-weight: 600;
+  color: var(--blue);
+  margin-bottom: 8px;
 }
+
+.tab-toolbar { margin-bottom: 14px; }
 
 .service-line-checkbox {
   display: flex;
@@ -337,6 +381,75 @@
 .margin-diff-negative { color: var(--red); font-weight: 700; }
 
 .complaint-amounts { margin: 8px 0; }
+
+/* Gaveta lateral de uma reserva individual (public/backoffice/js/drawer.js)
+   - separada do modal generico porque pode abrir por cima de uma pagina
+   inteira (a Ficha de Reserva deixou de ser um modal). */
+.bo-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(15, 23, 42, .5);
+}
+
+.bo-drawer-overlay[hidden] { display: none; }
+
+.bo-drawer-box {
+  width: min(460px, 100%);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  box-shadow: var(--shadow-lg, -12px 0 40px rgba(15, 23, 42, .22));
+}
+
+.bo-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--line);
+  flex: 0 0 auto;
+}
+
+.bo-drawer-title { margin: 0; font-size: 16px; }
+
+.bo-drawer-close {
+  border: 0;
+  background: none;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+}
+.bo-drawer-close:hover { background: var(--bg); color: var(--ink); }
+
+.bo-drawer-body {
+  padding: 18px 20px 24px;
+  overflow-y: auto;
+  flex: 1 1 auto;
+}
+
+.drawer-field-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 14px;
+  margin-bottom: 10px;
+  font-size: 12.5px;
+}
+
+.drawer-field-grid > div > span { display: block; margin-bottom: 2px; }
+
+.drawer-form-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
 
 @media (max-width: 760px) {
   .toolbar { grid-template-columns: 1fr; }
