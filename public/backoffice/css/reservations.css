@@ -368,6 +368,68 @@
 }
 .icon-action:hover { background: var(--bg); }
 
+/* Separador "Tarefas" - post-its em grelha. Estado e nota de resolucao
+   editam-se diretamente no cartao (sem abrir nada); "Adicionar"/editar
+   abrem a gaveta lateral com o formulario completo. */
+.task-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.task-filter-bar { margin: 0; padding: 0; border: 0; }
+
+.task-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.task-card {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--muted);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  background: #fdf9e7;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.task-card-urgent { border-left-color: var(--red); background: #fdece9; }
+.task-card-high { border-left-color: #c9820b; background: #fdf1e0; }
+.task-card-normal { border-left-color: #c9a70b; background: #fdf9e7; }
+.task-card-low { border-left-color: var(--blue); background: #eef1fb; }
+
+.task-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.task-card-head b { flex: 1; font-size: 13px; line-height: 1.4; }
+
+.task-card-meta { font-size: 11.5px; color: var(--ink-soft); }
+
+.task-card-status {
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+.task-card-resolution {
+  width: 100%;
+  border: 1px solid #d7dee7;
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 12px;
+  resize: vertical;
+  background: rgba(255, 255, 255, .6);
+}
+
 .service-line-checkbox {
   display: flex;
   align-items: center;
