@@ -84,7 +84,8 @@ CREATE INDEX IF NOT EXISTS tasks_reservation_idx ON tasks(reservation_id);
 CREATE TABLE IF NOT EXISTS documents (
   id TEXT PRIMARY KEY, created_at TEXT, reservation_id TEXT, customer_email TEXT, supplier_id TEXT, service_line_id TEXT,
   event_id TEXT, complaint_id TEXT,
-  type TEXT, passenger_name TEXT, file_name TEXT, storage_path TEXT, uploaded_by TEXT
+  type TEXT, passenger_name TEXT, file_name TEXT, storage_path TEXT, uploaded_by TEXT,
+  document_number TEXT, document_date TEXT, amount REAL
 );
 CREATE INDEX IF NOT EXISTS documents_reservation_idx ON documents(reservation_id);
 CREATE INDEX IF NOT EXISTS documents_customer_idx ON documents(customer_email);
@@ -224,7 +225,7 @@ function rowToAuditLog(row) {
 }
 
 function rowToDocument(row) {
-  return { id: row.id, createdAt: row.created_at, reservationId: row.reservation_id || undefined, customerEmail: row.customer_email || undefined, supplierId: row.supplier_id || undefined, serviceLineId: row.service_line_id || undefined, eventId: row.event_id || undefined, complaintId: row.complaint_id || undefined, type: row.type, passengerName: row.passenger_name || undefined, fileName: row.file_name, storagePath: row.storage_path, uploadedBy: row.uploaded_by || undefined };
+  return { id: row.id, createdAt: row.created_at, reservationId: row.reservation_id || undefined, customerEmail: row.customer_email || undefined, supplierId: row.supplier_id || undefined, serviceLineId: row.service_line_id || undefined, eventId: row.event_id || undefined, complaintId: row.complaint_id || undefined, type: row.type, passengerName: row.passenger_name || undefined, fileName: row.file_name, storagePath: row.storage_path, uploadedBy: row.uploaded_by || undefined, documentNumber: row.document_number || undefined, documentDate: row.document_date || undefined, amount: row.amount ?? undefined };
 }
 
 function rowToServiceLine(row) {
@@ -348,8 +349,8 @@ function writeDbSqlite(dbState) {
     const insEvent = conn.prepare('INSERT INTO reservation_events (id, created_at, reservation_id, actor, type, description, resolved, resolution) VALUES (?,?,?,?,?,?,?,?)');
     for (const e of dbState.reservationEvents || []) insEvent.run(e.id, e.createdAt, e.reservationId, e.actor || null, e.type, e.description || null, e.resolved ? 1 : 0, e.resolution || null);
 
-    const insDoc = conn.prepare('INSERT INTO documents (id, created_at, reservation_id, customer_email, supplier_id, service_line_id, event_id, complaint_id, type, passenger_name, file_name, storage_path, uploaded_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)');
-    for (const d of dbState.documents || []) insDoc.run(d.id, d.createdAt, d.reservationId || null, d.customerEmail || null, d.supplierId || null, d.serviceLineId || null, d.eventId || null, d.complaintId || null, d.type, d.passengerName || null, d.fileName, d.storagePath, d.uploadedBy || null);
+    const insDoc = conn.prepare('INSERT INTO documents (id, created_at, reservation_id, customer_email, supplier_id, service_line_id, event_id, complaint_id, type, passenger_name, file_name, storage_path, uploaded_by, document_number, document_date, amount) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+    for (const d of dbState.documents || []) insDoc.run(d.id, d.createdAt, d.reservationId || null, d.customerEmail || null, d.supplierId || null, d.serviceLineId || null, d.eventId || null, d.complaintId || null, d.type, d.passengerName || null, d.fileName, d.storagePath, d.uploadedBy || null, d.documentNumber || null, d.documentDate || null, d.amount ?? null);
 
     const insSupplier = conn.prepare('INSERT INTO suppliers (id, created_at, updated_at, name, type, email, phone, nif, notes) VALUES (?,?,?,?,?,?,?,?,?)');
     for (const s of dbState.suppliers || []) insSupplier.run(s.id, s.createdAt, s.updatedAt || null, s.name, s.type || 'OUTRO', s.email || null, s.phone || null, s.nif || null, s.notes || null);

@@ -257,7 +257,13 @@ create table if not exists public.documents (
   passenger_name text,
   file_name text not null,
   storage_path text not null,
-  uploaded_by text
+  uploaded_by text,
+  -- So para documentos financeiros (separador Financeiro > Faturas e
+  -- Documentos): numero/data/valor do documento emitido externamente -
+  -- nunca gerados aqui, so registados para ficar ligado ao anexo.
+  document_number text,
+  document_date text,
+  amount numeric(12,2)
 );
 
 create index if not exists documents_reservation_id_idx on public.documents(reservation_id);

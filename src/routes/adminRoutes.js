@@ -7,7 +7,7 @@ module.exports = function registerAdminRoutes(router, ctx) {
   const { json, parseBody, readDb, updateDb, operators, cleanText, numberInRange, domain, fileStorage, reservationEmail } = ctx;
   const {
     ensureCollections, audit, addOperatorLog, missingDocumentsFor, statusLabel, leadStage, leadStageLabel, id, now,
-    RESERVATION_STATUSES, LEAD_STAGES, DOCUMENT_TYPES, CONTACT_TYPES, COMPLAINT_STATUSES, COMPLAINT_DIRECTIONS,
+    RESERVATION_STATUSES, LEAD_STAGES, DOCUMENT_TYPES, CUSTOMER_FINANCIAL_DOC_TYPES, CONTACT_TYPES, COMPLAINT_STATUSES, COMPLAINT_DIRECTIONS,
     VAT_REGIMES, SUPPLIER_TYPES, SERVICE_TYPES, SERVICE_STATUSES, MANUAL_EVENT_TYPES, TASK_STATUSES, TASK_PRIORITIES,
     sanitizeCustomer, computeServiceTotals, serviceTypeLabel, serviceStatusLabel, serviceStatusesForType, eventTypeLabel,
     taskStatusLabel, taskPriorityLabel, complaintStatusLabel, documentTypeLabel, processNumber, computeAlerts
@@ -633,6 +633,11 @@ module.exports = function registerAdminRoutes(router, ctx) {
     const passengerName = body.passengerName ? cleanText(body.passengerName, 200) : undefined;
     if (!fileName || !body.fileBase64) return json(res, 400, { ok: false, error: 'Ficheiro invalido' });
     if (!reservationId && !customerEmail && !supplierId) return json(res, 400, { ok: false, error: 'Indique a reserva, o cliente ou o fornecedor' });
+    // So preenchidos para documentos financeiros (Financeiro > Faturas e
+    // Documentos) - numero/data/valor do documento emitido externamente.
+    const documentNumber = reservationId ? cleanText(body.documentNumber, 60) : '';
+    const documentDate = reservationId ? cleanText(body.documentDate, 30) : '';
+    const amount = reservationId && body.amount !== undefined && body.amount !== '' ? numberInRange(body.amount, 'Valor', 0, 1000000, 0) : undefined;
 
     const db = ensureCollections(await readDb());
     let folder;
@@ -642,6 +647,7 @@ module.exports = function registerAdminRoutes(router, ctx) {
       if (eventId) folder = `${reservationId}/ocorrencias`;
       else if (complaintId) folder = `${reservationId}/reclamacoes`;
       else if (serviceLineId) folder = `${reservationId}/reservas`;
+      else if (CUSTOMER_FINANCIAL_DOC_TYPES.includes(type) || type === 'INVOICE_PURCHASE') folder = `${reservationId}/financeiro`;
       else folder = reservationId;
     } else if (customerEmail) {
       folder = `cliente/${customerEmail.replace('@', '_')}`;
@@ -668,6 +674,9 @@ module.exports = function registerAdminRoutes(router, ctx) {
       serviceLineId: reservationId ? (serviceLineId || undefined) : undefined,
       eventId: reservationId ? (eventId || undefined) : undefined,
       complaintId: reservationId ? (complaintId || undefined) : undefined,
+      documentNumber: documentNumber || undefined,
+      documentDate: documentDate || undefined,
+      amount,
       type, passengerName, fileName, storagePath, uploadedBy: sessionUser(req)
     };
     await updateDb(d => {

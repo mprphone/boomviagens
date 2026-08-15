@@ -353,7 +353,14 @@
   margin-bottom: 8px;
 }
 
-.tab-toolbar { margin-bottom: 14px; }
+.tab-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+}
 
 /* Icones de acao por linha (editar/eliminar) nas tabelas de listagem -
    ficam por cima do clique na linha inteira (stopPropagation no JS). */
@@ -417,6 +424,34 @@
 .task-card-status {
   padding: 6px 8px;
   font-size: 12px;
+}
+
+/* Sub-separador "Conta do Processo" (Financeiro). */
+.account-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.account-movements {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.account-movement-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--line);
+  font-size: 12.5px;
+}
+
+.account-movement-row span:nth-child(2) { flex: 1; }
+
+@media (max-width: 700px) {
+  .account-columns { grid-template-columns: 1fr; }
 }
 
 .task-card-resolution {

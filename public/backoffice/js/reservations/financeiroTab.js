@@ -1,25 +1,21 @@
-// Separador "Financeiro": agrupa Vendas, Compras, Recebimentos,
-// Pagamentos, Margem e IVA em sub-separadores, para nao sobrecarregar a
-// barra principal de separadores com uma aba por cada area financeira.
+// Separador "Financeiro": tres sub-separadores - Servicos e Calculo
+// (custo/venda/margem/IVA de cada reserva, ao estilo OptiTravel mas mais
+// limpo), Faturas e Documentos (o que foi emitido ao cliente e pelos
+// fornecedores, com anexo) e Conta do Processo (a conta-corrente da
+// viagem: vendeu/recebeu/comprou/pagou/margem/IVA).
 
 import { esc } from '../utils.js';
-import { renderVendasSubTab } from './financeiro/vendasSubTab.js';
-import { renderComprasSubTab } from './financeiro/comprasSubTab.js';
-import { renderRecebimentosSubTab } from './financeiro/recebimentosSubTab.js';
-import { renderPagamentosSubTab } from './financeiro/pagamentosSubTab.js';
-import { renderMargemSubTab } from './financeiro/margemSubTab.js';
-import { renderIvaSubTab } from './financeiro/ivaSubTab.js';
+import { renderServicosCalculoSubTab } from './financeiro/servicosCalculoSubTab.js';
+import { renderFaturasDocumentosSubTab } from './financeiro/faturasDocumentosSubTab.js';
+import { renderContaProcessoSubTab } from './financeiro/contaProcessoSubTab.js';
 
 const SUBTABS = [
-  { key: 'vendas', label: 'Vendas', render: renderVendasSubTab },
-  { key: 'compras', label: 'Compras', render: renderComprasSubTab },
-  { key: 'recebimentos', label: 'Recebimentos', render: renderRecebimentosSubTab },
-  { key: 'pagamentos', label: 'Pagamentos', render: renderPagamentosSubTab },
-  { key: 'margem', label: 'Margem', render: renderMargemSubTab },
-  { key: 'iva', label: 'IVA', render: renderIvaSubTab }
+  { key: 'servicos', label: 'Serviços e Cálculo', render: renderServicosCalculoSubTab },
+  { key: 'faturas', label: 'Faturas e Documentos', render: renderFaturasDocumentosSubTab },
+  { key: 'conta', label: 'Conta do Processo', render: renderContaProcessoSubTab }
 ];
 
-export function renderFinanceiroTab(panel, reservation, reload, data = {}, initialSubTab = 'vendas') {
+export function renderFinanceiroTab(panel, reservation, reload, data = {}, initialSubTab = 'servicos') {
   panel.innerHTML = `
     <div class="bo-subtabs">
       ${SUBTABS.map(t => `<button type="button" class="bo-subtab ${t.key === initialSubTab ? 'is-active' : ''}" data-subtab="${t.key}">${esc(t.label)}</button>`).join('')}
@@ -30,7 +26,7 @@ export function renderFinanceiroTab(panel, reservation, reload, data = {}, initi
 
   function showSub(key) {
     panel.querySelectorAll('.bo-subtab').forEach(b => b.classList.toggle('is-active', b.dataset.subtab === key));
-    const subReload = () => reload('financeiro');
+    const subReload = () => reload(key);
     SUBTABS.find(t => t.key === key).render(subPanel, reservation, subReload, data);
   }
 

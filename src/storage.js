@@ -362,7 +362,10 @@ function rowToDocument(row) {
     passengerName: row.passenger_name || undefined,
     fileName: row.file_name,
     storagePath: row.storage_path,
-    uploadedBy: row.uploaded_by || undefined
+    uploadedBy: row.uploaded_by || undefined,
+    documentNumber: row.document_number || undefined,
+    documentDate: row.document_date || undefined,
+    amount: row.amount ?? undefined
   };
 }
 
@@ -380,7 +383,10 @@ function documentToRow(d) {
     passenger_name: d.passengerName || null,
     file_name: d.fileName,
     storage_path: d.storagePath,
-    uploaded_by: d.uploadedBy || null
+    uploaded_by: d.uploadedBy || null,
+    document_number: d.documentNumber || null,
+    document_date: d.documentDate || null,
+    amount: d.amount ?? null
   };
 }
 

@@ -281,6 +281,9 @@ alter table public.documents add column if not exists supplier_id text;
 alter table public.documents add column if not exists service_line_id text references public.reservation_service_lines(id) on delete set null;
 alter table public.documents add column if not exists event_id text references public.reservation_events(id) on delete cascade;
 alter table public.documents add column if not exists complaint_id text references public.complaints(id) on delete cascade;
+alter table public.documents add column if not exists document_number text;
+alter table public.documents add column if not exists document_date text;
+alter table public.documents add column if not exists amount numeric(12,2);
 
 create index if not exists documents_reservation_id_idx on public.documents(reservation_id);
 create index if not exists documents_customer_email_idx on public.documents(customer_email);

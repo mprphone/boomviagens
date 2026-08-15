@@ -85,7 +85,7 @@ export async function openReservationDetail(container, reservationId, initialTab
 
   const panel = container.querySelector('.customer-tab-panel');
   let activeTab = initialTab;
-  let activeFinanceiroSubTab = 'vendas';
+  let activeFinanceiroSubTab = 'servicos';
   const reload = () => openReservationDetail(container, reservationId, activeTab);
 
   function showTab(key) {

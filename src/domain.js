@@ -16,7 +16,10 @@ const RESERVATION_STATUSES = [
 const LEAD_STAGES = ['NOVA', 'EM_CONSULTA', 'PROPOSTA_ENVIADA', 'RESERVADO', 'PERDIDA'];
 // Categorias documentais (separador "Documentos") - agrupam-se visualmente
 // por area (cliente, reserva, financeiro, viagem, ocorrencias) na UI.
-const DOCUMENT_TYPES = ['PASSPORT', 'VISA', 'INSURANCE', 'VOUCHER', 'TICKET', 'INVOICE_PURCHASE', 'INVOICE_SALE', 'RECEIPT', 'ITINERARY', 'OCCURRENCE_PHOTO', 'OTHER'];
+const DOCUMENT_TYPES = ['PASSPORT', 'VISA', 'INSURANCE', 'VOUCHER', 'TICKET', 'INVOICE_PURCHASE', 'INVOICE_SALE', 'RECEIPT', 'CREDIT_NOTE', 'ITINERARY', 'OCCURRENCE_PHOTO', 'OTHER'];
+// Tipos de documento financeiro (separador Financeiro > Faturas e
+// Documentos) - so estes tres usam document_number/document_date/amount.
+const CUSTOMER_FINANCIAL_DOC_TYPES = ['INVOICE_SALE', 'RECEIPT', 'CREDIT_NOTE'];
 const CONTACT_TYPES = ['CALL', 'EMAIL', 'WHATSAPP', 'IN_PERSON', 'OTHER'];
 const COMPLAINT_STATUSES = ['OPEN', 'ANALYZING', 'SENT_TO_SUPPLIER', 'AWAITING_RESPONSE', 'RESPONSE_RECEIVED', 'NEGOTIATING', 'APPROVED', 'REJECTED', 'RESOLVED', 'CLOSED'];
 // Uma reclamacao pode ser do cliente contra a agencia, ou da agencia contra
@@ -207,7 +210,8 @@ function documentTypeLabel(type) {
   return ({
     PASSPORT: 'Passaporte/CC', VISA: 'Visto', INSURANCE: 'Seguro de viagem', VOUCHER: 'Voucher',
     TICKET: 'Bilhete', INVOICE_PURCHASE: 'Fatura de compra', INVOICE_SALE: 'Fatura de venda',
-    RECEIPT: 'Recibo/comprovativo', ITINERARY: 'Itinerário/programa', OCCURRENCE_PHOTO: 'Foto de ocorrência', OTHER: 'Outro'
+    RECEIPT: 'Recibo/comprovativo', CREDIT_NOTE: 'Nota de crédito', ITINERARY: 'Itinerário/programa',
+    OCCURRENCE_PHOTO: 'Foto de ocorrência', OTHER: 'Outro'
   })[type] || type;
 }
 
@@ -316,6 +320,7 @@ module.exports = {
   RESERVATION_STATUSES,
   LEAD_STAGES,
   DOCUMENT_TYPES,
+  CUSTOMER_FINANCIAL_DOC_TYPES,
   CONTACT_TYPES,
   COMPLAINT_STATUSES,
   COMPLAINT_DIRECTIONS,
