@@ -15,7 +15,7 @@ export async function renderReservas() {
   el.innerHTML = `
     <div class="panel">
       <div class="toolbar">
-        <input id="reservationsSearch" type="search" placeholder="Pesquisar por id, hotel, destino, cliente..." />
+        <input id="reservationsSearch" type="search" placeholder="Pesquisar por processo, localizador, NIF, telefone, hotel, destino, cliente..." />
         <select id="reservationsStatusFilter"></select>
       </div>
       <div id="reservationsList"><p class="muted">A carregar...</p></div>
@@ -43,7 +43,7 @@ async function loadReservations() {
 function matchesFilter(r, query, status) {
   if (status && r.status !== status) return false;
   if (!query) return true;
-  const haystack = `${r.id} ${r.customer?.name || ''} ${r.customer?.email || ''} ${r.offer?.hotel || ''} ${r.offer?.destination || ''}`.toLowerCase();
+  const haystack = `${r.id} ${r.processNumber || ''} ${r.customer?.name || ''} ${r.customer?.email || ''} ${r.customer?.phone || ''} ${r.customer?.nif || ''} ${r.offer?.hotel || ''} ${r.offer?.destination || ''} ${r.operator || ''} ${r.operatorLocator || ''} ${r.invoiceNumber || ''}`.toLowerCase();
   return haystack.includes(query.toLowerCase());
 }
 
@@ -66,14 +66,14 @@ function renderTable() {
       <table class="bo-table">
         <thead>
           <tr>
-            <th>Reserva</th><th>Cliente</th><th>Destino</th><th>Datas</th><th>Pax</th>
-            <th>Estado</th><th>Doc</th><th>PVP</th><th>Pago</th>
+            <th>Processo</th><th>Cliente</th><th>Destino</th><th>Datas</th><th>Pax</th>
+            <th>Estado</th><th>Doc</th><th>PVP</th><th>Pago</th><th></th>
           </tr>
         </thead>
         <tbody>
           ${filtered.map(r => `
             <tr data-reservation="${esc(r.id)}">
-              <td><b>${esc(r.id)}</b><div class="muted small">${new Date(r.createdAt).toLocaleDateString('pt-PT')}</div></td>
+              <td><b>${esc(r.processNumber || r.id)}</b><div class="muted small">${new Date(r.createdAt).toLocaleDateString('pt-PT')}</div></td>
               <td>${esc(r.customer?.name || '')}<div class="muted small">${esc(r.customer?.email || '')}</div></td>
               <td>${esc(r.offer?.destination || '')}<div class="muted small">${esc(r.offer?.hotel || '')}</div></td>
               <td class="muted small">${esc(r.offer?.checkin || '')} → ${esc(r.offer?.checkout || '')}</td>
@@ -82,6 +82,7 @@ function renderTable() {
               <td>${r.missingDocuments?.length ? '<span class="pill pill-warning">Falta</span>' : '<span class="pill pill-ok">OK</span>'}</td>
               <td>${money(r.offer?.finalPrice)}</td>
               <td>${r.status === 'PENDING_PAYMENT' ? '<span class="pill pill-warning">Pendente</span>' : '<span class="pill pill-ok">Pago</span>'}</td>
+              <td>${r.openComplaintsCount ? '<span class="pill pill-warning">🔴</span>' : ''}</td>
             </tr>`).join('')}
         </tbody>
       </table>

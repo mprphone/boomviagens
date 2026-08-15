@@ -3,11 +3,27 @@
 
 const crypto = require('crypto');
 
-const RESERVATION_STATUSES = ['NEW_LEAD', 'PROPOSAL_SENT', 'PENDING_PAYMENT', 'PAYMENT_RECEIVED', 'IN_VALIDATION', 'HUMAN_REVIEW', 'CONFIRMED', 'CANCELLED', 'OPERATOR_ERROR'];
+// Ciclo de vida completo do processo, incluindo os estados pos-confirmacao
+// (documentacao, preparacao final, viagem em curso, pos-viagem, encerramento)
+// que nao existiam antes - o site vende diretamente (sem proposta manual em
+// papel, ja coberta pelo funil de "Interesses"/LEAD_STAGES), por isso a
+// numeracao adapta o processo classico de agencia ao fluxo de venda online.
+const RESERVATION_STATUSES = [
+  'NEW_LEAD', 'PROPOSAL_SENT', 'PENDING_PAYMENT', 'PAYMENT_RECEIVED', 'IN_VALIDATION', 'HUMAN_REVIEW', 'CONFIRMED',
+  'AWAITING_DOCUMENTS', 'READY', 'CHECKIN', 'IN_TRIP', 'POST_TRIP', 'WITH_COMPLAINT', 'CONCLUDED',
+  'CANCELLED', 'OPERATOR_ERROR'
+];
 const LEAD_STAGES = ['NOVA', 'EM_CONSULTA', 'PROPOSTA_ENVIADA', 'RESERVADO', 'PERDIDA'];
-const DOCUMENT_TYPES = ['PASSPORT', 'INSURANCE', 'OTHER'];
+// Categorias documentais (separador "Documentos") - agrupam-se visualmente
+// por area (cliente, reserva, financeiro, viagem, ocorrencias) na UI.
+const DOCUMENT_TYPES = ['PASSPORT', 'VISA', 'INSURANCE', 'VOUCHER', 'TICKET', 'INVOICE_PURCHASE', 'INVOICE_SALE', 'RECEIPT', 'ITINERARY', 'OCCURRENCE_PHOTO', 'OTHER'];
 const CONTACT_TYPES = ['CALL', 'EMAIL', 'WHATSAPP', 'IN_PERSON', 'OTHER'];
-const COMPLAINT_STATUSES = ['OPEN', 'IN_PROGRESS', 'RESOLVED'];
+const COMPLAINT_STATUSES = ['OPEN', 'ANALYZING', 'SENT_TO_SUPPLIER', 'AWAITING_RESPONSE', 'RESPONSE_RECEIVED', 'NEGOTIATING', 'APPROVED', 'REJECTED', 'RESOLVED', 'CLOSED'];
+// Uma reclamacao pode ser do cliente contra a agencia, ou da agencia contra
+// um fornecedor/operador (separador "Reclamacoes").
+const COMPLAINT_DIRECTIONS = ['CUSTOMER_TO_AGENCY', 'AGENCY_TO_SUPPLIER'];
+const TASK_STATUSES = ['TODO', 'IN_PROGRESS', 'AWAITING_CUSTOMER', 'AWAITING_SUPPLIER', 'DONE', 'CANCELLED'];
+const TASK_PRIORITIES = ['LOW', 'NORMAL', 'HIGH', 'URGENT'];
 // Regimes de IVA relevantes para agencias de viagem em Portugal. MARGEM e
 // a regra geral para pacotes comprados a operadores e revendidos (o
 // modelo de negocio deste site) - os outros ficam disponiveis para casos
@@ -22,12 +38,14 @@ const SUPPLIER_TYPES = ['OPERADOR', 'HOTEL', 'SEGURADORA', 'TRANSPORTE', 'OUTRO'
 // reserva, em contraste com os "Valores Estimados" da proposta original.
 const SERVICE_TYPES = ['VOO', 'ALOJAMENTO', 'TRANSFER', 'CRUZEIRO', 'RENT_A_CAR', 'SEGURO', 'VISTO', 'RESTAURACAO', 'TOUR', 'DIVERSOS'];
 const SERVICE_STATUSES = ['PENDENTE', 'OK', 'ATRASADO', 'CANCELADO'];
-// Historico/timeline da reserva (separador "Historico"). Os primeiros tres
-// tipos sao gerados automaticamente pelo servidor (mudanca de estado,
-// linhas de servico, documentos); os restantes sao para registo manual do
-// operador (atrasos, cancelamentos, contactos, notas livres).
-const EVENT_TYPES = ['STATUS_CHANGE', 'SERVICE_ADDED', 'SERVICE_UPDATED', 'SERVICE_REMOVED', 'DOCUMENT_UPLOADED', 'DELAY', 'CANCELLATION', 'CONTACT', 'NOTE'];
-const MANUAL_EVENT_TYPES = ['DELAY', 'CANCELLATION', 'CONTACT', 'NOTE'];
+// Historico/timeline da reserva (separador "Historico") - regista tudo,
+// automatico e manual, e nunca e editado/apagado. O separador "Ocorrencias"
+// e uma leitura filtrada deste mesmo registo (so os tipos "de ocorrencia"),
+// com um estado de resolucao proprio (ver reservationEventToRow).
+const AUTO_EVENT_TYPES = ['STATUS_CHANGE', 'SERVICE_ADDED', 'SERVICE_UPDATED', 'SERVICE_REMOVED', 'DOCUMENT_UPLOADED'];
+const OCCURRENCE_EVENT_TYPES = ['INFO', 'CHANGE', 'PROBLEM', 'INCIDENT', 'DELAY', 'SERVICE_NOT_RENDERED', 'SUPPLIER_ERROR', 'INTERNAL_ERROR', 'CUSTOMER_REQUEST', 'OTHER'];
+const MANUAL_EVENT_TYPES = [...OCCURRENCE_EVENT_TYPES, 'CONTACT', 'NOTE'];
+const EVENT_TYPES = [...AUTO_EVENT_TYPES, ...MANUAL_EVENT_TYPES];
 
 function id(prefix) {
   return `${prefix}-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
@@ -50,7 +68,48 @@ function ensureCollections(db) {
   db.suppliers ||= [];
   db.serviceLines ||= [];
   db.reservationEvents ||= [];
+  db.tasks ||= [];
   return db;
+}
+
+// Alertas calculados a partir dos dados existentes (nunca guardados) -
+// mostrados no dashboard do Resumo. Cada alerta tem um tipo e uma
+// severidade (warning = atencao, critical = urgente).
+function computeAlerts(reservation, { serviceLines = [], documents = [], payments = [], tasks = [] } = {}) {
+  const alerts = [];
+  const today = new Date();
+  const inDays = n => new Date(today.getTime() + n * 24 * 60 * 60 * 1000);
+  const checkin = reservation.offer?.checkin ? new Date(`${reservation.offer.checkin}T00:00:00`) : null;
+
+  for (const line of serviceLines) {
+    if (line.optionDeadline && line.status === 'PENDENTE') {
+      const deadline = new Date(`${line.optionDeadline}T00:00:00`);
+      if (deadline <= inDays(2) && deadline >= today) alerts.push({ type: 'OPTION_EXPIRING', severity: 'critical', message: `Opção de "${line.description}" termina em breve (${line.optionDeadline})` });
+      else if (deadline < today) alerts.push({ type: 'OPTION_EXPIRED', severity: 'critical', message: `Opção de "${line.description}" já expirou (${line.optionDeadline})` });
+    }
+    if (line.status === 'PENDENTE' && checkin && checkin <= inDays(7)) {
+      alerts.push({ type: 'SERVICE_UNCONFIRMED', severity: 'warning', message: `"${line.description}" ainda não confirmado e a viagem é em menos de 7 dias` });
+    }
+    if (!line.paid && line.netValue > 0 && line.status !== 'CANCELADO') {
+      alerts.push({ type: 'SUPPLIER_PAYMENT_PENDING', severity: 'warning', message: `Pagamento a "${line.supplierName || 'fornecedor'}" (${line.description}) ainda pendente` });
+    }
+  }
+
+  const missingDocs = missingDocumentsFor(reservation, documents);
+  if (missingDocs.length) alerts.push({ type: 'MISSING_DOCUMENTS', severity: 'warning', message: `Documentação em falta: ${missingDocs.join(', ')}` });
+
+  const pendingPayment = payments.find(p => p.status === 'PENDING');
+  if (pendingPayment) alerts.push({ type: 'CUSTOMER_PAYMENT_PENDING', severity: 'warning', message: `Pagamento do cliente pendente (${pendingPayment.amount} €)` });
+
+  if (checkin) {
+    if (checkin <= inDays(2) && checkin >= today) alerts.push({ type: 'DEPARTURE_SOON', severity: 'critical', message: 'Partida em menos de 48 horas' });
+    else if (checkin <= inDays(7) && checkin >= today) alerts.push({ type: 'DEPARTURE_NEAR', severity: 'warning', message: 'Partida dentro de 7 dias' });
+  }
+
+  const overdueTasks = tasks.filter(t => t.status !== 'DONE' && t.status !== 'CANCELLED' && t.dueDate && new Date(`${t.dueDate}T00:00:00`) < today);
+  if (overdueTasks.length) alerts.push({ type: 'TASKS_OVERDUE', severity: 'critical', message: `${overdueTasks.length} tarefa(s) em atraso` });
+
+  return alerts;
 }
 
 // Soma as linhas de servico de uma reserva para obter os valores reais
@@ -89,9 +148,47 @@ function eventTypeLabel(type) {
   return ({
     STATUS_CHANGE: 'Mudança de estado', SERVICE_ADDED: 'Serviço adicionado',
     SERVICE_UPDATED: 'Serviço atualizado', SERVICE_REMOVED: 'Serviço removido',
-    DOCUMENT_UPLOADED: 'Documento anexado', DELAY: 'Atraso', CANCELLATION: 'Cancelamento',
+    DOCUMENT_UPLOADED: 'Documento anexado',
+    INFO: 'Informação', CHANGE: 'Alteração', PROBLEM: 'Problema', INCIDENT: 'Incidente',
+    DELAY: 'Atraso', SERVICE_NOT_RENDERED: 'Serviço não prestado', SUPPLIER_ERROR: 'Erro do fornecedor',
+    INTERNAL_ERROR: 'Erro interno', CUSTOMER_REQUEST: 'Pedido do cliente', OTHER: 'Outro',
     CONTACT: 'Contacto', NOTE: 'Nota'
   })[type] || type;
+}
+
+function taskStatusLabel(status) {
+  return ({ TODO: 'Por fazer', IN_PROGRESS: 'Em curso', AWAITING_CUSTOMER: 'A aguardar cliente', AWAITING_SUPPLIER: 'A aguardar fornecedor', DONE: 'Concluída', CANCELLED: 'Cancelada' })[status] || status;
+}
+
+function taskPriorityLabel(priority) {
+  return ({ LOW: 'Baixa', NORMAL: 'Normal', HIGH: 'Alta', URGENT: 'Urgente' })[priority] || priority;
+}
+
+function complaintStatusLabel(status) {
+  return ({
+    OPEN: 'Aberta', ANALYZING: 'Em análise', SENT_TO_SUPPLIER: 'Enviada ao fornecedor',
+    AWAITING_RESPONSE: 'A aguardar resposta', RESPONSE_RECEIVED: 'Resposta recebida', NEGOTIATING: 'Em negociação',
+    APPROVED: 'Indemnização aprovada', REJECTED: 'Recusada', RESOLVED: 'Resolvida', CLOSED: 'Encerrada',
+    IN_PROGRESS: 'Em análise'
+  })[status] || status;
+}
+
+function documentTypeLabel(type) {
+  return ({
+    PASSPORT: 'Passaporte/CC', VISA: 'Visto', INSURANCE: 'Seguro de viagem', VOUCHER: 'Voucher',
+    TICKET: 'Bilhete', INVOICE_PURCHASE: 'Fatura de compra', INVOICE_SALE: 'Fatura de venda',
+    RECEIPT: 'Recibo/comprovativo', ITINERARY: 'Itinerário/programa', OCCURRENCE_PHOTO: 'Foto de ocorrência', OTHER: 'Outro'
+  })[type] || type;
+}
+
+// Numero de processo apresentavel ao utilizador (ex.: PV-2026-1C322A),
+// derivado do id interno (ja unico) em vez de um contador incremental a
+// serio - evitaria condicoes de corrida entre pedidos concorrentes sem uma
+// sequencia atomica no Supabase, que este projeto nao tem.
+function processNumber(reservation) {
+  const year = (reservation.createdAt || '').slice(0, 4) || String(new Date().getFullYear());
+  const suffix = String(reservation.id || '').split('-').pop() || '000000';
+  return `PV-${year}-${suffix}`;
 }
 
 function missingDocumentsFor(reservation, documents) {
@@ -126,6 +223,13 @@ function statusLabel(status) {
     PAYMENT_RECEIVED: 'Pagamento recebido',
     IN_VALIDATION: 'Em validação',
     CONFIRMED: 'Confirmada',
+    AWAITING_DOCUMENTS: 'A aguardar documentação',
+    READY: 'Processo completo',
+    CHECKIN: 'Check-in / preparação final',
+    IN_TRIP: 'Em viagem',
+    POST_TRIP: 'Pós-viagem',
+    WITH_COMPLAINT: 'Com reclamação',
+    CONCLUDED: 'Concluído',
     CANCELLED: 'Cancelada',
     OPERATOR_ERROR: 'Erro no operador',
     HUMAN_REVIEW: 'Pendente de intervenção humana'
@@ -184,12 +288,17 @@ module.exports = {
   DOCUMENT_TYPES,
   CONTACT_TYPES,
   COMPLAINT_STATUSES,
+  COMPLAINT_DIRECTIONS,
   VAT_REGIMES,
   SUPPLIER_TYPES,
   SERVICE_TYPES,
   SERVICE_STATUSES,
   EVENT_TYPES,
+  AUTO_EVENT_TYPES,
+  OCCURRENCE_EVENT_TYPES,
   MANUAL_EVENT_TYPES,
+  TASK_STATUSES,
+  TASK_PRIORITIES,
   id,
   now,
   ensureCollections,
@@ -205,5 +314,11 @@ module.exports = {
   computeServiceTotals,
   serviceTypeLabel,
   serviceStatusLabel,
-  eventTypeLabel
+  eventTypeLabel,
+  taskStatusLabel,
+  taskPriorityLabel,
+  complaintStatusLabel,
+  documentTypeLabel,
+  processNumber,
+  computeAlerts
 };

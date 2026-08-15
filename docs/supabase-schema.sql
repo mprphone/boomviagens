@@ -83,7 +83,9 @@ create table if not exists public.reservations (
   vat_regime text not null default 'MARGEM',
   invoice_number text,
   invoice_date text,
-  invoice_system text
+  invoice_system text,
+  post_trip_ok boolean,
+  post_trip_notes text
 );
 
 create index if not exists reservations_status_idx on public.reservations(status);
@@ -152,6 +154,7 @@ create table if not exists public.reservation_service_lines (
   description text not null,
   supplier_name text,
   reference text,
+  locator text,
   quantity numeric(8,2) not null default 1,
   date_start text,
   date_end text,
@@ -159,6 +162,14 @@ create table if not exists public.reservation_service_lines (
   net_value numeric(12,2) not null default 0,
   pvp_value numeric(12,2) not null default 0,
   discount_percent numeric(5,2) not null default 0,
+  option_deadline text,
+  cancellation_terms text,
+  paid boolean not null default false,
+  paid_at timestamptz,
+  cancel_reason text,
+  refundable_amount numeric(12,2),
+  refunded_amount numeric(12,2),
+  refunded_at timestamptz,
   notes text
 );
 
@@ -166,18 +177,41 @@ create index if not exists reservation_service_lines_reservation_id_idx on publi
 
 -- Historico/timeline de uma reserva: mudancas de estado, linhas de servico
 -- adicionadas/editadas/removidas e documentos anexados sao registados aqui
--- automaticamente pelo servidor; atrasos, cancelamentos, contactos e notas
--- livres sao registados manualmente pelo operador no separador "Historico".
+-- automaticamente pelo servidor; ocorrencias (problemas, incidentes,
+-- atrasos...), contactos e notas livres sao registados manualmente pelo
+-- operador. O separador "Ocorrencias" e uma leitura filtrada deste mesmo
+-- registo, com resolved/resolution para acompanhar o fecho do problema.
 create table if not exists public.reservation_events (
   id text primary key,
   created_at timestamptz not null default now(),
   reservation_id text not null references public.reservations(id) on delete cascade,
   actor text,
   type text not null,
-  description text
+  description text,
+  resolved boolean not null default false,
+  resolution text
 );
 
 create index if not exists reservation_events_reservation_id_idx on public.reservation_events(reservation_id);
+
+-- Tarefas do processo (separador "Tarefas") - checklist administrativo e
+-- operacional (pedir passaportes, confirmar hotel, emitir seguro...).
+create table if not exists public.tasks (
+  id text primary key,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz,
+  reservation_id text not null references public.reservations(id) on delete cascade,
+  description text not null,
+  assignee text,
+  due_date text,
+  priority text not null default 'NORMAL',
+  status text not null default 'TODO',
+  completed_at timestamptz,
+  notes text
+);
+
+create index if not exists tasks_reservation_id_idx on public.tasks(reservation_id);
+create index if not exists tasks_status_idx on public.tasks(status);
 
 -- reservation_id fica opcional: documentos podem estar ligados a uma
 -- reserva especifica, a um cliente (passaporte de um membro do agregado
@@ -218,27 +252,38 @@ create table if not exists public.suppliers (
 );
 
 -- Registo de contactos com o cliente (chamadas, emails, notas) - visao
--- tipo CRM na ficha do cliente no backoffice.
+-- tipo CRM na ficha do cliente no backoffice. reservation_id e opcional:
+-- permite tambem consultar as comunicacoes de um processo especifico
+-- (separador "Comunicacoes" da Ficha de Reserva).
 create table if not exists public.contact_log (
   id text primary key,
   created_at timestamptz not null default now(),
   customer_email text not null,
+  reservation_id text references public.reservations(id) on delete cascade,
   actor text,
   type text not null,
   summary text
 );
 
 create index if not exists contact_log_customer_email_idx on public.contact_log(customer_email);
+create index if not exists contact_log_reservation_id_idx on public.contact_log(reservation_id);
 
+-- Reclamacao do cliente contra a agencia (direction=CUSTOMER_TO_AGENCY) ou
+-- da agencia contra um fornecedor/operador (direction=AGENCY_TO_SUPPLIER).
 create table if not exists public.complaints (
   id text primary key,
   created_at timestamptz not null default now(),
   updated_at timestamptz,
   customer_email text not null,
   reservation_id text references public.reservations(id) on delete set null,
+  direction text not null default 'CUSTOMER_TO_AGENCY',
+  supplier_id text,
   status text not null default 'OPEN',
   subject text not null,
   description text,
+  claimed_amount numeric(12,2),
+  received_amount numeric(12,2),
+  paid_to_customer numeric(12,2),
   resolution text,
   resolved_at timestamptz
 );
@@ -261,6 +306,7 @@ alter table public.complaints enable row level security;
 alter table public.suppliers enable row level security;
 alter table public.reservation_service_lines enable row level security;
 alter table public.reservation_events enable row level security;
+alter table public.tasks enable row level security;
 
 -- Dados publicos que podem ser lidos pelo site sem expor clientes/reservas.
 create or replace view public.public_margins

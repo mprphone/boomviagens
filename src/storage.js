@@ -249,7 +249,9 @@ function rowToReservation(row) {
     vatRegime: row.vat_regime || 'MARGEM',
     invoiceNumber: row.invoice_number || undefined,
     invoiceDate: row.invoice_date || undefined,
-    invoiceSystem: row.invoice_system || undefined
+    invoiceSystem: row.invoice_system || undefined,
+    postTripOk: row.post_trip_ok ?? undefined,
+    postTripNotes: row.post_trip_notes || undefined
   };
 }
 
@@ -274,7 +276,9 @@ function reservationToRow(r) {
     vat_regime: r.vatRegime || 'MARGEM',
     invoice_number: r.invoiceNumber || null,
     invoice_date: r.invoiceDate || null,
-    invoice_system: r.invoiceSystem || null
+    invoice_system: r.invoiceSystem || null,
+    post_trip_ok: r.postTripOk ?? null,
+    post_trip_notes: r.postTripNotes || null
   };
 }
 
@@ -386,6 +390,7 @@ function rowToServiceLine(row) {
     description: row.description,
     supplierName: row.supplier_name || '',
     reference: row.reference || '',
+    locator: row.locator || '',
     quantity: Number(row.quantity ?? 1),
     dateStart: row.date_start || '',
     dateEnd: row.date_end || '',
@@ -393,6 +398,14 @@ function rowToServiceLine(row) {
     netValue: Number(row.net_value ?? 0),
     pvpValue: Number(row.pvp_value ?? 0),
     discountPercent: Number(row.discount_percent ?? 0),
+    optionDeadline: row.option_deadline || '',
+    cancellationTerms: row.cancellation_terms || '',
+    paid: row.paid || false,
+    paidAt: row.paid_at || undefined,
+    cancelReason: row.cancel_reason || '',
+    refundableAmount: row.refundable_amount ?? undefined,
+    refundedAmount: row.refunded_amount ?? undefined,
+    refundedAt: row.refunded_at || undefined,
     notes: row.notes || ''
   };
 }
@@ -407,6 +420,7 @@ function serviceLineToRow(s) {
     description: s.description,
     supplier_name: s.supplierName || null,
     reference: s.reference || null,
+    locator: s.locator || null,
     quantity: s.quantity ?? 1,
     date_start: s.dateStart || null,
     date_end: s.dateEnd || null,
@@ -414,6 +428,14 @@ function serviceLineToRow(s) {
     net_value: s.netValue ?? 0,
     pvp_value: s.pvpValue ?? 0,
     discount_percent: s.discountPercent ?? 0,
+    option_deadline: s.optionDeadline || null,
+    cancellation_terms: s.cancellationTerms || null,
+    paid: s.paid || false,
+    paid_at: s.paidAt || null,
+    cancel_reason: s.cancelReason || null,
+    refundable_amount: s.refundableAmount ?? null,
+    refunded_amount: s.refundedAmount ?? null,
+    refunded_at: s.refundedAt || null,
     notes: s.notes || null
   };
 }
@@ -425,7 +447,9 @@ function rowToReservationEvent(row) {
     reservationId: row.reservation_id,
     actor: row.actor || undefined,
     type: row.type,
-    description: row.description || ''
+    description: row.description || '',
+    resolved: row.resolved || false,
+    resolution: row.resolution || ''
   };
 }
 
@@ -436,7 +460,9 @@ function reservationEventToRow(e) {
     reservation_id: e.reservationId,
     actor: e.actor || null,
     type: e.type,
-    description: e.description || null
+    description: e.description || null,
+    resolved: e.resolved || false,
+    resolution: e.resolution || null
   };
 }
 
@@ -473,6 +499,7 @@ function rowToContactEntry(row) {
     id: row.id,
     createdAt: row.created_at,
     customerEmail: row.customer_email,
+    reservationId: row.reservation_id || undefined,
     actor: row.actor || undefined,
     type: row.type,
     summary: row.summary || ''
@@ -484,6 +511,7 @@ function contactEntryToRow(c) {
     id: c.id,
     created_at: c.createdAt,
     customer_email: c.customerEmail,
+    reservation_id: c.reservationId || null,
     actor: c.actor || null,
     type: c.type,
     summary: c.summary || ''
@@ -497,9 +525,14 @@ function rowToComplaint(row) {
     updatedAt: row.updated_at || undefined,
     customerEmail: row.customer_email,
     reservationId: row.reservation_id || undefined,
+    direction: row.direction || 'CUSTOMER_TO_AGENCY',
+    supplierId: row.supplier_id || undefined,
     status: row.status,
     subject: row.subject,
     description: row.description || '',
+    claimedAmount: row.claimed_amount ?? undefined,
+    receivedAmount: row.received_amount ?? undefined,
+    paidToCustomer: row.paid_to_customer ?? undefined,
     resolution: row.resolution || '',
     resolvedAt: row.resolved_at || undefined
   };
@@ -512,11 +545,48 @@ function complaintToRow(c) {
     updated_at: c.updatedAt || null,
     customer_email: c.customerEmail,
     reservation_id: c.reservationId || null,
+    direction: c.direction || 'CUSTOMER_TO_AGENCY',
+    supplier_id: c.supplierId || null,
     status: c.status,
     subject: c.subject,
     description: c.description || null,
+    claimed_amount: c.claimedAmount ?? null,
+    received_amount: c.receivedAmount ?? null,
+    paid_to_customer: c.paidToCustomer ?? null,
     resolution: c.resolution || null,
     resolved_at: c.resolvedAt || null
+  };
+}
+
+function rowToTask(row) {
+  return {
+    id: row.id,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at || undefined,
+    reservationId: row.reservation_id,
+    description: row.description,
+    assignee: row.assignee || '',
+    dueDate: row.due_date || '',
+    priority: row.priority || 'NORMAL',
+    status: row.status || 'TODO',
+    completedAt: row.completed_at || undefined,
+    notes: row.notes || ''
+  };
+}
+
+function taskToRow(t) {
+  return {
+    id: t.id,
+    created_at: t.createdAt,
+    updated_at: t.updatedAt || null,
+    reservation_id: t.reservationId,
+    description: t.description,
+    assignee: t.assignee || null,
+    due_date: t.dueDate || null,
+    priority: t.priority || 'NORMAL',
+    status: t.status || 'TODO',
+    completed_at: t.completedAt || null,
+    notes: t.notes || null
   };
 }
 
@@ -538,7 +608,7 @@ function idemEntryToRow([key, value]) {
 }
 
 async function readDbSupabase() {
-  const [companyRows, marginRows, customerRows, leadRows, reservationRows, paymentRows, emailRows, operatorLogRows, auditLogRows, idemRows, documentRows, contactRows, complaintRows, supplierRows, serviceLineRows, eventRows] = await Promise.all([
+  const [companyRows, marginRows, customerRows, leadRows, reservationRows, paymentRows, emailRows, operatorLogRows, auditLogRows, idemRows, documentRows, contactRows, complaintRows, supplierRows, serviceLineRows, eventRows, taskRows] = await Promise.all([
     selectAll('company_settings', '&id=eq.main'),
     selectAll('margins', '&order=created_at.asc'),
     selectAll('customers', '&order=created_at.desc'),
@@ -554,7 +624,8 @@ async function readDbSupabase() {
     selectAll('complaints', '&order=created_at.desc'),
     selectAll('suppliers', '&order=name.asc'),
     selectAll('reservation_service_lines', '&order=created_at.asc'),
-    selectAll('reservation_events', '&order=created_at.desc')
+    selectAll('reservation_events', '&order=created_at.desc'),
+    selectAll('tasks', '&order=due_date.asc')
   ]);
 
   return {
@@ -573,7 +644,8 @@ async function readDbSupabase() {
     complaints: (complaintRows || []).map(rowToComplaint),
     suppliers: (supplierRows || []).map(rowToSupplier),
     serviceLines: (serviceLineRows || []).map(rowToServiceLine),
-    reservationEvents: (eventRows || []).map(rowToReservationEvent)
+    reservationEvents: (eventRows || []).map(rowToReservationEvent),
+    tasks: (taskRows || []).map(rowToTask)
   };
 }
 
@@ -593,7 +665,8 @@ async function writeDbSupabase(db) {
     upsertRows('complaints', (db.complaints || []).map(complaintToRow)),
     upsertRows('suppliers', (db.suppliers || []).map(supplierToRow)),
     upsertRows('reservation_service_lines', (db.serviceLines || []).map(serviceLineToRow)),
-    upsertRows('reservation_events', (db.reservationEvents || []).map(reservationEventToRow))
+    upsertRows('reservation_events', (db.reservationEvents || []).map(reservationEventToRow)),
+    upsertRows('tasks', (db.tasks || []).map(taskToRow))
   ]);
   await upsertRows('idempotency_keys', Object.entries(db.idempotencyKeys || {}).map(idemEntryToRow), 'idempotency_key');
   return db;
@@ -636,6 +709,7 @@ async function updateDbSupabase(mutator) {
   const supplierRows = diffById(before.suppliers, db.suppliers).map(supplierToRow);
   const serviceLineRows = diffById(before.serviceLines, db.serviceLines).map(serviceLineToRow);
   const eventRows = diffById(before.reservationEvents, db.reservationEvents).map(reservationEventToRow);
+  const taskRows = diffById(before.tasks, db.tasks).map(taskToRow);
   const idemRows = diffMapEntries(before.idempotencyKeys, db.idempotencyKeys).map(idemEntryToRow);
 
   const firstTasks = [];
@@ -667,7 +741,8 @@ async function updateDbSupabase(mutator) {
     upsertRows('complaints', complaintRows),
     upsertRows('suppliers', supplierRows),
     upsertRows('reservation_service_lines', serviceLineRows),
-    upsertRows('reservation_events', eventRows)
+    upsertRows('reservation_events', eventRows),
+    upsertRows('tasks', taskRows)
   ];
   if (removedDocIds.length) thirdTasks.push(deleteRows('documents', removedDocIds));
   await Promise.all(thirdTasks);

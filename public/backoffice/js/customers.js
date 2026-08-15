@@ -13,7 +13,7 @@ export async function renderClientes() {
   const el = $('#view-clientes');
   el.innerHTML = `
     <div class="panel">
-      <input id="customersSearch" type="search" placeholder="Pesquisar por nome ou email..." style="margin-bottom:14px" />
+      <input id="customersSearch" type="search" placeholder="Pesquisar por nome, email, telefone ou NIF..." style="margin-bottom:14px" />
       <div id="customersList"><p class="muted">A carregar...</p></div>
     </div>`;
 
@@ -33,7 +33,7 @@ async function loadCustomers() {
 
 function renderList() {
   const query = $('#customersSearch').value.trim().toLowerCase();
-  const filtered = allCustomers.filter(c => !query || `${c.name} ${c.email}`.toLowerCase().includes(query));
+  const filtered = allCustomers.filter(c => !query || `${c.name} ${c.email} ${c.phone || ''} ${c.nif || ''}`.toLowerCase().includes(query));
 
   if (!filtered.length) {
     $('#customersList').innerHTML = '<p class="empty-note">Sem clientes.</p>';

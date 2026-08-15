@@ -237,6 +237,108 @@
   font-size: 12px;
 }
 
+/* Cabecalho fixo do processo - sempre visivel no topo da ficha,
+   independentemente do separador aberto. */
+.process-header {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  background: var(--bg);
+}
+
+.process-header-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+  font-size: 12.5px;
+}
+
+.process-header-main b { font-family: var(--font-display); font-size: 14px; }
+
+.process-flag {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.summary-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 12.5px;
+}
+
+.summary-status-item {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+}
+
+.summary-alerts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.summary-alert {
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 12.5px;
+  border: 1px solid var(--line);
+}
+
+.summary-alert-critical { background: var(--red-bg); border-color: transparent; }
+.summary-alert-warning { background: #fdf6ea; border-color: #f0d3ae; }
+
+.summary-task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.summary-task-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 12.5px;
+}
+
+.service-line-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 12.5px;
+}
+
+.service-line-checkbox input { width: auto; }
+
+.service-line-cancel-fields {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+
+.service-line-cancel-fields[hidden] { display: none; }
+
+.task-overdue { color: var(--red); font-weight: 700; font-size: 12px; }
+
+.margin-diff-positive { color: var(--green); font-weight: 700; }
+.margin-diff-negative { color: var(--red); font-weight: 700; }
+
+.complaint-amounts { margin: 8px 0; }
+
 @media (max-width: 760px) {
   .toolbar { grid-template-columns: 1fr; }
+  .process-flag { margin-left: 0; }
 }

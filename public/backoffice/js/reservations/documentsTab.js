@@ -1,23 +1,36 @@
-// Separador "Documentos": documentos anexados especificamente a esta
-// reserva (passaporte/CC, seguro, outros) - mesma logica que ja existia,
-// agora dentro da Ficha de Reserva por separadores. Cada documento pode
-// ainda ficar ligado a uma linha de servico especifica (ex.: o voucher do
-// hotel, o bilhete de aviao) - ver ./serviceLinesTab.js.
+// Separador "Documentos": a pasta documental completa do processo,
+// agrupada por categoria (cliente, reserva, financeiro, viagem,
+// ocorrências) - mesma logica que ja existia, agora dentro da Ficha de
+// Reserva por separadores. Cada documento pode ainda ficar ligado a uma
+// linha de servico especifica (ex.: o voucher do hotel, o bilhete de
+// aviao) - ver ./serviceLinesTab.js.
 
 import { esc, api } from '../utils.js';
 
-export async function renderDocumentsTab(panel, reservation, reload, ctx = {}) {
-  const serviceLines = ctx.services?.serviceLines || [];
-  const serviceLineLabel = lineId => {
-    const line = serviceLines.find(l => l.id === lineId);
-    return line ? line.description : '';
-  };
+const DOC_TYPES = [
+  { value: 'PASSPORT', label: 'Passaporte/CC', group: 'Cliente' },
+  { value: 'VISA', label: 'Visto', group: 'Cliente' },
+  { value: 'INSURANCE', label: 'Seguro de viagem', group: 'Reserva' },
+  { value: 'VOUCHER', label: 'Voucher', group: 'Reserva' },
+  { value: 'TICKET', label: 'Bilhete', group: 'Reserva' },
+  { value: 'INVOICE_PURCHASE', label: 'Fatura de compra', group: 'Financeiro' },
+  { value: 'INVOICE_SALE', label: 'Fatura de venda', group: 'Financeiro' },
+  { value: 'RECEIPT', label: 'Recibo/comprovativo', group: 'Financeiro' },
+  { value: 'ITINERARY', label: 'Itinerário/programa', group: 'Viagem' },
+  { value: 'OCCURRENCE_PHOTO', label: 'Foto de ocorrência', group: 'Ocorrências' },
+  { value: 'OTHER', label: 'Outro', group: 'Viagem' }
+];
+const DOC_TYPE_LABEL = Object.fromEntries(DOC_TYPES.map(t => [t.value, t.label]));
+
+export async function renderDocumentsTab(panel, reservation, reload, detail = {}) {
+  const serviceLines = detail.serviceLines || [];
+  const serviceLineLabel = lineId => serviceLines.find(l => l.id === lineId)?.description || '';
 
   panel.innerHTML = '<p class="muted">A carregar...</p>';
   let documents;
   try {
-    const data = await api(`/api/admin/documents?reservationId=${encodeURIComponent(reservation.id)}`);
-    documents = data.documents;
+    const res = await api(`/api/admin/documents?reservationId=${encodeURIComponent(reservation.id)}`);
+    documents = res.documents;
   } catch (err) {
     panel.innerHTML = `<p class="error">${esc(err.message)}</p>`;
     return;
@@ -27,19 +40,20 @@ export async function renderDocumentsTab(panel, reservation, reload, ctx = {}) {
     <div class="doc-list">
       ${documents.map(d => `
         <div class="doc-item">
-          <span class="doc-type">${d.type === 'PASSPORT' ? 'Passaporte/CC' : d.type === 'INSURANCE' ? 'Seguro' : 'Outro'}</span>
+          <span class="doc-type">${esc(DOC_TYPE_LABEL[d.type] || d.type)}</span>
           ${d.passengerName ? `<span class="muted">${esc(d.passengerName)}</span>` : ''}
           ${d.serviceLineId ? `<span class="pill">${esc(serviceLineLabel(d.serviceLineId))}</span>` : ''}
           <span class="muted">${esc(d.fileName)}</span>
           <a href="${esc(d.signedUrl)}" target="_blank" rel="noopener">Ver</a>
           <button class="ghost mini-action doc-delete" data-doc="${d.id}">Remover</button>
-        </div>`).join('') || '<div class="muted">Sem documentos anexados a esta reserva.</div>'}
+        </div>`).join('') || '<div class="muted">Sem documentos anexados a este processo.</div>'}
     </div>
     <form class="doc-upload-form">
       <select class="doc-type-select">
-        <option value="PASSPORT">Passaporte/Cartão de cidadão</option>
-        <option value="INSURANCE">Seguro de viagem</option>
-        <option value="OTHER">Outro</option>
+        ${['Cliente', 'Reserva', 'Financeiro', 'Viagem', 'Ocorrências'].map(group => `
+          <optgroup label="${group}">
+            ${DOC_TYPES.filter(t => t.group === group).map(t => `<option value="${t.value}">${t.label}</option>`).join('')}
+          </optgroup>`).join('')}
       </select>
       <input type="text" class="doc-passenger-name" placeholder="Nome do passageiro">
       ${serviceLines.length ? `

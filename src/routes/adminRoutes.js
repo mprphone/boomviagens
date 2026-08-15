@@ -5,7 +5,13 @@
 
 module.exports = function registerAdminRoutes(router, ctx) {
   const { json, parseBody, readDb, updateDb, operators, cleanText, numberInRange, domain, fileStorage, reservationEmail } = ctx;
-  const { ensureCollections, audit, addOperatorLog, missingDocumentsFor, statusLabel, leadStage, leadStageLabel, id, now, RESERVATION_STATUSES, LEAD_STAGES, DOCUMENT_TYPES, CONTACT_TYPES, COMPLAINT_STATUSES, VAT_REGIMES, SUPPLIER_TYPES, SERVICE_TYPES, SERVICE_STATUSES, MANUAL_EVENT_TYPES, sanitizeCustomer, computeServiceTotals, serviceTypeLabel, serviceStatusLabel, eventTypeLabel } = domain;
+  const {
+    ensureCollections, audit, addOperatorLog, missingDocumentsFor, statusLabel, leadStage, leadStageLabel, id, now,
+    RESERVATION_STATUSES, LEAD_STAGES, DOCUMENT_TYPES, CONTACT_TYPES, COMPLAINT_STATUSES, COMPLAINT_DIRECTIONS,
+    VAT_REGIMES, SUPPLIER_TYPES, SERVICE_TYPES, SERVICE_STATUSES, MANUAL_EVENT_TYPES, TASK_STATUSES, TASK_PRIORITIES,
+    sanitizeCustomer, computeServiceTotals, serviceTypeLabel, serviceStatusLabel, eventTypeLabel, taskStatusLabel,
+    taskPriorityLabel, complaintStatusLabel, documentTypeLabel, processNumber, computeAlerts
+  } = domain;
   const { sessionUser, signToken, safeEqual, setSessionCookie, clearSessionCookie, rateLimit, SESSION_TTL_MS } = ctx.auth;
 
   // Impede que um duplo clique em "Aprovar no operador" chame
@@ -191,7 +197,13 @@ module.exports = function registerAdminRoutes(router, ctx) {
 
   router.get('/api/admin/reservations', async (req, res) => {
     const db = ensureCollections(await readDb());
-    const reservations = db.reservations.map(r => ({ ...r, missingDocuments: missingDocumentsFor(r, db.documents) }));
+    const reservations = db.reservations.map(r => ({
+      ...r,
+      processNumber: processNumber(r),
+      missingDocuments: missingDocumentsFor(r, db.documents),
+      serviceLinesCount: db.serviceLines.filter(s => s.reservationId === r.id).length,
+      openComplaintsCount: db.complaints.filter(c => c.reservationId === r.id && !['RESOLVED', 'CLOSED'].includes(c.status)).length
+    }));
     return json(res, 200, { ok: true, reservations, statuses: RESERVATION_STATUSES.map(value => ({ value, label: statusLabel(value) })) });
   }, { admin: true });
 
@@ -252,25 +264,69 @@ module.exports = function registerAdminRoutes(router, ctx) {
     return json(res, 200, { ok: true, reservation: saved });
   }, { admin: true });
 
-  // Separador "Serviços": linhas de compra/venda de uma reserva (voos,
-  // hoteis, seguros, transfers...). A soma destas linhas da os valores
-  // reais da reserva, a comparar com a proposta original guardada em
-  // reservation.offer (essa e so a estimativa feita na altura da venda).
-  router.get('/api/admin/reservations/services', async (req, res, url) => {
-    const reservationId = cleanText(url.searchParams.get('reservationId'), 120);
+  // Registo manual de um recebimento do cliente (separador "Vendas") - ex.:
+  // um sinal pago por transferencia bancaria, fora do fluxo automatico de
+  // checkout/MB WAY. Fica sempre com status PAID (o registo so e feito
+  // depois de o dinheiro ter entrado).
+  router.post('/api/admin/reservations/payments', async (req, res) => {
+    const body = await parseBody(req);
+    const reservationId = cleanText(body.reservationId, 120);
+    const amount = numberInRange(body.amount, 'Valor', 0.01, 1000000, 0);
+    const method = cleanText(body.method, 60) || 'Transferência bancária';
+    const reference = cleanText(body.reference, 100);
     const db = ensureCollections(await readDb());
     const reservation = db.reservations.find(r => r.id === reservationId);
     if (!reservation) return json(res, 404, { ok: false, error: 'Reserva nao encontrada' });
+
+    const payment = { id: id('pay'), createdAt: now(), reservationId, method, amount, status: 'PAID', reference, paidAt: now() };
+    await updateDb(d => {
+      ensureCollections(d);
+      d.payments.push(payment);
+      d.reservationEvents.unshift({ id: id('evt'), createdAt: now(), reservationId, actor: sessionUser(req), type: 'INFO', description: `Recebimento registado: ${amount.toFixed(2)} € (${method})` });
+      audit(d, sessionUser(req), 'PAYMENT_LOGGED_MANUALLY', { reservationId, paymentId: payment.id, amount });
+    });
+    return json(res, 200, { ok: true, payment });
+  }, { admin: true });
+
+  // Ficha de Reserva ("Processo de Viagem"): um unico pedido devolve tudo o
+  // que os separadores precisam (servicos, historico, tarefas, reclamacoes,
+  // pagamentos, alertas), em vez de cada separador ir buscar os seus dados
+  // um a um. O numero de processo (PV-AAAA-XXXXXX) e derivado do id interno,
+  // ja unico - ver domain.js#processNumber.
+  router.get('/api/admin/reservations/detail', async (req, res, url) => {
+    const reservationId = cleanText(url.searchParams.get('reservationId'), 120);
+    const db = ensureCollections(await readDb());
+    const reservation = db.reservations.find(r => r.id === reservationId);
+    if (!reservation) return json(res, 404, { ok: false, error: 'Processo nao encontrado' });
+
     const serviceLines = db.serviceLines.filter(s => s.reservationId === reservationId).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
     const events = db.reservationEvents.filter(e => e.reservationId === reservationId);
+    const tasks = db.tasks.filter(t => t.reservationId === reservationId);
+    const complaints = db.complaints.filter(c => c.reservationId === reservationId);
+    const payments = db.payments.filter(p => p.reservationId === reservationId);
+    const documents = db.documents.filter(d => d.reservationId === reservationId);
+    const communications = db.contactLog.filter(c => c.reservationId === reservationId);
+
     return json(res, 200, {
       ok: true,
+      reservation: { ...reservation, processNumber: processNumber(reservation), missingDocuments: missingDocumentsFor(reservation, db.documents) },
+      statuses: RESERVATION_STATUSES.map(value => ({ value, label: statusLabel(value) })),
       serviceLines,
+      serviceTotals: computeServiceTotals(serviceLines),
+      serviceTypes: SERVICE_TYPES.map(value => ({ value, label: serviceTypeLabel(value) })),
+      serviceStatuses: SERVICE_STATUSES.map(value => ({ value, label: serviceStatusLabel(value) })),
       events,
-      totals: computeServiceTotals(serviceLines),
-      types: SERVICE_TYPES.map(value => ({ value, label: serviceTypeLabel(value) })),
-      statuses: SERVICE_STATUSES.map(value => ({ value, label: serviceStatusLabel(value) })),
-      eventTypes: MANUAL_EVENT_TYPES.map(value => ({ value, label: eventTypeLabel(value) }))
+      eventTypes: MANUAL_EVENT_TYPES.map(value => ({ value, label: eventTypeLabel(value) })),
+      tasks,
+      taskStatuses: TASK_STATUSES.map(value => ({ value, label: taskStatusLabel(value) })),
+      taskPriorities: TASK_PRIORITIES.map(value => ({ value, label: taskPriorityLabel(value) })),
+      complaints,
+      complaintStatuses: COMPLAINT_STATUSES.map(value => ({ value, label: complaintStatusLabel(value) })),
+      complaintDirections: COMPLAINT_DIRECTIONS,
+      payments,
+      communications,
+      suppliers: db.suppliers.map(s => ({ id: s.id, name: s.name })),
+      alerts: computeAlerts(reservation, { serviceLines, documents, payments, tasks })
     });
   }, { admin: true });
 
@@ -287,14 +343,27 @@ module.exports = function registerAdminRoutes(router, ctx) {
       type, description, status,
       supplierName: cleanText(body.supplierName, 150),
       reference: cleanText(body.reference, 100),
+      locator: cleanText(body.locator, 100),
       quantity: numberInRange(body.quantity, 'Quantidade', 0.01, 999, 1),
       dateStart: cleanText(body.dateStart, 30),
       dateEnd: cleanText(body.dateEnd, 30),
       netValue: numberInRange(body.netValue, 'Custo (NET)', 0, 1000000, 0),
       pvpValue: numberInRange(body.pvpValue, 'Venda (PVP)', 0, 1000000, 0),
       discountPercent: numberInRange(body.discountPercent, 'Desconto', 0, 100, 0),
+      optionDeadline: cleanText(body.optionDeadline, 30),
+      cancellationTerms: cleanText(body.cancellationTerms, 1000),
+      paid: Boolean(body.paid),
+      paidAt: body.paid ? (cleanText(body.paidAt, 30) || now()) : undefined,
       notes: cleanText(body.notes, 1000)
     };
+    // So faz sentido preencher os campos de cancelamento quando a linha
+    // fica com estado CANCELADO - evita lixo em linhas normais.
+    if (status === 'CANCELADO') {
+      updates.cancelReason = cleanText(body.cancelReason, 500);
+      updates.refundableAmount = body.refundableAmount !== undefined ? numberInRange(body.refundableAmount, 'Valor reembolsável', 0, 1000000, 0) : undefined;
+      updates.refundedAmount = body.refundedAmount !== undefined ? numberInRange(body.refundedAmount, 'Valor reembolsado', 0, 1000000, 0) : undefined;
+      updates.refundedAt = body.refundedAmount ? (cleanText(body.refundedAt, 30) || now()) : undefined;
+    }
 
     const db = ensureCollections(await readDb());
     const reservation = db.reservations.find(r => r.id === reservationId);
@@ -305,9 +374,14 @@ module.exports = function registerAdminRoutes(router, ctx) {
       ensureCollections(d);
       let line = lineId && d.serviceLines.find(s => s.id === lineId && s.reservationId === reservationId);
       if (line) {
+        const wasCancelled = line.status === 'CANCELADO';
         Object.assign(line, updates);
         line.updatedAt = now();
-        d.reservationEvents.unshift({ id: id('evt'), createdAt: now(), reservationId, actor: sessionUser(req), type: 'SERVICE_UPDATED', description: `${serviceTypeLabel(type)}: ${description}` });
+        const justCancelled = !wasCancelled && status === 'CANCELADO';
+        d.reservationEvents.unshift({
+          id: id('evt'), createdAt: now(), reservationId, actor: sessionUser(req), type: 'SERVICE_UPDATED',
+          description: justCancelled ? `Cancelado: ${serviceTypeLabel(type)} - ${description}${updates.cancelReason ? ` (${updates.cancelReason})` : ''}` : `${serviceTypeLabel(type)}: ${description}`
+        });
       } else {
         line = { id: id('svc'), createdAt: now(), reservationId, ...updates };
         d.serviceLines.push(line);
@@ -336,10 +410,12 @@ module.exports = function registerAdminRoutes(router, ctx) {
     return json(res, 200, { ok: true });
   }, { admin: true });
 
-  // Separador "Histórico": registo manual de atrasos, cancelamentos,
-  // contactos e notas livres sobre o processo. Os outros tipos de evento
-  // (mudança de estado, serviços, documentos) são gerados automaticamente
-  // pelas rotas correspondentes, não têm entrada direta aqui.
+  // Separador "Histórico"/"Ocorrências": registo manual de informacoes,
+  // alteracoes, problemas, incidentes, atrasos, servicos nao prestados,
+  // erros (fornecedor/internos) e pedidos do cliente. Os outros tipos de
+  // evento (mudança de estado, serviços, documentos) são gerados
+  // automaticamente pelas rotas correspondentes, não têm entrada direta
+  // aqui.
   router.post('/api/admin/reservations/events', async (req, res) => {
     const body = await parseBody(req);
     const reservationId = cleanText(body.reservationId, 120);
@@ -355,11 +431,110 @@ module.exports = function registerAdminRoutes(router, ctx) {
     let event = null;
     await updateDb(d => {
       ensureCollections(d);
-      event = { id: id('evt'), createdAt: now(), reservationId, actor: sessionUser(req), type, description };
+      event = { id: id('evt'), createdAt: now(), reservationId, actor: sessionUser(req), type, description, resolved: false, resolution: '' };
       d.reservationEvents.unshift(event);
       audit(d, sessionUser(req), 'RESERVATION_EVENT_ADDED', { reservationId, type });
     });
     return json(res, 200, { ok: true, event });
+  }, { admin: true });
+
+  // Marca uma ocorrência como resolvida (ou reabre-a) - usado no separador
+  // "Ocorrências" para acompanhar problemas ate ao fecho.
+  router.post('/api/admin/reservations/events/resolve', async (req, res) => {
+    const body = await parseBody(req);
+    const eventId = cleanText(body.id, 120);
+    const resolved = Boolean(body.resolved);
+    const resolution = cleanText(body.resolution, 1000);
+    const saved = await updateDb(d => {
+      ensureCollections(d);
+      const event = d.reservationEvents.find(e => e.id === eventId);
+      if (!event) return null;
+      event.resolved = resolved;
+      if (resolution) event.resolution = resolution;
+      audit(d, sessionUser(req), 'RESERVATION_EVENT_RESOLVED', { eventId, resolved });
+      return event;
+    });
+    if (!saved) return json(res, 404, { ok: false, error: 'Registo não encontrado' });
+    return json(res, 200, { ok: true, event: saved });
+  }, { admin: true });
+
+  // Separador "Tarefas": checklist administrativo/operacional do processo.
+  router.post('/api/admin/reservations/tasks', async (req, res) => {
+    const body = await parseBody(req);
+    const reservationId = cleanText(body.reservationId, 120);
+    const taskId = cleanText(body.id, 120);
+    const description = cleanText(body.description, 300);
+    if (!description) return json(res, 400, { ok: false, error: 'Descrição obrigatória' });
+    const status = TASK_STATUSES.includes(body.status) ? body.status : 'TODO';
+    const updates = {
+      description,
+      assignee: cleanText(body.assignee, 100),
+      dueDate: cleanText(body.dueDate, 30),
+      priority: TASK_PRIORITIES.includes(body.priority) ? body.priority : 'NORMAL',
+      status,
+      notes: cleanText(body.notes, 1000)
+    };
+
+    const db = ensureCollections(await readDb());
+    const reservation = db.reservations.find(r => r.id === reservationId);
+    if (!reservation) return json(res, 404, { ok: false, error: 'Reserva nao encontrada' });
+
+    let resultTask = null;
+    await updateDb(d => {
+      ensureCollections(d);
+      let task = taskId && d.tasks.find(t => t.id === taskId && t.reservationId === reservationId);
+      if (task) {
+        const wasDone = task.status === 'DONE';
+        Object.assign(task, updates);
+        task.updatedAt = now();
+        if (status === 'DONE' && !wasDone) task.completedAt = now();
+        if (status !== 'DONE') task.completedAt = undefined;
+      } else {
+        task = { id: id('task'), createdAt: now(), reservationId, ...updates, completedAt: status === 'DONE' ? now() : undefined };
+        d.tasks.push(task);
+      }
+      audit(d, sessionUser(req), taskId ? 'TASK_UPDATED' : 'TASK_CREATED', { reservationId, taskId: task.id });
+      resultTask = task;
+    });
+    return json(res, 200, { ok: true, task: resultTask });
+  }, { admin: true });
+
+  router.post('/api/admin/reservations/tasks/delete', async (req, res) => {
+    const body = await parseBody(req);
+    const taskId = cleanText(body.id, 120);
+    const db = ensureCollections(await readDb());
+    const task = db.tasks.find(t => t.id === taskId);
+    if (!task) return json(res, 404, { ok: false, error: 'Tarefa não encontrada' });
+    await updateDb(d => {
+      ensureCollections(d);
+      d.tasks = d.tasks.filter(t => t.id !== taskId);
+      audit(d, sessionUser(req), 'TASK_DELETED', { taskId });
+    });
+    return json(res, 200, { ok: true });
+  }, { admin: true });
+
+  // Checklist de Pós-Viagem: pergunta simples ("a viagem correu bem?") mais
+  // notas; se a resposta for "não", a equipa deve ter criado uma ocorrência
+  // ou reclamação a documentar o que aconteceu (o formulario no frontend
+  // pede isso, mas nao e bloqueado aqui - o backend so guarda a resposta).
+  router.post('/api/admin/reservations/posttrip', async (req, res) => {
+    const body = await parseBody(req);
+    const reservationId = cleanText(body.reservationId, 120);
+    const postTripOk = body.postTripOk === null ? null : Boolean(body.postTripOk);
+    const postTripNotes = cleanText(body.postTripNotes, 2000);
+    const saved = await updateDb(d => {
+      ensureCollections(d);
+      const r = d.reservations.find(x => x.id === reservationId);
+      if (!r) return null;
+      r.postTripOk = postTripOk;
+      r.postTripNotes = postTripNotes;
+      r.updatedAt = now();
+      d.reservationEvents.unshift({ id: id('evt'), createdAt: now(), reservationId, actor: sessionUser(req), type: 'NOTE', description: `Pós-viagem: ${postTripOk === false ? 'houve problemas' : postTripOk === true ? 'correu bem' : 'por confirmar'}${postTripNotes ? ` - ${postTripNotes}` : ''}` });
+      audit(d, sessionUser(req), 'POST_TRIP_UPDATED', { reservationId, postTripOk });
+      return r;
+    });
+    if (!saved) return json(res, 404, { ok: false, error: 'Reserva nao encontrada' });
+    return json(res, 200, { ok: true, reservation: saved });
   }, { admin: true });
 
   router.get('/api/admin/suppliers', async (req, res) => {
@@ -592,13 +767,17 @@ module.exports = function registerAdminRoutes(router, ctx) {
     return json(res, 200, { ok: true, customer: sanitizeCustomer(saved) });
   }, { admin: true });
 
+  // reservationId opcional: quando a comunicacao e registada a partir do
+  // separador "Comunicações" da Ficha de Reserva, fica tambem ligada ao
+  // processo, alem de aparecer na ficha do cliente (mesmo registo, duas
+  // vistas).
   router.post('/api/admin/customers/contact', async (req, res) => {
     const body = await parseBody(req);
     const customerEmail = cleanText(body.email, 254);
     const type = CONTACT_TYPES.includes(body.type) ? body.type : 'OTHER';
     const summary = cleanText(body.summary, 2000);
     if (!customerEmail || !summary) return json(res, 400, { ok: false, error: 'Cliente e resumo sao obrigatorios' });
-    const entry = { id: id('contact'), createdAt: now(), customerEmail, actor: sessionUser(req), type, summary };
+    const entry = { id: id('contact'), createdAt: now(), customerEmail, reservationId: cleanText(body.reservationId, 120) || undefined, actor: sessionUser(req), type, summary };
     await updateDb(d => {
       ensureCollections(d);
       d.contactLog.unshift(entry);
@@ -607,23 +786,34 @@ module.exports = function registerAdminRoutes(router, ctx) {
     return json(res, 200, { ok: true, entry });
   }, { admin: true });
 
+  // Reclamacao do cliente contra a agencia (direction=CUSTOMER_TO_AGENCY,
+  // sem fornecedor) ou da agencia contra um fornecedor/operador
+  // (direction=AGENCY_TO_SUPPLIER, com supplierId e valores reclamado/
+  // recebido do fornecedor/entregue ao cliente).
   router.post('/api/admin/customers/complaints', async (req, res) => {
     const body = await parseBody(req);
     const customerEmail = cleanText(body.email, 254);
     const subject = cleanText(body.subject, 200);
     if (!customerEmail || !subject) return json(res, 400, { ok: false, error: 'Cliente e assunto sao obrigatorios' });
+    const direction = COMPLAINT_DIRECTIONS.includes(body.direction) ? body.direction : 'CUSTOMER_TO_AGENCY';
     const complaint = {
       id: id('compl'),
       createdAt: now(),
       customerEmail,
       reservationId: cleanText(body.reservationId, 120) || undefined,
+      direction,
+      supplierId: direction === 'AGENCY_TO_SUPPLIER' ? (cleanText(body.supplierId, 120) || undefined) : undefined,
       status: 'OPEN',
       subject,
-      description: cleanText(body.description, 4000)
+      description: cleanText(body.description, 4000),
+      claimedAmount: body.claimedAmount !== undefined && body.claimedAmount !== '' ? numberInRange(body.claimedAmount, 'Valor reclamado', 0, 1000000, 0) : undefined
     };
     await updateDb(d => {
       ensureCollections(d);
       d.complaints.unshift(complaint);
+      if (complaint.reservationId) {
+        d.reservationEvents.unshift({ id: id('evt'), createdAt: now(), reservationId: complaint.reservationId, actor: sessionUser(req), type: 'PROBLEM', description: `Reclamação aberta: ${subject}` });
+      }
       audit(d, sessionUser(req), 'COMPLAINT_CREATED', { email: customerEmail, complaintId: complaint.id });
     });
     return json(res, 200, { ok: true, complaint });
@@ -642,7 +832,12 @@ module.exports = function registerAdminRoutes(router, ctx) {
       complaint.status = status;
       complaint.updatedAt = now();
       if (resolution) complaint.resolution = resolution;
-      if (status === 'RESOLVED') complaint.resolvedAt = now();
+      if (body.receivedAmount !== undefined && body.receivedAmount !== '') complaint.receivedAmount = numberInRange(body.receivedAmount, 'Valor recebido', 0, 1000000, 0);
+      if (body.paidToCustomer !== undefined && body.paidToCustomer !== '') complaint.paidToCustomer = numberInRange(body.paidToCustomer, 'Valor entregue ao cliente', 0, 1000000, 0);
+      if (status === 'RESOLVED' || status === 'CLOSED') complaint.resolvedAt = now();
+      if (complaint.reservationId) {
+        d.reservationEvents.unshift({ id: id('evt'), createdAt: now(), reservationId: complaint.reservationId, actor: sessionUser(req), type: 'INFO', description: `Reclamação atualizada: ${complaintStatusLabel(status)}` });
+      }
       audit(d, sessionUser(req), 'COMPLAINT_UPDATED', { complaintId, status });
       return complaint;
     });

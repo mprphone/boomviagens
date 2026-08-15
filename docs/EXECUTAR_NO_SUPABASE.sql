@@ -101,7 +101,9 @@ alter table public.reservations
   add column if not exists vat_regime text not null default 'MARGEM',
   add column if not exists invoice_number text,
   add column if not exists invoice_date text,
-  add column if not exists invoice_system text;
+  add column if not exists invoice_system text,
+  add column if not exists post_trip_ok boolean,
+  add column if not exists post_trip_notes text;
 
 create index if not exists reservations_status_idx on public.reservations(status);
 create index if not exists reservations_created_at_idx on public.reservations(created_at desc);
@@ -179,12 +181,25 @@ create table if not exists public.reservation_service_lines (
   notes text
 );
 
+alter table public.reservation_service_lines
+  add column if not exists locator text,
+  add column if not exists option_deadline text,
+  add column if not exists cancellation_terms text,
+  add column if not exists paid boolean not null default false,
+  add column if not exists paid_at timestamptz,
+  add column if not exists cancel_reason text,
+  add column if not exists refundable_amount numeric(12,2),
+  add column if not exists refunded_amount numeric(12,2),
+  add column if not exists refunded_at timestamptz;
+
 create index if not exists reservation_service_lines_reservation_id_idx on public.reservation_service_lines(reservation_id);
 
 -- Historico/timeline de uma reserva: mudancas de estado, linhas de servico
 -- adicionadas/editadas/removidas e documentos anexados sao registados aqui
--- automaticamente pelo servidor; atrasos, cancelamentos, contactos e notas
--- livres sao registados manualmente pelo operador no separador "Historico".
+-- automaticamente pelo servidor; ocorrencias (problemas, incidentes,
+-- atrasos...), contactos e notas livres sao registados manualmente pelo
+-- operador. O separador "Ocorrencias" e uma leitura filtrada deste mesmo
+-- registo, com resolved/resolution para acompanhar o fecho do problema.
 create table if not exists public.reservation_events (
   id text primary key,
   created_at timestamptz not null default now(),
@@ -194,7 +209,30 @@ create table if not exists public.reservation_events (
   description text
 );
 
+alter table public.reservation_events
+  add column if not exists resolved boolean not null default false,
+  add column if not exists resolution text;
+
 create index if not exists reservation_events_reservation_id_idx on public.reservation_events(reservation_id);
+
+-- Tarefas do processo (separador "Tarefas") - checklist administrativo e
+-- operacional (pedir passaportes, confirmar hotel, emitir seguro...).
+create table if not exists public.tasks (
+  id text primary key,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz,
+  reservation_id text not null references public.reservations(id) on delete cascade,
+  description text not null,
+  assignee text,
+  due_date text,
+  priority text not null default 'NORMAL',
+  status text not null default 'TODO',
+  completed_at timestamptz,
+  notes text
+);
+
+create index if not exists tasks_reservation_id_idx on public.tasks(reservation_id);
+create index if not exists tasks_status_idx on public.tasks(status);
 
 create table if not exists public.documents (
   id text primary key,
@@ -244,7 +282,10 @@ create table if not exists public.contact_log (
   summary text
 );
 
+alter table public.contact_log add column if not exists reservation_id text references public.reservations(id) on delete cascade;
+
 create index if not exists contact_log_customer_email_idx on public.contact_log(customer_email);
+create index if not exists contact_log_reservation_id_idx on public.contact_log(reservation_id);
 
 create table if not exists public.complaints (
   id text primary key,
@@ -258,6 +299,13 @@ create table if not exists public.complaints (
   resolution text,
   resolved_at timestamptz
 );
+
+alter table public.complaints
+  add column if not exists direction text not null default 'CUSTOMER_TO_AGENCY',
+  add column if not exists supplier_id text,
+  add column if not exists claimed_amount numeric(12,2),
+  add column if not exists received_amount numeric(12,2),
+  add column if not exists paid_to_customer numeric(12,2);
 
 create index if not exists complaints_customer_email_idx on public.complaints(customer_email);
 
@@ -277,6 +325,7 @@ alter table public.complaints enable row level security;
 alter table public.suppliers enable row level security;
 alter table public.reservation_service_lines enable row level security;
 alter table public.reservation_events enable row level security;
+alter table public.tasks enable row level security;
 
 -- Dados publicos que podem ser lidos pelo site sem expor clientes/reservas.
 create or replace view public.public_margins
