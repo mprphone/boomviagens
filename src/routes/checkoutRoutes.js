@@ -50,6 +50,31 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
       source: 'site',
       notes: 'Reserva criada em modo semi-automatico. Confirmacao no operador exige aprovacao do backoffice.'
     };
+    // O separador "Reservas" (linhas de servico) comeca vazio ate o
+    // backoffice tratar o processo junto do fornecedor - mas nao faz
+    // sentido a pagina abrir sem nenhuma linha quando o cliente ja
+    // escolheu um hotel/pacote concreto na pesquisa. Semeia uma linha
+    // ALOJAMENTO a partir da oferta, por confirmar, para o backoffice
+    // partir dali em vez de comecar do zero.
+    const serviceLine = offer.hotel ? {
+      id: id('svc'),
+      createdAt: now(),
+      reservationId: reservation.id,
+      type: 'ALOJAMENTO',
+      description: offer.board ? `${offer.hotel} - ${offer.board}` : offer.hotel,
+      status: 'NAO_CONFIRMADO',
+      supplierName: offer.operator || '',
+      reference: '',
+      locator: '',
+      quantity: 1,
+      dateStart: offer.checkin || '',
+      dateEnd: offer.checkout || '',
+      netValue: costPrice || 0,
+      pvpValue: finalPrice,
+      discountPercent: 0,
+      paid: false,
+      notes: 'Linha criada automaticamente a partir da oferta escolhida no checkout.'
+    } : null;
     const payment = {
       id: id('pay'),
       createdAt: now(),
@@ -80,6 +105,10 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
       }
       d.reservations.unshift(reservation);
       d.payments.unshift(payment);
+      if (serviceLine) {
+        d.serviceLines.push(serviceLine);
+        d.reservationEvents.unshift({ id: id('evt'), createdAt: now(), reservationId: reservation.id, actor: 'site', type: 'SERVICE_ADDED', description: `${serviceLine.description} (linha automatica do checkout)` });
+      }
       let existing = d.customers.find(c => c.email === customer.email);
       if (!existing && customer.email) d.customers.unshift({ id: id('cli'), createdAt: now(), ...customer });
       if (idemKey) d.idempotencyKeys[idemKey] = { reservationId: reservation.id, paymentId: payment.id, createdAt: now() };
