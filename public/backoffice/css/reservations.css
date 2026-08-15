@@ -355,6 +355,19 @@
 
 .tab-toolbar { margin-bottom: 14px; }
 
+/* Icones de acao por linha (editar/eliminar) nas tabelas de listagem -
+   ficam por cima do clique na linha inteira (stopPropagation no JS). */
+.icon-action {
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  line-height: 1;
+}
+.icon-action:hover { background: var(--bg); }
+
 .service-line-checkbox {
   display: flex;
   align-items: center;

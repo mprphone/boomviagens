@@ -37,7 +37,34 @@ const SUPPLIER_TYPES = ['OPERADOR', 'HOTEL', 'SEGURADORA', 'TRANSPORTE', 'OUTRO'
 // proprio custo/venda - a soma destas linhas da os "Valores Reais" da
 // reserva, em contraste com os "Valores Estimados" da proposta original.
 const SERVICE_TYPES = ['VOO', 'ALOJAMENTO', 'TRANSFER', 'CRUZEIRO', 'RENT_A_CAR', 'SEGURO', 'VISTO', 'RESTAURACAO', 'TOUR', 'DIVERSOS'];
-const SERVICE_STATUSES = ['PENDENTE', 'OK', 'ATRASADO', 'CANCELADO'];
+// Estado de cada reserva individual (nao um estado operacional generico) -
+// o percurso real varia por tipo de servico (um voo tem emissao de
+// bilhete e check-in; um hotel so tem confirmacao e pagamento), por isso
+// cada tipo tem o seu proprio subconjunto de estados validos - ver
+// SERVICE_STATUS_FLOW_BY_TYPE/serviceStatusesForType. Cancelado esta
+// sempre disponivel, para qualquer tipo. Atrasos e outros problemas ficam
+// no separador Ocorrencias (tipo DELAY), nao aqui - sao um acontecimento,
+// nao um estado do processo de compra. "Pago" aqui e o estado que o
+// proprio fornecedor reporta (ex.: hotel confirma saldo liquidado); o
+// registo interno de pagamento ao fornecedor (separador Financeiro >
+// Pagamentos) e um campo à parte (paid/paidAt), propositadamente
+// independente para nao depender do tipo de servico.
+const SERVICE_STATUSES = ['NAO_CONFIRMADO', 'CONFIRMADO', 'EMITIDO', 'PAGO', 'CHECKIN_FEITO', 'CANCELADO'];
+const SERVICE_STATUS_FLOW_BY_TYPE = {
+  VOO: ['NAO_CONFIRMADO', 'CONFIRMADO', 'EMITIDO', 'CHECKIN_FEITO'],
+  CRUZEIRO: ['NAO_CONFIRMADO', 'CONFIRMADO', 'EMITIDO', 'CHECKIN_FEITO'],
+  ALOJAMENTO: ['NAO_CONFIRMADO', 'CONFIRMADO', 'PAGO'],
+  TRANSFER: ['NAO_CONFIRMADO', 'CONFIRMADO', 'PAGO'],
+  RENT_A_CAR: ['NAO_CONFIRMADO', 'CONFIRMADO', 'PAGO'],
+  SEGURO: ['NAO_CONFIRMADO', 'CONFIRMADO', 'EMITIDO'],
+  VISTO: ['NAO_CONFIRMADO', 'CONFIRMADO', 'EMITIDO'],
+  RESTAURACAO: ['NAO_CONFIRMADO', 'CONFIRMADO', 'PAGO'],
+  TOUR: ['NAO_CONFIRMADO', 'CONFIRMADO', 'PAGO'],
+  DIVERSOS: ['NAO_CONFIRMADO', 'CONFIRMADO', 'PAGO']
+};
+function serviceStatusesForType(type) {
+  return [...(SERVICE_STATUS_FLOW_BY_TYPE[type] || SERVICE_STATUS_FLOW_BY_TYPE.DIVERSOS), 'CANCELADO'];
+}
 // Historico/timeline da reserva (separador "Historico") - regista tudo,
 // automatico e manual, e nunca e editado/apagado. O separador "Ocorrencias"
 // e uma leitura filtrada deste mesmo registo (so os tipos "de ocorrencia"),
@@ -82,13 +109,13 @@ function computeAlerts(reservation, { serviceLines = [], documents = [], payment
   const checkin = reservation.offer?.checkin ? new Date(`${reservation.offer.checkin}T00:00:00`) : null;
 
   for (const line of serviceLines) {
-    if (line.optionDeadline && line.status === 'PENDENTE') {
+    if (line.optionDeadline && line.status === 'NAO_CONFIRMADO') {
       const deadline = new Date(`${line.optionDeadline}T00:00:00`);
       if (deadline <= inDays(2) && deadline >= today) alerts.push({ type: 'OPTION_EXPIRING', severity: 'critical', message: `Opção de "${line.description}" termina em breve (${line.optionDeadline})` });
       else if (deadline < today) alerts.push({ type: 'OPTION_EXPIRED', severity: 'critical', message: `Opção de "${line.description}" já expirou (${line.optionDeadline})` });
     }
-    if (line.status === 'PENDENTE' && checkin && checkin <= inDays(7)) {
-      alerts.push({ type: 'SERVICE_UNCONFIRMED', severity: 'warning', message: `"${line.description}" ainda não confirmado e a viagem é em menos de 7 dias` });
+    if (line.status === 'NAO_CONFIRMADO' && checkin && checkin <= inDays(7)) {
+      alerts.push({ type: 'SERVICE_UNCONFIRMED', severity: 'warning', message: `"${line.description}" ainda não está confirmado e a viagem é em menos de 7 dias` });
     }
     if (!line.paid && line.netValue > 0 && line.status !== 'CANCELADO') {
       alerts.push({ type: 'SUPPLIER_PAYMENT_PENDING', severity: 'warning', message: `Pagamento a "${line.supplierName || 'fornecedor'}" (${line.description}) ainda pendente` });
@@ -141,7 +168,10 @@ function serviceTypeLabel(type) {
 }
 
 function serviceStatusLabel(status) {
-  return ({ PENDENTE: 'Pendente', OK: 'OK', ATRASADO: 'Atrasado', CANCELADO: 'Cancelado' })[status] || status;
+  return ({
+    NAO_CONFIRMADO: 'Não confirmado', CONFIRMADO: 'Confirmado', EMITIDO: 'Emitido',
+    PAGO: 'Pago', CHECKIN_FEITO: 'Check-in feito', CANCELADO: 'Cancelado'
+  })[status] || status;
 }
 
 function eventTypeLabel(type) {
@@ -293,6 +323,8 @@ module.exports = {
   SUPPLIER_TYPES,
   SERVICE_TYPES,
   SERVICE_STATUSES,
+  SERVICE_STATUS_FLOW_BY_TYPE,
+  serviceStatusesForType,
   EVENT_TYPES,
   AUTO_EVENT_TYPES,
   OCCURRENCE_EVENT_TYPES,

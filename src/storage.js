@@ -1,4 +1,4 @@
-const fs = require('fs');
+﻿const fs = require('fs');
 const path = require('path');
 const { readDbSqlite, writeDbSqlite, updateDbSqlite, SQLITE_PATH } = require('./storageSqlite');
 
@@ -26,7 +26,7 @@ if (process.env.DB_MODE === 'supabase' && !supabaseConfigured) {
 // ---------------------------------------------------------------------------
 
 function readDbLocal() {
-  if (!fs.existsSync(DB_PATH)) throw new Error(`DB não encontrada: ${DB_PATH}`);
+  if (!fs.existsSync(DB_PATH)) throw new Error(`DB nÃ£o encontrada: ${DB_PATH}`);
   return JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
 }
 
@@ -394,7 +394,7 @@ function rowToServiceLine(row) {
     quantity: Number(row.quantity ?? 1),
     dateStart: row.date_start || '',
     dateEnd: row.date_end || '',
-    status: row.status || 'PENDENTE',
+    status: row.status || 'NAO_CONFIRMADO',
     netValue: Number(row.net_value ?? 0),
     pvpValue: Number(row.pvp_value ?? 0),
     discountPercent: Number(row.discount_percent ?? 0),
@@ -424,7 +424,7 @@ function serviceLineToRow(s) {
     quantity: s.quantity ?? 1,
     date_start: s.dateStart || null,
     date_end: s.dateEnd || null,
-    status: s.status || 'PENDENTE',
+    status: s.status || 'NAO_CONFIRMADO',
     net_value: s.netValue ?? 0,
     pvp_value: s.pvpValue ?? 0,
     discount_percent: s.discountPercent ?? 0,

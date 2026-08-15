@@ -6,15 +6,20 @@
 
 import { esc, money, api } from '../utils.js';
 import { openDrawer, closeDrawer } from '../drawer.js';
-import { lineTotal } from './serviceCalc.js';
+import { lineTotal, serviceStatusPillClass } from './serviceCalc.js';
 
 export function openLineDrawer(reservation, line, data, reload) {
   const types = data.serviceTypes || [];
   const statuses = data.serviceStatuses || [];
+  // Cada tipo de servico tem o seu proprio percurso de estados (um voo
+  // emite bilhete e faz check-in; um hotel so confirma e paga) - ver
+  // domain.js#SERVICE_STATUS_FLOW_BY_TYPE. statusLabel continua a usar a
+  // lista completa (serve para rotular qualquer valor ja gravado).
+  const statusesByType = data.serviceStatusesByType || {};
   const typeLabel = value => types.find(t => t.value === value)?.label || value;
   const statusLabel = value => statuses.find(s => s.value === value)?.label || value;
   const body = openDrawer(line ? line.description : 'Nova reserva');
-  renderView(body, reservation, line, data, reload, { typeLabel, statusLabel, types, statuses });
+  renderView(body, reservation, line, data, reload, { typeLabel, statusLabel, types, statuses, statusesByType });
 }
 
 function renderView(body, reservation, line, data, reload, meta) {
@@ -24,7 +29,7 @@ function renderView(body, reservation, line, data, reload, meta) {
   body.innerHTML = `
     <div class="drawer-field-grid">
       <div><span class="muted small">Tipo</span><div>${esc(meta.typeLabel(line.type))}</div></div>
-      <div><span class="muted small">Estado</span><div><span class="pill ${line.status === 'CANCELADO' ? 'pill-warning' : line.status === 'OK' ? 'pill-ok' : ''}">${esc(meta.statusLabel(line.status))}</span></div></div>
+      <div><span class="muted small">Estado</span><div><span class="pill ${serviceStatusPillClass(line.status)}">${esc(meta.statusLabel(line.status))}</span></div></div>
       <div><span class="muted small">Fornecedor</span><div>${esc(line.supplierName || '—')}</div></div>
       <div><span class="muted small">Localizador</span><div>${esc(line.locator || '—')}</div></div>
       <div><span class="muted small">Datas</span><div>${esc(line.dateStart || '—')}${line.dateEnd ? ` → ${esc(line.dateEnd)}` : ''}</div></div>
@@ -113,11 +118,14 @@ function renderView(body, reservation, line, data, reload, meta) {
 }
 
 function renderForm(body, reservation, line, data, reload, meta) {
-  const { types, statuses } = meta;
+  const { types, statusesByType } = meta;
+  const initialType = line?.type || types[0]?.value;
+  const statusOptionsFor = type => statusesByType[type] || statusesByType[types[types.length - 1]?.value] || [];
+
   body.innerHTML = `
     <form class="service-line-form">
       <div class="drawer-form-fields">
-        <label>Tipo <select name="type" required>${types.map(t => `<option value="${t.value}" ${line?.type === t.value ? 'selected' : ''}>${esc(t.label)}</option>`).join('')}</select></label>
+        <label>Tipo <select name="type" required>${types.map(t => `<option value="${t.value}" ${initialType === t.value ? 'selected' : ''}>${esc(t.label)}</option>`).join('')}</select></label>
         <label>Descrição <input name="description" required value="${esc(line?.description || '')}" placeholder="ex.: Hotel Bahia Azul Palace 5★" /></label>
         <label>Fornecedor <input name="supplierName" list="service-supplier-list" value="${esc(line?.supplierName || '')}" placeholder="ex.: Solférias Demo" /></label>
         <label>Localizador <input name="locator" value="${esc(line?.locator || '')}" placeholder="ex.: ABC123" /></label>
@@ -125,7 +133,7 @@ function renderForm(body, reservation, line, data, reload, meta) {
         <label>Data início <input type="date" name="dateStart" value="${esc(line?.dateStart || '')}" /></label>
         <label>Data fim <input type="date" name="dateEnd" value="${esc(line?.dateEnd || '')}" /></label>
         <label>Prazo de opção <input type="date" name="optionDeadline" value="${esc(line?.optionDeadline || '')}" /></label>
-        <label>Estado <select name="status">${statuses.map(s => `<option value="${s.value}" ${(line?.status || 'PENDENTE') === s.value ? 'selected' : ''}>${esc(s.label)}</option>`).join('')}</select></label>
+        <label>Estado <select name="status"></select></label>
         <label>Quantidade <input type="number" name="quantity" min="1" step="1" value="${line?.quantity ?? 1}" /></label>
         <label>Custo NET (€) <input type="number" name="netValue" min="0" step="0.01" value="${line?.netValue ?? 0}" /></label>
         <label>Venda PVP (€) <input type="number" name="pvpValue" min="0" step="0.01" value="${line?.pvpValue ?? 0}" /></label>
@@ -134,7 +142,7 @@ function renderForm(body, reservation, line, data, reload, meta) {
       <label class="service-line-notes">Condições de cancelamento <textarea name="cancellationTerms" rows="2">${esc(line?.cancellationTerms || '')}</textarea></label>
       <label class="service-line-checkbox"><input type="checkbox" name="paid" ${line?.paid ? 'checked' : ''} /> Já pago ao fornecedor</label>
 
-      <div class="service-line-cancel-fields" ${(line?.status || 'PENDENTE') !== 'CANCELADO' ? 'hidden' : ''}>
+      <div class="service-line-cancel-fields" hidden>
         <p class="service-line-form-title">Cancelamento</p>
         <label>Motivo <input name="cancelReason" value="${esc(line?.cancelReason || '')}" /></label>
         <label>Valor reembolsável (€) <input type="number" name="refundableAmount" min="0" step="0.01" value="${line?.refundableAmount ?? ''}" /></label>
@@ -160,7 +168,22 @@ function renderForm(body, reservation, line, data, reload, meta) {
 
   const form = body.querySelector('.service-line-form');
   const cancelFieldsBlock = body.querySelector('.service-line-cancel-fields');
-  form.status.onchange = () => { cancelFieldsBlock.hidden = form.status.value !== 'CANCELADO'; };
+  const statusSelect = form.status;
+
+  // O percurso de estados depende do tipo escolhido (um hotel nao tem
+  // "Check-in feito", so um voo/cruzeiro tem) - ao mudar o tipo, as
+  // opcoes de estado sao recalculadas; se o estado atual ainda for valido
+  // no novo tipo mantem-se, senao volta ao primeiro (Nao confirmado).
+  function populateStatusOptions(preserveValue) {
+    const options = statusOptionsFor(form.type.value);
+    const keepValue = options.some(o => o.value === preserveValue) ? preserveValue : options[0]?.value;
+    statusSelect.innerHTML = options.map(o => `<option value="${o.value}" ${o.value === keepValue ? 'selected' : ''}>${esc(o.label)}</option>`).join('');
+    cancelFieldsBlock.hidden = statusSelect.value !== 'CANCELADO';
+  }
+
+  populateStatusOptions(line?.status);
+  form.type.onchange = () => populateStatusOptions(line?.type === form.type.value ? line?.status : undefined);
+  statusSelect.onchange = () => { cancelFieldsBlock.hidden = statusSelect.value !== 'CANCELADO'; };
 
   body.querySelector('.drawer-cancel').onclick = () => {
     if (line) renderView(body, reservation, line, data, reload, meta);

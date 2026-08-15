@@ -4,10 +4,12 @@
 // (descontos, custos extra, cancelamentos) reduziram a rentabilidade.
 
 import { esc, money } from '../../utils.js';
-import { computeServiceTotals } from '../serviceCalc.js';
+import { computeServiceTotals, serviceStatusPillClass } from '../serviceCalc.js';
 
 export function renderMargemSubTab(panel, reservation, reload, data = {}) {
   const lines = data.serviceLines || [];
+  const statuses = data.serviceStatuses || [];
+  const statusLabel = value => statuses.find(s => s.value === value)?.label || value;
   const offer = reservation.offer || {};
   const estimatedCost = Number(offer.costPrice) || 0;
   const estimatedSale = Number(offer.finalPrice) || 0;
@@ -45,7 +47,7 @@ export function renderMargemSubTab(panel, reservation, reload, data = {}) {
               const lineMargin = lineGross - lineDiscount - lineNet;
               return `<tr>
                 <td>${esc(l.description)}</td>
-                <td><span class="pill ${l.status === 'CANCELADO' ? 'pill-warning' : l.status === 'OK' ? 'pill-ok' : ''}">${esc(l.status)}</span></td>
+                <td><span class="pill ${serviceStatusPillClass(l.status)}">${esc(statusLabel(l.status))}</span></td>
                 <td>${money(lineNet)}</td>
                 <td>${money(lineGross - lineDiscount)}</td>
                 <td><b>${money(lineMargin)}</b></td>

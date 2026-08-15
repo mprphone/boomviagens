@@ -9,8 +9,8 @@ module.exports = function registerAdminRoutes(router, ctx) {
     ensureCollections, audit, addOperatorLog, missingDocumentsFor, statusLabel, leadStage, leadStageLabel, id, now,
     RESERVATION_STATUSES, LEAD_STAGES, DOCUMENT_TYPES, CONTACT_TYPES, COMPLAINT_STATUSES, COMPLAINT_DIRECTIONS,
     VAT_REGIMES, SUPPLIER_TYPES, SERVICE_TYPES, SERVICE_STATUSES, MANUAL_EVENT_TYPES, TASK_STATUSES, TASK_PRIORITIES,
-    sanitizeCustomer, computeServiceTotals, serviceTypeLabel, serviceStatusLabel, eventTypeLabel, taskStatusLabel,
-    taskPriorityLabel, complaintStatusLabel, documentTypeLabel, processNumber, computeAlerts
+    sanitizeCustomer, computeServiceTotals, serviceTypeLabel, serviceStatusLabel, serviceStatusesForType, eventTypeLabel,
+    taskStatusLabel, taskPriorityLabel, complaintStatusLabel, documentTypeLabel, processNumber, computeAlerts
   } = domain;
   const { sessionUser, signToken, safeEqual, setSessionCookie, clearSessionCookie, rateLimit, SESSION_TTL_MS } = ctx.auth;
 
@@ -316,6 +316,11 @@ module.exports = function registerAdminRoutes(router, ctx) {
       serviceTotals: computeServiceTotals(serviceLines),
       serviceTypes: SERVICE_TYPES.map(value => ({ value, label: serviceTypeLabel(value) })),
       serviceStatuses: SERVICE_STATUSES.map(value => ({ value, label: serviceStatusLabel(value) })),
+      // Cada tipo de servico tem o seu proprio percurso (um voo emite
+      // bilhete e faz check-in; um hotel so confirma e paga) - o
+      // formulario da gaveta lateral usa isto para mostrar so os estados
+      // que fazem sentido para o tipo escolhido.
+      serviceStatusesByType: Object.fromEntries(SERVICE_TYPES.map(type => [type, serviceStatusesForType(type).map(value => ({ value, label: serviceStatusLabel(value) }))])),
       events,
       eventTypes: MANUAL_EVENT_TYPES.map(value => ({ value, label: eventTypeLabel(value) })),
       tasks,
@@ -340,7 +345,10 @@ module.exports = function registerAdminRoutes(router, ctx) {
     if (!SERVICE_TYPES.includes(type)) return json(res, 400, { ok: false, error: 'Tipo de serviço inválido' });
     const description = cleanText(body.description, 200);
     if (!description) return json(res, 400, { ok: false, error: 'Descrição obrigatória' });
-    const status = SERVICE_STATUSES.includes(body.status) ? body.status : 'PENDENTE';
+    // Valida o estado contra o percurso do tipo escolhido (nao a lista
+    // completa) - um hotel nao pode ficar "Check-in feito", so um voo.
+    const validStatuses = serviceStatusesForType(type);
+    const status = validStatuses.includes(body.status) ? body.status : 'NAO_CONFIRMADO';
     const updates = {
       type, description, status,
       supplierName: cleanText(body.supplierName, 150),

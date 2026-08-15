@@ -26,3 +26,13 @@ export function lineTotal(line) {
   const discount = gross * (Number(line.discountPercent) || 0) / 100;
   return Number((gross - discount).toFixed(2));
 }
+
+// Mesmo criterio de src/domain.js - os estados "finais" variam por tipo de
+// servico (emitido/pago/check-in feito), mas todos significam "tratado".
+const SERVICE_STATUS_FINAL = ['EMITIDO', 'PAGO', 'CHECKIN_FEITO'];
+
+export function serviceStatusPillClass(status) {
+  if (status === 'CANCELADO') return 'pill-warning';
+  if (SERVICE_STATUS_FINAL.includes(status)) return 'pill-ok';
+  return '';
+}

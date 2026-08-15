@@ -229,7 +229,7 @@ function rowToServiceLine(row) {
     id: row.id, createdAt: row.created_at, updatedAt: row.updated_at || undefined, reservationId: row.reservation_id,
     type: row.type, description: row.description, supplierName: row.supplier_name || '', reference: row.reference || '',
     locator: row.locator || '', quantity: Number(row.quantity ?? 1), dateStart: row.date_start || '', dateEnd: row.date_end || '',
-    status: row.status || 'PENDENTE', netValue: Number(row.net_value ?? 0), pvpValue: Number(row.pvp_value ?? 0),
+    status: row.status || 'NAO_CONFIRMADO', netValue: Number(row.net_value ?? 0), pvpValue: Number(row.pvp_value ?? 0),
     discountPercent: Number(row.discount_percent ?? 0), optionDeadline: row.option_deadline || '',
     cancellationTerms: row.cancellation_terms || '', paid: Boolean(row.paid), paidAt: row.paid_at || undefined,
     cancelReason: row.cancel_reason || '', refundableAmount: row.refundable_amount ?? undefined,
@@ -340,7 +340,7 @@ function writeDbSqlite(dbState) {
     for (const [key, value] of Object.entries(dbState.idempotencyKeys || {})) insIdem.run(key, value.reservationId, value.paymentId, value.createdAt || new Date().toISOString());
 
     const insServiceLine = conn.prepare('INSERT INTO reservation_service_lines (id, created_at, updated_at, reservation_id, type, description, supplier_name, reference, locator, quantity, date_start, date_end, status, net_value, pvp_value, discount_percent, option_deadline, cancellation_terms, paid, paid_at, cancel_reason, refundable_amount, refunded_amount, refunded_at, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
-    for (const s of dbState.serviceLines || []) insServiceLine.run(s.id, s.createdAt, s.updatedAt || null, s.reservationId, s.type, s.description, s.supplierName || null, s.reference || null, s.locator || null, s.quantity ?? 1, s.dateStart || null, s.dateEnd || null, s.status || 'PENDENTE', s.netValue ?? 0, s.pvpValue ?? 0, s.discountPercent ?? 0, s.optionDeadline || null, s.cancellationTerms || null, s.paid ? 1 : 0, s.paidAt || null, s.cancelReason || null, s.refundableAmount ?? null, s.refundedAmount ?? null, s.refundedAt || null, s.notes || null);
+    for (const s of dbState.serviceLines || []) insServiceLine.run(s.id, s.createdAt, s.updatedAt || null, s.reservationId, s.type, s.description, s.supplierName || null, s.reference || null, s.locator || null, s.quantity ?? 1, s.dateStart || null, s.dateEnd || null, s.status || 'NAO_CONFIRMADO', s.netValue ?? 0, s.pvpValue ?? 0, s.discountPercent ?? 0, s.optionDeadline || null, s.cancellationTerms || null, s.paid ? 1 : 0, s.paidAt || null, s.cancelReason || null, s.refundableAmount ?? null, s.refundedAmount ?? null, s.refundedAt || null, s.notes || null);
 
     const insEvent = conn.prepare('INSERT INTO reservation_events (id, created_at, reservation_id, actor, type, description, resolved, resolution) VALUES (?,?,?,?,?,?,?,?)');
     for (const e of dbState.reservationEvents || []) insEvent.run(e.id, e.createdAt, e.reservationId, e.actor || null, e.type, e.description || null, e.resolved ? 1 : 0, e.resolution || null);
