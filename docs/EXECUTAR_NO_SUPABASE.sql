@@ -215,6 +215,30 @@ alter table public.reservation_events
 
 create index if not exists reservation_events_reservation_id_idx on public.reservation_events(reservation_id);
 
+-- Definida aqui (antes de documents) para o FK de documents.complaint_id
+-- poder apontar para esta tabela.
+create table if not exists public.complaints (
+  id text primary key,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz,
+  customer_email text not null,
+  reservation_id text references public.reservations(id) on delete set null,
+  status text not null default 'OPEN',
+  subject text not null,
+  description text,
+  resolution text,
+  resolved_at timestamptz
+);
+
+alter table public.complaints
+  add column if not exists direction text not null default 'CUSTOMER_TO_AGENCY',
+  add column if not exists supplier_id text,
+  add column if not exists claimed_amount numeric(12,2),
+  add column if not exists received_amount numeric(12,2),
+  add column if not exists paid_to_customer numeric(12,2);
+
+create index if not exists complaints_customer_email_idx on public.complaints(customer_email);
+
 -- Tarefas do processo (separador "Tarefas") - checklist administrativo e
 -- operacional (pedir passaportes, confirmar hotel, emitir seguro...).
 create table if not exists public.tasks (
@@ -255,11 +279,15 @@ alter table public.documents alter column reservation_id drop not null;
 alter table public.documents add column if not exists customer_email text;
 alter table public.documents add column if not exists supplier_id text;
 alter table public.documents add column if not exists service_line_id text references public.reservation_service_lines(id) on delete set null;
+alter table public.documents add column if not exists event_id text references public.reservation_events(id) on delete cascade;
+alter table public.documents add column if not exists complaint_id text references public.complaints(id) on delete cascade;
 
 create index if not exists documents_reservation_id_idx on public.documents(reservation_id);
 create index if not exists documents_customer_email_idx on public.documents(customer_email);
 create index if not exists documents_supplier_id_idx on public.documents(supplier_id);
 create index if not exists documents_service_line_id_idx on public.documents(service_line_id);
+create index if not exists documents_event_id_idx on public.documents(event_id);
+create index if not exists documents_complaint_id_idx on public.documents(complaint_id);
 
 create table if not exists public.suppliers (
   id text primary key,
@@ -286,28 +314,6 @@ alter table public.contact_log add column if not exists reservation_id text refe
 
 create index if not exists contact_log_customer_email_idx on public.contact_log(customer_email);
 create index if not exists contact_log_reservation_id_idx on public.contact_log(reservation_id);
-
-create table if not exists public.complaints (
-  id text primary key,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz,
-  customer_email text not null,
-  reservation_id text references public.reservations(id) on delete set null,
-  status text not null default 'OPEN',
-  subject text not null,
-  description text,
-  resolution text,
-  resolved_at timestamptz
-);
-
-alter table public.complaints
-  add column if not exists direction text not null default 'CUSTOMER_TO_AGENCY',
-  add column if not exists supplier_id text,
-  add column if not exists claimed_amount numeric(12,2),
-  add column if not exists received_amount numeric(12,2),
-  add column if not exists paid_to_customer numeric(12,2);
-
-create index if not exists complaints_customer_email_idx on public.complaints(customer_email);
 
 alter table public.company_settings enable row level security;
 alter table public.margins enable row level security;

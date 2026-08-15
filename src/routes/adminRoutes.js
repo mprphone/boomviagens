@@ -438,30 +438,40 @@ module.exports = function registerAdminRoutes(router, ctx) {
     const reservation = db.reservations.find(r => r.id === reservationId);
     if (!reservation) return json(res, 404, { ok: false, error: 'Reserva nao encontrada' });
 
+    // O formulario da gaveta lateral pode ja vir com a resolucao
+    // preenchida (ex.: um problema que ja foi resolvido no momento em que
+    // se regista), por isso aceita resolved/resolution logo na criacao.
+    const resolved = Boolean(body.resolved);
+    const resolution = cleanText(body.resolution, 1000);
+
     let event = null;
     await updateDb(d => {
       ensureCollections(d);
-      event = { id: id('evt'), createdAt: now(), reservationId, actor: sessionUser(req), type, description, resolved: false, resolution: '' };
+      event = { id: id('evt'), createdAt: now(), reservationId, actor: sessionUser(req), type, description, resolved, resolution };
       d.reservationEvents.unshift(event);
       audit(d, sessionUser(req), 'RESERVATION_EVENT_ADDED', { reservationId, type });
     });
     return json(res, 200, { ok: true, event });
   }, { admin: true });
 
-  // Marca uma ocorrência como resolvida (ou reabre-a) - usado no separador
-  // "Ocorrências" para acompanhar problemas ate ao fecho.
+  // Atualiza uma ocorrência existente (tipo, descrição, resolução/estado) -
+  // usado no separador "Ocorrências" para editar e acompanhar problemas
+  // ate ao fecho.
   router.post('/api/admin/reservations/events/resolve', async (req, res) => {
     const body = await parseBody(req);
     const eventId = cleanText(body.id, 120);
-    const resolved = Boolean(body.resolved);
-    const resolution = cleanText(body.resolution, 1000);
     const saved = await updateDb(d => {
       ensureCollections(d);
       const event = d.reservationEvents.find(e => e.id === eventId);
       if (!event) return null;
-      event.resolved = resolved;
-      if (resolution) event.resolution = resolution;
-      audit(d, sessionUser(req), 'RESERVATION_EVENT_RESOLVED', { eventId, resolved });
+      if (body.type !== undefined && MANUAL_EVENT_TYPES.includes(body.type)) event.type = body.type;
+      if (body.description !== undefined) {
+        const desc = cleanText(body.description, 1000);
+        if (desc) event.description = desc;
+      }
+      if (body.resolved !== undefined) event.resolved = Boolean(body.resolved);
+      if (body.resolution !== undefined) event.resolution = cleanText(body.resolution, 1000);
+      audit(d, sessionUser(req), 'RESERVATION_EVENT_UPDATED', { eventId });
       return event;
     });
     if (!saved) return json(res, 404, { ok: false, error: 'Registo não encontrado' });
@@ -615,6 +625,8 @@ module.exports = function registerAdminRoutes(router, ctx) {
     const customerEmail = cleanText(body.customerEmail, 254).toLowerCase();
     const supplierId = cleanText(body.supplierId, 120);
     const serviceLineId = reservationId ? cleanText(body.serviceLineId, 120) : '';
+    const eventId = reservationId ? cleanText(body.eventId, 120) : '';
+    const complaintId = reservationId ? cleanText(body.complaintId, 120) : '';
     const type = cleanText(body.type, 20);
     if (!DOCUMENT_TYPES.includes(type)) return json(res, 400, { ok: false, error: 'Tipo de documento invalido' });
     const fileName = cleanText(body.fileName, 200);
@@ -627,7 +639,10 @@ module.exports = function registerAdminRoutes(router, ctx) {
     if (reservationId) {
       const reservation = db.reservations.find(r => r.id === reservationId);
       if (!reservation) return json(res, 404, { ok: false, error: 'Reserva nao encontrada' });
-      folder = reservationId;
+      if (eventId) folder = `${reservationId}/ocorrencias`;
+      else if (complaintId) folder = `${reservationId}/reclamacoes`;
+      else if (serviceLineId) folder = `${reservationId}/reservas`;
+      else folder = reservationId;
     } else if (customerEmail) {
       folder = `cliente/${customerEmail.replace('@', '_')}`;
     } else {
@@ -651,6 +666,8 @@ module.exports = function registerAdminRoutes(router, ctx) {
       customerEmail: reservationId ? undefined : (customerEmail || undefined),
       supplierId: (reservationId || customerEmail) ? undefined : (supplierId || undefined),
       serviceLineId: reservationId ? (serviceLineId || undefined) : undefined,
+      eventId: reservationId ? (eventId || undefined) : undefined,
+      complaintId: reservationId ? (complaintId || undefined) : undefined,
       type, passengerName, fileName, storagePath, uploadedBy: sessionUser(req)
     };
     await updateDb(d => {
@@ -842,6 +859,9 @@ module.exports = function registerAdminRoutes(router, ctx) {
       complaint.status = status;
       complaint.updatedAt = now();
       if (resolution) complaint.resolution = resolution;
+      if (body.subject !== undefined) { const subj = cleanText(body.subject, 200); if (subj) complaint.subject = subj; }
+      if (body.description !== undefined) complaint.description = cleanText(body.description, 4000);
+      if (body.claimedAmount !== undefined && body.claimedAmount !== '') complaint.claimedAmount = numberInRange(body.claimedAmount, 'Valor reclamado', 0, 1000000, 0);
       if (body.receivedAmount !== undefined && body.receivedAmount !== '') complaint.receivedAmount = numberInRange(body.receivedAmount, 'Valor recebido', 0, 1000000, 0);
       if (body.paidToCustomer !== undefined && body.paidToCustomer !== '') complaint.paidToCustomer = numberInRange(body.paidToCustomer, 'Valor entregue ao cliente', 0, 1000000, 0);
       if (status === 'RESOLVED' || status === 'CLOSED') complaint.resolvedAt = now();
