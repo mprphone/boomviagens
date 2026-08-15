@@ -1,73 +1,130 @@
-/* Vista "Interesses": pipeline em colunas por estagio. */
+/* Vista "Pipeline": quadro comercial por arrasto (secao "Pipeline
+   Comercial") - colunas horizontais com scroll, cartoes arrastaveis entre
+   fases. Ver public/backoffice/js/pipeline.js e pipeline/opportunityCard.js. */
 
-.pipeline-board {
+.pipeline-summary {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 14px;
-  align-items: start;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.pipeline-summary-block {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  padding: 10px 14px;
+}
+
+.pipeline-summary-block .muted { font-size: 11px; text-transform: uppercase; letter-spacing: .03em; }
+.pipeline-summary-block strong { display: block; font-family: var(--font-display); font-size: 18px; margin-top: 2px; }
+
+.pipeline-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.pipeline-filters select,
+.pipeline-filters input {
+  padding: 7px 10px;
+  font-size: 12.5px;
+  width: auto;
+}
+
+.pipeline-board {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  align-items: flex-start;
 }
 
 .pipeline-col {
+  flex: 0 0 260px;
   border-radius: var(--radius);
   background: var(--bg);
   border: 1px solid var(--line);
-  padding: 12px;
-  min-height: 120px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
 }
 
 .pipeline-col-head {
+  padding: 2px 4px 8px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 8px;
+}
+
+.pipeline-col-head h3 { font-size: 11.5px; font-weight: 700; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .03em; }
+.pipeline-col-meta { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+
+.pipeline-col-body {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-  padding: 0 2px;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 60px;
+  flex: 1;
+  border-radius: var(--radius-sm);
+  transition: background .12s ease;
 }
 
-.pipeline-col-head h3 { font-size: 12.5px; font-weight: 700; color: var(--ink-soft); }
-
-.pipeline-col-count {
-  border-radius: 999px;
-  padding: 2px 8px;
-  background: #fff;
-  border: 1px solid var(--line);
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--muted);
-}
+.pipeline-col-body.drag-over { background: rgba(79, 70, 229, .08); outline: 2px dashed var(--accent); outline-offset: -2px; }
 
 .pipeline-card {
   border: 1px solid var(--line);
+  border-left: 4px solid var(--line);
   border-radius: var(--radius-sm);
-  padding: 12px;
-  margin-bottom: 8px;
+  padding: 10px 12px;
   background: #fff;
   box-shadow: var(--shadow-sm);
+  cursor: grab;
+  font-size: 12.5px;
 }
 
-.pipeline-card-dest { font-size: 13.5px; font-weight: 700; margin-bottom: 3px; }
-.pipeline-card-who { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+.pipeline-card:active { cursor: grabbing; }
+.pipeline-card.dragging { opacity: .4; }
 
-.pipeline-card-budget {
+.pipeline-card.health-green { border-left-color: var(--green); }
+.pipeline-card.health-yellow { border-left-color: #d97706; }
+.pipeline-card.health-red { border-left-color: var(--red); }
+.pipeline-card.health-grey { border-left-color: #9ca3af; }
+.pipeline-card.health-blue { border-left-color: var(--accent); }
+
+.pipeline-card-name { font-weight: 700; font-size: 13px; margin-bottom: 2px; }
+.pipeline-card-dest { color: var(--ink-soft); margin-bottom: 4px; }
+.pipeline-card-dates { color: var(--muted); font-size: 11.5px; margin-bottom: 6px; }
+
+.pipeline-card-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+.pipeline-card-tags .pill { font-size: 10px; padding: 2px 7px; }
+
+.pipeline-card-value {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
+}
+.pipeline-card-value strong { font-family: var(--font-display); font-size: 14.5px; }
+
+.pipeline-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--line);
 }
 
-.pipeline-card-budget strong { font-family: var(--font-display); font-size: 15px; }
-.pipeline-card-budget span { font-size: 11px; color: var(--muted); }
+.pipeline-card-staff { display: flex; align-items: center; gap: 5px; }
+.staff-color-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; }
 
-.pipeline-card select {
-  width: 100%;
-  padding: 6px 8px;
-  font-size: 11.5px;
-  border-radius: 8px;
-}
+.pipeline-card-warnings { margin-top: 6px; font-size: 11px; color: #b45309; }
+.pipeline-card-warnings div { margin-top: 2px; }
 
-@media (max-width: 1180px) {
-  .pipeline-board { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-}
-
-@media (max-width: 760px) {
-  .pipeline-board { grid-template-columns: 1fr; }
+@media (max-width: 900px) {
+  .pipeline-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

@@ -13,7 +13,28 @@ const RESERVATION_STATUSES = [
   'AWAITING_DOCUMENTS', 'READY', 'CHECKIN', 'IN_TRIP', 'POST_TRIP', 'WITH_COMPLAINT', 'CONCLUDED',
   'CANCELLED', 'OPERATOR_ERROR'
 ];
+// Legado: nada cria registos em "leads" - ver OPPORTUNITY_STAGES (pipeline
+// comercial "Oportunidades", que substitui o antigo separador "Interesses").
 const LEAD_STAGES = ['NOVA', 'EM_CONSULTA', 'PROPOSTA_ENVIADA', 'RESERVADO', 'PERDIDA'];
+
+// Perfil de cada colaborador (separador "Equipa") - ADMIN ve/faz tudo,
+// SUPERVISOR ve toda a equipa e pode redistribuir, os outros tres
+// correspondem aos tres "responsaveis" possiveis de um processo (ver
+// reservations.commercial_staff_id/operational_staff_id/financial_staff_id).
+const STAFF_ROLES = ['COMERCIAL', 'OPERACIONAL', 'FINANCEIRO', 'SUPERVISOR', 'ADMIN'];
+
+// Fases do Pipeline comercial (quadro por arrasto, ver separador
+// "Pipeline"). Fixas no codigo por agora (nao editaveis pelo
+// administrador ainda). GANHO/PERDIDO sao fases terminais: GANHO oferece
+// converter a oportunidade num processo de viagem; PERDIDO exige motivo
+// (ver LOSS_REASONS).
+const OPPORTUNITY_STAGES = ['NOVO_INTERESSE', 'CONTACTADO', 'A_PREPARAR_PROPOSTA', 'PROPOSTA_ENVIADA', 'FOLLOW_UP', 'NEGOCIACAO', 'GANHO', 'PERDIDO'];
+const OPPORTUNITY_TEMPERATURES = ['QUENTE', 'MORNO', 'FRIO'];
+const OPPORTUNITY_TAGS = ['VIP', 'FAMILIA', 'LUA_DE_MEL', 'GRUPO', 'URGENTE'];
+const OPPORTUNITY_ORIGINS = ['WEBSITE', 'TELEFONE', 'EMAIL', 'WHATSAPP', 'BALCAO', 'FACEBOOK', 'INSTAGRAM', 'RECOMENDACAO', 'CLIENTE_ANTIGO', 'CAMPANHA', 'OUTRO'];
+const NEXT_ACTION_TYPES = ['TELEFONAR', 'ENVIAR_EMAIL', 'ENVIAR_WHATSAPP', 'ENVIAR_PROPOSTA', 'CONFIRMAR_DECISAO', 'AGUARDAR_CLIENTE', 'OUTRO'];
+const LOSS_REASONS = ['PRECO', 'CLIENTE_DESISTIU', 'CONCORRENCIA', 'DATAS', 'DESTINO', 'SEM_DISPONIBILIDADE', 'SEM_RESPOSTA', 'OUTRO'];
+const PROPOSAL_STATUSES = ['RASCUNHO', 'ENVIADA', 'VISTA', 'ACEITE', 'REJEITADA', 'EXPIRADA'];
 // Categorias documentais (separador "Documentos") - agrupam-se visualmente
 // por area (cliente, reserva, financeiro, viagem, ocorrencias) na UI.
 const DOCUMENT_TYPES = ['PASSPORT', 'VISA', 'INSURANCE', 'VOUCHER', 'TICKET', 'INVOICE_PURCHASE', 'INVOICE_SALE', 'RECEIPT', 'CREDIT_NOTE', 'ITINERARY', 'OCCURRENCE_PHOTO', 'OTHER'];
@@ -84,8 +105,12 @@ function id(prefix) {
 function now() { return new Date().toISOString(); }
 
 function ensureCollections(db) {
+  db.staff ||= [];
   db.customers ||= [];
   db.leads ||= [];
+  db.opportunities ||= [];
+  db.opportunityEvents ||= [];
+  db.proposals ||= [];
   db.reservations ||= [];
   db.payments ||= [];
   db.emails ||= [];
@@ -278,6 +303,84 @@ function leadStage(lead) {
   return LEAD_STAGES.includes(lead.status) ? lead.status : 'NOVA';
 }
 
+function staffRoleLabel(role) {
+  return ({ COMERCIAL: 'Comercial', OPERACIONAL: 'Operacional', FINANCEIRO: 'Financeiro', SUPERVISOR: 'Supervisor', ADMIN: 'Administrador' })[role] || role;
+}
+
+function opportunityStageLabel(stage) {
+  return ({
+    NOVO_INTERESSE: 'Novo interesse', CONTACTADO: 'Contactado', A_PREPARAR_PROPOSTA: 'A preparar proposta',
+    PROPOSTA_ENVIADA: 'Proposta enviada', FOLLOW_UP: 'Follow-up', NEGOCIACAO: 'Negociação',
+    GANHO: 'Ganho', PERDIDO: 'Perdido'
+  })[stage] || stage;
+}
+
+function opportunityTemperatureLabel(temperature) {
+  return ({ QUENTE: 'Quente', MORNO: 'Morno', FRIO: 'Frio' })[temperature] || temperature;
+}
+
+function opportunityTagLabel(tag) {
+  return ({ VIP: 'VIP', FAMILIA: 'Família', LUA_DE_MEL: 'Lua de mel', GRUPO: 'Grupo', URGENTE: 'Urgente' })[tag] || tag;
+}
+
+function opportunityOriginLabel(origin) {
+  return ({
+    WEBSITE: 'Website', TELEFONE: 'Telefone', EMAIL: 'Email', WHATSAPP: 'WhatsApp', BALCAO: 'Balcão',
+    FACEBOOK: 'Facebook', INSTAGRAM: 'Instagram', RECOMENDACAO: 'Recomendação', CLIENTE_ANTIGO: 'Cliente antigo',
+    CAMPANHA: 'Campanha', OUTRO: 'Outro'
+  })[origin] || origin;
+}
+
+function nextActionTypeLabel(type) {
+  return ({
+    TELEFONAR: 'Telefonar', ENVIAR_EMAIL: 'Enviar email', ENVIAR_WHATSAPP: 'Enviar WhatsApp',
+    ENVIAR_PROPOSTA: 'Enviar nova proposta', CONFIRMAR_DECISAO: 'Confirmar decisão',
+    AGUARDAR_CLIENTE: 'Aguardar cliente', OUTRO: 'Outro'
+  })[type] || type;
+}
+
+function lossReasonLabel(reason) {
+  return ({
+    PRECO: 'Preço', CLIENTE_DESISTIU: 'Cliente desistiu', CONCORRENCIA: 'Escolheu concorrência',
+    DATAS: 'Datas', DESTINO: 'Destino', SEM_DISPONIBILIDADE: 'Falta de disponibilidade',
+    SEM_RESPOSTA: 'Sem resposta', OUTRO: 'Outro'
+  })[reason] || reason;
+}
+
+function proposalStatusLabel(status) {
+  return ({ RASCUNHO: 'Rascunho', ENVIADA: 'Enviada', VISTA: 'Vista', ACEITE: 'Aceite', REJEITADA: 'Rejeitada', EXPIRADA: 'Expirada' })[status] || status;
+}
+
+// Cor/estado do cartao no Pipeline (secao "Cor do cartao") + deteção de
+// oportunidades paradas (secao "Oportunidades sem atividade"). Nunca
+// guardado - calculado a partir da propria oportunidade + eventos.
+function opportunityHealth(opportunity, { lastEventAt } = {}) {
+  if (opportunity.stage === 'GANHO' || opportunity.stage === 'PERDIDO') return { color: 'grey', warnings: [] };
+  const today = new Date();
+  const daysSince = dateStr => dateStr ? Math.floor((today - new Date(dateStr)) / (24 * 60 * 60 * 1000)) : null;
+  const warnings = [];
+
+  const sinceContact = daysSince(lastEventAt || opportunity.updatedAt || opportunity.createdAt);
+  if (sinceContact !== null && sinceContact >= 5) warnings.push(`Sem contacto há ${sinceContact} dias`);
+
+  if (opportunity.stage === 'PROPOSTA_ENVIADA') {
+    const sinceUpdate = daysSince(opportunity.updatedAt || opportunity.createdAt);
+    if (sinceUpdate !== null && sinceUpdate >= 7) warnings.push(`Proposta enviada há ${sinceUpdate} dias sem follow-up`);
+  }
+
+  if (opportunity.temperature === 'QUENTE' && !opportunity.nextActionDate) warnings.push('Cliente quente sem próxima ação');
+
+  const nextActionOverdue = Boolean(opportunity.nextActionDate && new Date(`${opportunity.nextActionDate}T00:00:00`) < today);
+
+  let color = 'blue';
+  if (nextActionOverdue) color = 'red';
+  else if (warnings.length) color = 'yellow';
+  else if (sinceContact === null || sinceContact >= 10) color = 'grey';
+  else color = 'green';
+
+  return { color, warnings, nextActionOverdue };
+}
+
 const offerImages = {
   'tdz-puj-001': 'https://images.unsplash.com/photo-1510414842594-a61c69b5ae57?auto=format&fit=crop&w=900&q=80',
   'sol-puj-002': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=900&q=80',
@@ -316,9 +419,23 @@ function sanitizeCustomer(customer) {
   return rest;
 }
 
+function sanitizeStaff(staff) {
+  if (!staff) return staff;
+  const { passwordHash, ...rest } = staff;
+  return rest;
+}
+
 module.exports = {
   RESERVATION_STATUSES,
   LEAD_STAGES,
+  STAFF_ROLES,
+  OPPORTUNITY_STAGES,
+  OPPORTUNITY_TEMPERATURES,
+  OPPORTUNITY_TAGS,
+  OPPORTUNITY_ORIGINS,
+  NEXT_ACTION_TYPES,
+  LOSS_REASONS,
+  PROPOSAL_STATUSES,
   DOCUMENT_TYPES,
   CUSTOMER_FINANCIAL_DOC_TYPES,
   CONTACT_TYPES,
@@ -345,9 +462,19 @@ module.exports = {
   statusLabel,
   leadStageLabel,
   leadStage,
+  staffRoleLabel,
+  opportunityStageLabel,
+  opportunityTemperatureLabel,
+  opportunityTagLabel,
+  opportunityOriginLabel,
+  nextActionTypeLabel,
+  lossReasonLabel,
+  proposalStatusLabel,
+  opportunityHealth,
   offerImages,
   publicDeals,
   sanitizeCustomer,
+  sanitizeStaff,
   computeServiceTotals,
   serviceTypeLabel,
   serviceStatusLabel,

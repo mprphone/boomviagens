@@ -4,17 +4,23 @@
 import { $, api } from './utils.js';
 import { wireLogin } from './auth.js';
 import { renderResumo } from './dashboard.js';
-import { renderInteresses } from './pipeline.js';
+import { renderPipeline } from './pipeline.js';
+import { renderPropostas } from './propostas.js';
+import { renderFollowups } from './followups.js';
 import { renderReservas } from './reservations.js';
 import { renderClientes } from './customers.js';
+import { renderEquipa } from './team.js';
 import { renderFornecedores } from './suppliers.js';
 import { renderMargens, renderEmails, renderOperador } from './system.js';
 
 const VIEWS = {
   resumo: { title: 'Resumo Geral', render: renderResumo },
-  interesses: { title: 'Interesses', render: renderInteresses },
+  pipeline: { title: 'Pipeline', render: renderPipeline },
+  propostas: { title: 'Propostas', render: renderPropostas },
+  followups: { title: 'Follow-ups', render: renderFollowups },
   reservas: { title: 'Reservas', render: renderReservas },
   clientes: { title: 'Clientes', render: renderClientes },
+  equipa: { title: 'Equipa', render: renderEquipa },
   fornecedores: { title: 'Fornecedores', render: renderFornecedores },
   margens: { title: 'Margens', render: renderMargens },
   emails: { title: 'Emails', render: renderEmails },

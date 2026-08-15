@@ -75,6 +75,16 @@ function sessionUser(req) {
   return payload && payload.scope === 'admin' ? payload.user : null;
 }
 
+// Identidade completa do colaborador com sessao (id/username/role) - ao
+// contrario de sessionUser (so o username, usado como "actor" em todo o
+// lado), esta e usada para autorizacao por perfil (ver router.js `roles`)
+// e para preencher automaticamente "quem fez isto" com o staffId real.
+function sessionStaff(req) {
+  const payload = verifyToken(parseCookies(req)[SESSION_COOKIE]);
+  if (!payload || payload.scope !== 'admin' || !payload.staffId) return null;
+  return { id: payload.staffId, username: payload.user, role: payload.role || 'ADMIN' };
+}
+
 function setSessionCookie(res, token) {
   res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}`);
 }
@@ -137,6 +147,7 @@ module.exports = {
   signToken,
   verifyToken,
   sessionUser,
+  sessionStaff,
   setSessionCookie,
   clearSessionCookie,
   customerSessionEmail,

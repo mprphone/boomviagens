@@ -12,7 +12,7 @@ module.exports = function registerAdminRoutes(router, ctx) {
     sanitizeCustomer, computeServiceTotals, serviceTypeLabel, serviceStatusLabel, serviceStatusesForType, eventTypeLabel,
     taskStatusLabel, taskPriorityLabel, complaintStatusLabel, documentTypeLabel, processNumber, computeAlerts
   } = domain;
-  const { sessionUser, signToken, safeEqual, setSessionCookie, clearSessionCookie, rateLimit, SESSION_TTL_MS } = ctx.auth;
+  const { sessionUser } = ctx.auth;
 
   // Impede que um duplo clique em "Aprovar no operador" chame
   // adapter.confirm() duas vezes para a mesma reserva - isso enviaria um
@@ -21,34 +21,6 @@ module.exports = function registerAdminRoutes(router, ctx) {
   // simultaneos dentro deste mesmo processo, que e o cenario real (o
   // mesmo admin, no mesmo browser, a clicar duas vezes depressa).
   const approvalsInProgress = new Set();
-
-  router.get('/api/admin/session', async (req, res) => {
-    const user = sessionUser(req);
-    return json(res, 200, { ok: true, authenticated: Boolean(user), user });
-  });
-
-  router.post('/api/admin/login', async (req, res) => {
-    // 30/15min (nao 10) porque este limite e partilhado por IP - em
-    // desenvolvimento local, testes automaticos e o login real do
-    // utilizador vem todos do mesmo localhost e esgotavam a quota um do
-    // outro.
-    const limited = rateLimit(req, res, 'admin-login', 30, 15 * 60 * 1000);
-    if (limited) return limited;
-    const body = await parseBody(req);
-    const expectedUser = process.env.ADMIN_USERNAME || 'admin';
-    const expectedPassword = process.env.ADMIN_PASSWORD || 'admin123';
-    if (!safeEqual(body.username, expectedUser) || !safeEqual(body.password, expectedPassword)) {
-      return json(res, 401, { ok: false, error: 'Credenciais inválidas' });
-    }
-    const token = signToken({ scope: 'admin', user: expectedUser, exp: Date.now() + SESSION_TTL_MS });
-    setSessionCookie(res, token);
-    return json(res, 200, { ok: true, user: expectedUser });
-  });
-
-  router.post('/api/admin/logout', async (req, res) => {
-    clearSessionCookie(res);
-    return json(res, 200, { ok: true });
-  });
 
   router.get('/api/admin/dashboard', async (req, res) => {
     const db = ensureCollections(await readDb());
@@ -478,17 +450,24 @@ module.exports = function registerAdminRoutes(router, ctx) {
     return json(res, 200, { ok: true, event: saved });
   }, { admin: true });
 
-  // Separador "Tarefas": checklist administrativo/operacional do processo.
+  // Separador "Tarefas": checklist administrativo/operacional do processo -
+  // ou, em alternativa, tarefa de uma oportunidade comercial (opportunityId
+  // em vez de reservationId - ver separador "Tarefas" da ficha da
+  // oportunidade). assigneeStaffId liga a um colaborador real; assignee
+  // (texto livre) fica so para compatibilidade com tarefas antigas.
   router.post('/api/admin/reservations/tasks', async (req, res) => {
     const body = await parseBody(req);
     const reservationId = cleanText(body.reservationId, 120);
+    const opportunityId = cleanText(body.opportunityId, 120);
     const taskId = cleanText(body.id, 120);
     const description = cleanText(body.description, 300);
     if (!description) return json(res, 400, { ok: false, error: 'Descrição obrigatória' });
+    if (!reservationId && !opportunityId) return json(res, 400, { ok: false, error: 'Indique a reserva ou a oportunidade' });
     const status = TASK_STATUSES.includes(body.status) ? body.status : 'TODO';
     const updates = {
       description,
       assignee: cleanText(body.assignee, 100),
+      assigneeStaffId: cleanText(body.assigneeStaffId, 120) || undefined,
       dueDate: cleanText(body.dueDate, 30),
       priority: TASK_PRIORITIES.includes(body.priority) ? body.priority : 'NORMAL',
       status,
@@ -496,13 +475,13 @@ module.exports = function registerAdminRoutes(router, ctx) {
     };
 
     const db = ensureCollections(await readDb());
-    const reservation = db.reservations.find(r => r.id === reservationId);
-    if (!reservation) return json(res, 404, { ok: false, error: 'Reserva nao encontrada' });
+    if (reservationId && !db.reservations.find(r => r.id === reservationId)) return json(res, 404, { ok: false, error: 'Reserva nao encontrada' });
+    if (opportunityId && !db.opportunities.find(o => o.id === opportunityId)) return json(res, 404, { ok: false, error: 'Oportunidade nao encontrada' });
 
     let resultTask = null;
     await updateDb(d => {
       ensureCollections(d);
-      let task = taskId && d.tasks.find(t => t.id === taskId && t.reservationId === reservationId);
+      let task = taskId && d.tasks.find(t => t.id === taskId && (t.reservationId === reservationId || t.opportunityId === opportunityId));
       if (task) {
         const wasDone = task.status === 'DONE';
         Object.assign(task, updates);
@@ -510,10 +489,11 @@ module.exports = function registerAdminRoutes(router, ctx) {
         if (status === 'DONE' && !wasDone) task.completedAt = now();
         if (status !== 'DONE') task.completedAt = undefined;
       } else {
-        task = { id: id('task'), createdAt: now(), reservationId, ...updates, completedAt: status === 'DONE' ? now() : undefined };
+        task = { id: id('task'), createdAt: now(), reservationId: reservationId || undefined, opportunityId: opportunityId || undefined, ...updates, completedAt: status === 'DONE' ? now() : undefined };
         d.tasks.push(task);
       }
-      audit(d, sessionUser(req), taskId ? 'TASK_UPDATED' : 'TASK_CREATED', { reservationId, taskId: task.id });
+      if (reservationId) audit(d, sessionUser(req), taskId ? 'TASK_UPDATED' : 'TASK_CREATED', { reservationId, taskId: task.id });
+      else audit(d, sessionUser(req), taskId ? 'TASK_UPDATED' : 'TASK_CREATED', { opportunityId, taskId: task.id });
       resultTask = task;
     });
     return json(res, 200, { ok: true, task: resultTask });
@@ -914,17 +894,25 @@ module.exports = function registerAdminRoutes(router, ctx) {
   // separador "Comunicações" da Ficha de Reserva, fica tambem ligada ao
   // processo, alem de aparecer na ficha do cliente (mesmo registo, duas
   // vistas).
+  // opportunityId opcional: comunicacao de uma oportunidade comercial (em
+  // vez de, ou alem de, um cliente/reserva ja existentes) - ver separador
+  // "Comunicações" da ficha da oportunidade.
   router.post('/api/admin/customers/contact', async (req, res) => {
     const body = await parseBody(req);
     const customerEmail = cleanText(body.email, 254);
+    const opportunityId = cleanText(body.opportunityId, 120);
     const type = CONTACT_TYPES.includes(body.type) ? body.type : 'OTHER';
     const summary = cleanText(body.summary, 2000);
-    if (!customerEmail || !summary) return json(res, 400, { ok: false, error: 'Cliente e resumo sao obrigatorios' });
-    const entry = { id: id('contact'), createdAt: now(), customerEmail, reservationId: cleanText(body.reservationId, 120) || undefined, actor: sessionUser(req), type, summary };
+    if (!summary) return json(res, 400, { ok: false, error: 'Resumo obrigatório' });
+    if (!customerEmail && !opportunityId) return json(res, 400, { ok: false, error: 'Cliente ou oportunidade obrigatórios' });
+    const entry = {
+      id: id('contact'), createdAt: now(), customerEmail, reservationId: cleanText(body.reservationId, 120) || undefined,
+      opportunityId: opportunityId || undefined, actor: sessionUser(req), type, summary
+    };
     await updateDb(d => {
       ensureCollections(d);
       d.contactLog.unshift(entry);
-      audit(d, sessionUser(req), 'CONTACT_LOGGED', { email: customerEmail, type });
+      audit(d, sessionUser(req), 'CONTACT_LOGGED', { email: customerEmail || null, opportunityId: opportunityId || null, type });
     });
     return json(res, 200, { ok: true, entry });
   }, { admin: true });

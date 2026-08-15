@@ -19,6 +19,8 @@ const registerPublicRoutes = require('./src/routes/publicRoutes');
 const registerCustomerRoutes = require('./src/routes/customerRoutes');
 const registerCheckoutRoutes = require('./src/routes/checkoutRoutes');
 const registerAdminRoutes = require('./src/routes/adminRoutes');
+const registerStaffRoutes = require('./src/routes/staffRoutes');
+const registerOpportunitiesRoutes = require('./src/routes/opportunitiesRoutes');
 
 const PORT = Number(process.env.PORT || 3000);
 const PUBLIC = path.join(__dirname, 'public');
@@ -61,6 +63,8 @@ registerPublicRoutes(router, ctx);
 registerCustomerRoutes(router, ctx);
 registerCheckoutRoutes(router, ctx);
 registerAdminRoutes(router, ctx);
+registerStaffRoutes(router, ctx);
+registerOpportunitiesRoutes(router, ctx);
 
 const serveStatic = createStaticServer(PUBLIC);
 
@@ -71,6 +75,14 @@ async function handleApi(req, res) {
     const route = router.find(method, url.pathname);
     if (!route) return json(res, 404, { ok: false, error: 'Endpoint não encontrado' });
     if (route.admin && !auth.sessionUser(req)) return json(res, 401, { ok: false, error: 'Autenticação necessária' });
+    // ADMIN passa sempre, mesmo que nao esteja explicitamente na lista -
+    // e o perfil "faz tudo" (ver domain.js#STAFF_ROLES).
+    if (route.admin && route.roles) {
+      const staff = auth.sessionStaff(req);
+      if (staff && staff.role !== 'ADMIN' && !route.roles.includes(staff.role)) {
+        return json(res, 403, { ok: false, error: 'Sem permissão para esta ação' });
+      }
+    }
     return await route.handler(req, res, url);
   } catch (e) {
     // Se a resposta ja foi enviada (ex.: um bug que tenta responder duas

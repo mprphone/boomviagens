@@ -210,6 +210,148 @@ function customerToRow(c) {
   };
 }
 
+function rowToStaff(row) {
+  return {
+    id: row.id,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at || undefined,
+    name: row.name,
+    email: row.email || '',
+    username: row.username,
+    passwordHash: row.password_hash,
+    role: row.role || 'COMERCIAL',
+    color: row.color || '',
+    active: row.active !== false
+  };
+}
+
+function staffToRow(s) {
+  return {
+    id: s.id,
+    created_at: s.createdAt,
+    updated_at: s.updatedAt || null,
+    name: s.name,
+    email: s.email || null,
+    username: s.username,
+    password_hash: s.passwordHash,
+    role: s.role || 'COMERCIAL',
+    color: s.color || null,
+    active: s.active !== false
+  };
+}
+
+function rowToOpportunity(row) {
+  return {
+    id: row.id,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at || undefined,
+    stage: row.stage || 'NOVO_INTERESSE',
+    customerName: row.customer_name || '',
+    customerEmail: row.customer_email || '',
+    customerPhone: row.customer_phone || '',
+    destination: row.destination || '',
+    dateStart: row.date_start || '',
+    dateEnd: row.date_end || '',
+    paxAdults: Number(row.pax_adults ?? 0),
+    paxChildren: Number(row.pax_children ?? 0),
+    estimatedValue: row.estimated_value ?? undefined,
+    probability: row.probability ?? undefined,
+    origin: row.origin || '',
+    temperature: row.temperature || 'MORNO',
+    tags: row.tags || [],
+    commercialStaffId: row.commercial_staff_id || undefined,
+    nextActionType: row.next_action_type || '',
+    nextActionDate: row.next_action_date || '',
+    nextActionNotes: row.next_action_notes || '',
+    lossReason: row.loss_reason || '',
+    lossNotes: row.loss_notes || '',
+    notes: row.notes || '',
+    reservationId: row.reservation_id || undefined
+  };
+}
+
+function opportunityToRow(o) {
+  return {
+    id: o.id,
+    created_at: o.createdAt,
+    updated_at: o.updatedAt || null,
+    stage: o.stage || 'NOVO_INTERESSE',
+    customer_name: o.customerName || null,
+    customer_email: o.customerEmail || null,
+    customer_phone: o.customerPhone || null,
+    destination: o.destination || null,
+    date_start: o.dateStart || null,
+    date_end: o.dateEnd || null,
+    pax_adults: o.paxAdults ?? 0,
+    pax_children: o.paxChildren ?? 0,
+    estimated_value: o.estimatedValue ?? null,
+    probability: o.probability ?? null,
+    origin: o.origin || null,
+    temperature: o.temperature || 'MORNO',
+    tags: o.tags || [],
+    commercial_staff_id: o.commercialStaffId || null,
+    next_action_type: o.nextActionType || null,
+    next_action_date: o.nextActionDate || null,
+    next_action_notes: o.nextActionNotes || null,
+    loss_reason: o.lossReason || null,
+    loss_notes: o.lossNotes || null,
+    notes: o.notes || null,
+    reservation_id: o.reservationId || null
+  };
+}
+
+function rowToOpportunityEvent(row) {
+  return {
+    id: row.id,
+    createdAt: row.created_at,
+    opportunityId: row.opportunity_id,
+    actor: row.actor || undefined,
+    type: row.type,
+    description: row.description || ''
+  };
+}
+
+function opportunityEventToRow(e) {
+  return {
+    id: e.id,
+    created_at: e.createdAt,
+    opportunity_id: e.opportunityId,
+    actor: e.actor || null,
+    type: e.type,
+    description: e.description || null
+  };
+}
+
+function rowToProposal(row) {
+  return {
+    id: row.id,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at || undefined,
+    opportunityId: row.opportunity_id,
+    version: Number(row.version ?? 1),
+    status: row.status || 'RASCUNHO',
+    services: row.services || '',
+    costValue: row.cost_value ?? undefined,
+    saleValue: row.sale_value ?? undefined,
+    notes: row.notes || ''
+  };
+}
+
+function proposalToRow(p) {
+  return {
+    id: p.id,
+    created_at: p.createdAt,
+    updated_at: p.updatedAt || null,
+    opportunity_id: p.opportunityId,
+    version: p.version ?? 1,
+    status: p.status || 'RASCUNHO',
+    services: p.services || null,
+    cost_value: p.costValue ?? null,
+    sale_value: p.saleValue ?? null,
+    notes: p.notes || null
+  };
+}
+
 function rowToLead(row) {
   return {
     id: row.id,
@@ -255,7 +397,10 @@ function rowToReservation(row) {
     invoiceDate: row.invoice_date || undefined,
     invoiceSystem: row.invoice_system || undefined,
     postTripOk: row.post_trip_ok ?? undefined,
-    postTripNotes: row.post_trip_notes || undefined
+    postTripNotes: row.post_trip_notes || undefined,
+    commercialStaffId: row.commercial_staff_id || undefined,
+    operationalStaffId: row.operational_staff_id || undefined,
+    financialStaffId: row.financial_staff_id || undefined
   };
 }
 
@@ -282,7 +427,10 @@ function reservationToRow(r) {
     invoice_date: r.invoiceDate || null,
     invoice_system: r.invoiceSystem || null,
     post_trip_ok: r.postTripOk ?? null,
-    post_trip_notes: r.postTripNotes || null
+    post_trip_notes: r.postTripNotes || null,
+    commercial_staff_id: r.commercialStaffId || null,
+    operational_staff_id: r.operationalStaffId || null,
+    financial_staff_id: r.financialStaffId || null
   };
 }
 
@@ -518,9 +666,13 @@ function rowToContactEntry(row) {
     createdAt: row.created_at,
     customerEmail: row.customer_email,
     reservationId: row.reservation_id || undefined,
+    opportunityId: row.opportunity_id || undefined,
     actor: row.actor || undefined,
     type: row.type,
-    summary: row.summary || ''
+    summary: row.summary || '',
+    direction: row.direction || 'OUTBOUND',
+    externalId: row.external_id || undefined,
+    deliveryStatus: row.delivery_status || undefined
   };
 }
 
@@ -530,9 +682,13 @@ function contactEntryToRow(c) {
     created_at: c.createdAt,
     customer_email: c.customerEmail,
     reservation_id: c.reservationId || null,
+    opportunity_id: c.opportunityId || null,
     actor: c.actor || null,
     type: c.type,
-    summary: c.summary || ''
+    summary: c.summary || '',
+    direction: c.direction || 'OUTBOUND',
+    external_id: c.externalId || null,
+    delivery_status: c.deliveryStatus || null
   };
 }
 
@@ -581,9 +737,11 @@ function rowToTask(row) {
     id: row.id,
     createdAt: row.created_at,
     updatedAt: row.updated_at || undefined,
-    reservationId: row.reservation_id,
+    reservationId: row.reservation_id || undefined,
+    opportunityId: row.opportunity_id || undefined,
     description: row.description,
     assignee: row.assignee || '',
+    assigneeStaffId: row.assignee_staff_id || undefined,
     dueDate: row.due_date || '',
     priority: row.priority || 'NORMAL',
     status: row.status || 'TODO',
@@ -597,9 +755,11 @@ function taskToRow(t) {
     id: t.id,
     created_at: t.createdAt,
     updated_at: t.updatedAt || null,
-    reservation_id: t.reservationId,
+    reservation_id: t.reservationId || null,
+    opportunity_id: t.opportunityId || null,
     description: t.description,
     assignee: t.assignee || null,
+    assignee_staff_id: t.assigneeStaffId || null,
     due_date: t.dueDate || null,
     priority: t.priority || 'NORMAL',
     status: t.status || 'TODO',
@@ -626,11 +786,15 @@ function idemEntryToRow([key, value]) {
 }
 
 async function readDbSupabase() {
-  const [companyRows, marginRows, customerRows, leadRows, reservationRows, paymentRows, emailRows, operatorLogRows, auditLogRows, idemRows, documentRows, contactRows, complaintRows, supplierRows, serviceLineRows, eventRows, taskRows] = await Promise.all([
+  const [companyRows, marginRows, staffRows, customerRows, leadRows, opportunityRows, opportunityEventRows, proposalRows, reservationRows, paymentRows, emailRows, operatorLogRows, auditLogRows, idemRows, documentRows, contactRows, complaintRows, supplierRows, serviceLineRows, eventRows, taskRows] = await Promise.all([
     selectAll('company_settings', '&id=eq.main'),
     selectAll('margins', '&order=created_at.asc'),
+    selectAll('staff', '&order=created_at.asc'),
     selectAll('customers', '&order=created_at.desc'),
     selectAll('leads', '&order=created_at.desc'),
+    selectAll('opportunities', '&order=created_at.desc'),
+    selectAll('opportunity_events', '&order=created_at.desc'),
+    selectAll('proposals', '&order=created_at.desc'),
     selectAll('reservations', '&order=created_at.desc'),
     selectAll('payments', '&order=created_at.desc'),
     selectAll('emails', '&order=created_at.desc'),
@@ -649,8 +813,12 @@ async function readDbSupabase() {
   return {
     company: rowToCompany((companyRows || [])[0]),
     margins: (marginRows || []).map(rowToMargin),
+    staff: (staffRows || []).map(rowToStaff),
     customers: (customerRows || []).map(rowToCustomer),
     leads: (leadRows || []).map(rowToLead),
+    opportunities: (opportunityRows || []).map(rowToOpportunity),
+    opportunityEvents: (opportunityEventRows || []).map(rowToOpportunityEvent),
+    proposals: (proposalRows || []).map(rowToProposal),
     reservations: (reservationRows || []).map(rowToReservation),
     payments: (paymentRows || []).map(rowToPayment),
     emails: (emailRows || []).map(rowToEmail),
@@ -670,11 +838,17 @@ async function readDbSupabase() {
 async function writeDbSupabase(db) {
   await upsertRows('company_settings', [companyToRow(db.company)]);
   await upsertRows('margins', (db.margins || []).map(marginToRow));
+  await upsertRows('staff', (db.staff || []).map(staffToRow));
   await upsertRows('customers', (db.customers || []).map(customerToRow));
   await upsertRows('leads', (db.leads || []).map(leadToRow));
   await upsertRows('reservations', (db.reservations || []).map(reservationToRow));
   await upsertRows('payments', (db.payments || []).map(paymentToRow));
+  // opportunities.reservation_id referencia reservations - so pode ser
+  // gravada depois de a reserva (se existir) ja ter aterrado.
+  await upsertRows('opportunities', (db.opportunities || []).map(opportunityToRow));
   await Promise.all([
+    upsertRows('opportunity_events', (db.opportunityEvents || []).map(opportunityEventToRow)),
+    upsertRows('proposals', (db.proposals || []).map(proposalToRow)),
     upsertRows('emails', (db.emails || []).map(emailToRow)),
     upsertRows('operator_logs', (db.operatorLogs || []).map(operatorLogToRow)),
     upsertRows('audit_logs', (db.auditLogs || []).map(auditLogToRow)),
@@ -714,8 +888,12 @@ async function updateDbSupabase(mutator) {
   const result = mutator(db) || db;
 
   const marginRows = diffById(before.margins, db.margins).map(marginToRow);
+  const staffRows = diffById(before.staff, db.staff).map(staffToRow);
   const customerRows = diffById(before.customers, db.customers).map(customerToRow);
   const leadRows = diffById(before.leads, db.leads).map(leadToRow);
+  const opportunityRows = diffById(before.opportunities, db.opportunities).map(opportunityToRow);
+  const opportunityEventRows = diffById(before.opportunityEvents, db.opportunityEvents).map(opportunityEventToRow);
+  const proposalRows = diffById(before.proposals, db.proposals).map(proposalToRow);
   const reservationRows = diffById(before.reservations, db.reservations).map(reservationToRow);
   const paymentRows = diffById(before.payments, db.payments).map(paymentToRow);
   const emailRows = diffById(before.emails, db.emails).map(emailToRow);
@@ -735,6 +913,7 @@ async function updateDbSupabase(mutator) {
     firstTasks.push(upsertRows('company_settings', [companyToRow(db.company)]));
   }
   firstTasks.push(upsertRows('margins', marginRows));
+  firstTasks.push(upsertRows('staff', staffRows));
   firstTasks.push(upsertRows('customers', customerRows));
   firstTasks.push(upsertRows('leads', leadRows));
   firstTasks.push(upsertRows('reservations', reservationRows));
@@ -747,10 +926,16 @@ async function updateDbSupabase(mutator) {
   const removedServiceLineIds = [...beforeServiceLineIds].filter(lineId => !afterServiceLineIds.has(lineId));
   await Promise.all(firstTasks);
   await upsertRows('payments', paymentRows);
+  // opportunities.reservation_id pode apontar para uma reserva criada na
+  // mesma mutacao (conversao Ganho -> processo) - so pode ser gravada
+  // depois de reservations (fase anterior) ja ter aterrado.
+  await upsertRows('opportunities', opportunityRows);
   // Linhas de servico removidas tem de ser apagadas antes dos documentos
   // (que podem referenciar service_line_id) para nao violar a FK.
   if (removedServiceLineIds.length) await deleteRows('reservation_service_lines', removedServiceLineIds);
   const thirdTasks = [
+    upsertRows('opportunity_events', opportunityEventRows),
+    upsertRows('proposals', proposalRows),
     upsertRows('emails', emailRows),
     upsertRows('operator_logs', operatorLogRows),
     upsertRows('audit_logs', auditLogRows),

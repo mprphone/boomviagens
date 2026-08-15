@@ -35,6 +35,24 @@ create table if not exists public.margins (
   updated_at timestamptz not null default now()
 );
 
+-- Equipa (staff) - login multi-utilizador com perfil (COMERCIAL/
+-- OPERACIONAL/FINANCEIRO/SUPERVISOR/ADMIN). Substitui o login unico por
+-- variaveis de ambiente (ADMIN_USERNAME/ADMIN_PASSWORD) - essas
+-- credenciais continuam a funcionar como arranque do primeiro
+-- utilizador (role ADMIN) enquanto esta tabela estiver vazia.
+create table if not exists public.staff (
+  id text primary key,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz,
+  name text not null,
+  email text,
+  username text not null unique,
+  password_hash text not null,
+  role text not null default 'COMERCIAL',
+  color text,
+  active boolean not null default true
+);
+
 create table if not exists public.customers (
   id text primary key,
   created_at timestamptz not null default now(),
@@ -74,6 +92,69 @@ create table if not exists public.leads (
   top_result jsonb
 );
 
+-- Pipeline comercial ("Pipeline"/"Oportunidades") - a entrada real de
+-- oportunidades comerciais, com arrasto entre fases. reservation_id fica
+-- preenchido quando a oportunidade e convertida em processo (fase GANHO).
+create table if not exists public.opportunities (
+  id text primary key,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz,
+  stage text not null default 'NOVO_INTERESSE',
+  customer_name text,
+  customer_email text,
+  customer_phone text,
+  destination text,
+  date_start text,
+  date_end text,
+  pax_adults integer not null default 0,
+  pax_children integer not null default 0,
+  estimated_value numeric(12,2),
+  probability integer,
+  origin text,
+  temperature text not null default 'MORNO',
+  tags jsonb not null default '[]'::jsonb,
+  commercial_staff_id text references public.staff(id) on delete set null,
+  next_action_type text,
+  next_action_date text,
+  next_action_notes text,
+  loss_reason text,
+  loss_notes text,
+  notes text
+  -- reservation_id (referencia a public.reservations) e adicionada mais
+  -- abaixo, depois de a tabela reservations existir - ver alter table
+  -- perto do fim deste ficheiro.
+);
+
+create index if not exists opportunities_stage_idx on public.opportunities(stage);
+create index if not exists opportunities_commercial_staff_idx on public.opportunities(commercial_staff_id);
+create index if not exists opportunities_customer_email_idx on public.opportunities(customer_email);
+
+create table if not exists public.opportunity_events (
+  id text primary key,
+  created_at timestamptz not null default now(),
+  opportunity_id text not null references public.opportunities(id) on delete cascade,
+  actor text,
+  type text not null,
+  description text
+);
+
+create index if not exists opportunity_events_opportunity_id_idx on public.opportunity_events(opportunity_id);
+
+create table if not exists public.proposals (
+  id text primary key,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz,
+  opportunity_id text not null references public.opportunities(id) on delete cascade,
+  version integer not null default 1,
+  status text not null default 'RASCUNHO',
+  services text,
+  cost_value numeric(12,2),
+  sale_value numeric(12,2),
+  notes text
+);
+
+create index if not exists proposals_opportunity_id_idx on public.proposals(opportunity_id);
+
 create table if not exists public.reservations (
   id text primary key,
   created_at timestamptz not null default now(),
@@ -104,6 +185,15 @@ alter table public.reservations
   add column if not exists invoice_system text,
   add column if not exists post_trip_ok boolean,
   add column if not exists post_trip_notes text;
+
+-- Tres responsaveis por processo (comercial/operacional/financeiro).
+alter table public.reservations
+  add column if not exists commercial_staff_id text references public.staff(id) on delete set null,
+  add column if not exists operational_staff_id text references public.staff(id) on delete set null,
+  add column if not exists financial_staff_id text references public.staff(id) on delete set null;
+
+-- So pode ser adicionada agora que a tabela reservations existe.
+alter table public.opportunities add column if not exists reservation_id text references public.reservations(id) on delete set null;
 
 create index if not exists reservations_status_idx on public.reservations(status);
 create index if not exists reservations_created_at_idx on public.reservations(created_at desc);
@@ -258,6 +348,14 @@ create table if not exists public.tasks (
 create index if not exists tasks_reservation_id_idx on public.tasks(reservation_id);
 create index if not exists tasks_status_idx on public.tasks(status);
 
+-- Uma tarefa pode pertencer a uma oportunidade em vez de (ou alem de) um
+-- processo; assignee_staff_id liga a um colaborador real (assignee
+-- texto livre fica so para compatibilidade com tarefas antigas).
+alter table public.tasks alter column reservation_id drop not null;
+alter table public.tasks add column if not exists opportunity_id text references public.opportunities(id) on delete cascade;
+alter table public.tasks add column if not exists assignee_staff_id text references public.staff(id) on delete set null;
+create index if not exists tasks_opportunity_id_idx on public.tasks(opportunity_id);
+
 create table if not exists public.documents (
   id text primary key,
   created_at timestamptz not null default now(),
@@ -328,11 +426,25 @@ create table if not exists public.contact_log (
 
 alter table public.contact_log add column if not exists reservation_id text references public.reservations(id) on delete cascade;
 
+-- Comunicacoes de uma oportunidade comercial, e preparacao de esquema
+-- para uma integracao real de WhatsApp/email/chat interno mais tarde
+-- (direcao, id da mensagem no fornecedor, estado de entrega) - sem
+-- nenhuma integracao real ainda, so os campos prontos a receber esses dados.
+alter table public.contact_log add column if not exists opportunity_id text references public.opportunities(id) on delete cascade;
+alter table public.contact_log add column if not exists direction text not null default 'OUTBOUND';
+alter table public.contact_log add column if not exists external_id text;
+alter table public.contact_log add column if not exists delivery_status text;
+
 create index if not exists contact_log_customer_email_idx on public.contact_log(customer_email);
 create index if not exists contact_log_reservation_id_idx on public.contact_log(reservation_id);
+create index if not exists contact_log_opportunity_id_idx on public.contact_log(opportunity_id);
 
 alter table public.company_settings enable row level security;
 alter table public.margins enable row level security;
+alter table public.staff enable row level security;
+alter table public.opportunities enable row level security;
+alter table public.opportunity_events enable row level security;
+alter table public.proposals enable row level security;
 alter table public.customers enable row level security;
 alter table public.leads enable row level security;
 alter table public.reservations enable row level security;
