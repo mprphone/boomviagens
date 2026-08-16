@@ -244,7 +244,7 @@ module.exports = function registerCustomerRoutes(router, ctx) {
 
     const buffer = Buffer.from(body.fileBase64, 'base64');
     const docId = id('doc');
-    const storagePath = `${folder}/${docId}-${fileName}`;
+    const storagePath = `${folder}/${docId}-${fileStorage.sanitizeFileName(fileName)}`;
     try {
       await fileStorage.uploadFile(storagePath, buffer, body.mimeType);
     } catch (err) {

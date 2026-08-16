@@ -15,6 +15,20 @@ function assertConfigured() {
   }
 }
 
+// O caminho de armazenamento vai sempre a seguir a um id interno (ex.:
+// "doc-20260816-825B57-") mas o nome original do ficheiro (com acentos,
+// espacos, etc.) vinha colado a seguir sem tratamento - o Storage do
+// Supabase rejeita chaves fora de a-z/0-9/.-_ (ex.: "Cartão de
+// Cidadão.pdf" dava sempre "InvalidKey"). Troca tudo o que nao seja
+// a-z/0-9/./-/_ por "-", mantendo o nome legivel e a extensao intacta.
+function sanitizeFileName(name) {
+  const safe = String(name || '')
+    .replace(/[^a-zA-Z0-9.\-_]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return safe || 'ficheiro';
+}
+
 async function uploadFile(storagePath, buffer, mimeType) {
   assertConfigured();
   const res = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/storage/v1/object/${BUCKET}/${storagePath}`, {
@@ -59,4 +73,4 @@ async function deleteFile(storagePath) {
   if (!res.ok) throw new Error(`Remocao de documento falhou: ${res.status} ${await res.text()}`);
 }
 
-module.exports = { uploadFile, signedUrl, deleteFile };
+module.exports = { uploadFile, signedUrl, deleteFile, sanitizeFileName };
