@@ -7,6 +7,13 @@
 
 import { $, esc, api } from './utils.js';
 
+// Categorias visiveis ao cliente (ver domain.js#CUSTOMER_VISIBLE_DOCUMENT_TYPES
+// no servidor - aqui e so o agrupamento visual do que a API ja devolve).
+const CATEGORY_ORDER = ['IDENTIFICACAO', 'SEGURO', 'VOUCHERS', 'BILHETES', 'PROGRAMA', 'OUTROS'];
+const CATEGORY_LABEL = { IDENTIFICACAO: 'Identificação', SEGURO: 'Seguro', VOUCHERS: 'Vouchers', BILHETES: 'Bilhetes', PROGRAMA: 'Programa', OUTROS: 'Outros' };
+const TYPE_CATEGORY = { PASSPORT: 'IDENTIFICACAO', VISA: 'IDENTIFICACAO', INSURANCE: 'SEGURO', VOUCHER: 'VOUCHERS', TICKET: 'BILHETES', ITINERARY: 'PROGRAMA', OTHER: 'OUTROS' };
+export const TYPE_LABEL = { PASSPORT: 'Passaporte/CC', VISA: 'Visto', INSURANCE: 'Seguro', VOUCHER: 'Voucher', TICKET: 'Bilhete', ITINERARY: 'Itinerário/programa', OTHER: 'Outro' };
+
 export async function renderDocumentos() {
   const el = $('#view-documentos');
   el.innerHTML = '<p class="muted">A carregar...</p>';
@@ -112,20 +119,58 @@ export function wireUploadForm(block, reservationId) {
   };
 }
 
+function docItemHtml(d) {
+  return `
+    <div class="doc-item">
+      <span class="doc-type">${esc(TYPE_LABEL[d.type] || d.type)}</span>
+      ${d.passengerName ? `<span class="muted">${esc(d.passengerName)}</span>` : ''}
+      <span class="muted">${esc(d.fileName)}</span>
+      <a href="${esc(d.signedUrl)}" target="_blank" rel="noopener">Ver</a>
+      <button class="ghost mini-action doc-delete" data-doc="${d.id}">Remover</button>
+    </div>`;
+}
+
+// Descarrega cada documento como ficheiro separado (sem juntar num
+// ZIP/PDF - decisao consciente para nao acrescentar dependencias so por
+// causa disto). d.signedUrl aponta para outra origem (Supabase Storage) -
+// o atributo "download" so e respeitado pelo browser em links da mesma
+// origem, para outra origem e sempre tratado como navegacao normal; sem
+// target="_blank" isso substituia a propria Area de Cliente pelo
+// ficheiro. Mesmo padrao do link "Ver" ja existente (target="_blank").
+async function downloadAll(documents) {
+  for (const d of documents) {
+    const a = document.createElement('a');
+    a.href = d.signedUrl;
+    a.download = d.fileName;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    await new Promise(r => setTimeout(r, 350));
+  }
+}
+
 export async function loadDocs(reservationId, listEl) {
   if (!listEl) return;
   listEl.innerHTML = 'A carregar...';
   try {
     const query = reservationId ? `?reservationId=${encodeURIComponent(reservationId)}` : '';
     const data = await api(`/api/customer/documents${query}`);
-    listEl.innerHTML = data.documents.map(d => `
-      <div class="doc-item">
-        <span class="doc-type">${d.type === 'PASSPORT' ? 'Passaporte/CC' : d.type === 'INSURANCE' ? 'Seguro' : 'Outro'}</span>
-        ${d.passengerName ? `<span class="muted">${esc(d.passengerName)}</span>` : ''}
-        <span class="muted">${esc(d.fileName)}</span>
-        <a href="${esc(d.signedUrl)}" target="_blank" rel="noopener">Ver</a>
-        <button class="ghost mini-action doc-delete" data-doc="${d.id}">Remover</button>
-      </div>`).join('') || '<span class="muted">Sem documentos anexados.</span>';
+    const byCategory = {};
+    data.documents.forEach(d => {
+      const cat = TYPE_CATEGORY[d.type] || 'OUTROS';
+      (byCategory[cat] ||= []).push(d);
+    });
+    const categoriesWithDocs = CATEGORY_ORDER.filter(cat => byCategory[cat]?.length);
+
+    listEl.innerHTML = categoriesWithDocs.length ? `
+      ${data.documents.length > 1 ? '<button type="button" class="ghost mini-action doc-download-all">Descarregar tudo</button>' : ''}
+      ${categoriesWithDocs.map(cat => `
+        <div class="doc-category">
+          <p class="doc-category-label">${CATEGORY_LABEL[cat]}</p>
+          ${byCategory[cat].map(docItemHtml).join('')}
+        </div>`).join('')}` : '<span class="muted">Sem documentos anexados.</span>';
 
     listEl.querySelectorAll('.doc-delete').forEach(btn => {
       btn.onclick = async () => {
@@ -136,6 +181,7 @@ export async function loadDocs(reservationId, listEl) {
         } catch (err) { alert(err.message); }
       };
     });
+    listEl.querySelector('.doc-download-all')?.addEventListener('click', () => downloadAll(data.documents));
   } catch (err) {
     listEl.innerHTML = `<span class="error">${esc(err.message)}</span>`;
   }

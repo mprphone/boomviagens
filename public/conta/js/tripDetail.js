@@ -63,15 +63,22 @@ export async function openTripDetail(reservationId) {
   el.querySelector('.back-link').onclick = () => document.querySelector('.nav-item[data-view="viagens"]')?.click();
 
   const panel = el.querySelector('.trip-tab-panel');
+  // Resumo/A minha viagem fazem um pedido extra (documentos) antes de
+  // escrever o conteudo final no mesmo `panel` partilhado por todos os
+  // separadores - sem isto, trocar de separador antes desse pedido
+  // terminar deixava a resposta atrasada substituir o separador novo
+  // pelo conteudo (desatualizado) do separador anterior.
+  let activeTabKey = null;
   function showTab(key) {
+    activeTabKey = key;
     el.querySelectorAll('.trip-tab').forEach(btn => btn.classList.toggle('is-active', btn.dataset.tab === key));
-    TABS.find(t => t.key === key).render(panel, r, () => openTripDetail(reservationId));
+    TABS.find(t => t.key === key).render(panel, r, () => openTripDetail(reservationId), () => activeTabKey === key);
   }
   el.querySelectorAll('.trip-tab').forEach(btn => { btn.onclick = () => showTab(btn.dataset.tab); });
   showTab('resumo');
 }
 
-async function renderResumoTab(panel, r) {
+async function renderResumoTab(panel, r, reload, isActive) {
   panel.innerHTML = '<p class="muted">A carregar...</p>';
   const offer = r.offer || {};
   const paid = (r.payments || []).filter(p => p.status === 'PAID').reduce((sum, p) => sum + (p.amount || 0), 0);
@@ -94,6 +101,7 @@ async function renderResumoTab(panel, r) {
     { ok: due <= 0, label: due <= 0 ? 'Pagamento efetuado' : `Saldo por pagar: ${money(due)}` }
   ];
 
+  if (isActive && !isActive()) return;
   panel.innerHTML = `
     <div class="panel">
       <div class="panel-head"><h2>Viagem</h2></div>
@@ -122,8 +130,25 @@ async function renderResumoTab(panel, r) {
     </div>`;
 }
 
-function renderTimelineTab(panel, r) {
+const LINE_DOC_LINK_LABEL = { VOUCHER: 'Ver voucher', TICKET: 'Ver bilhete' };
+
+async function renderTimelineTab(panel, r, reload, isActive) {
   const lines = [...(r.serviceLines || [])].sort((a, b) => (a.dateStart || '').localeCompare(b.dateStart || ''));
+  panel.innerHTML = '<p class="muted">A carregar...</p>';
+
+  // Voucher/bilhete de cada linha (mesmo documento que ja aparece no
+  // separador Documentos - so um pedido, so uma leitura, aqui filtrada
+  // por serviceLineId para o mostrar tambem junto ao servico certo).
+  let docsByLine = {};
+  try {
+    const docsData = await api(`/api/customer/documents?reservationId=${encodeURIComponent(r.id)}`);
+    docsData.documents.forEach(d => {
+      if (!d.serviceLineId || !LINE_DOC_LINK_LABEL[d.type]) return;
+      (docsByLine[d.serviceLineId] ||= []).push(d);
+    });
+  } catch { /* timeline continua a mostrar-se sem os links de documento */ }
+
+  if (isActive && !isActive()) return;
   panel.innerHTML = `
     <div class="panel">
       <div class="panel-head"><h2>A minha viagem</h2></div>
@@ -136,6 +161,7 @@ function renderTimelineTab(panel, r) {
             <span>${esc(l.description || '')}</span>
             ${l.supplierName ? `<span class="muted small">${esc(l.supplierName)}</span>` : ''}
             ${l.locator ? `<span class="muted small">Localizador: ${esc(l.locator)}</span>` : ''}
+            ${(docsByLine[l.id] || []).map(d => `<a href="${esc(d.signedUrl)}" target="_blank" rel="noopener">${esc(LINE_DOC_LINK_LABEL[d.type])}</a>`).join('')}
           </div>
           <span class="pill ${serviceIsConfirmed(l.status) ? 'ok' : 'warn'}">${serviceIsConfirmed(l.status) ? 'Confirmado' : 'Pendente'}</span>
         </div>`).join('')}</div>` : '<p class="empty-note">Ainda não há serviços associados a esta viagem.</p>'}
@@ -175,13 +201,14 @@ function renderGerirTab(panel) {
     </div>`;
 }
 
-async function renderAjudaTab(panel) {
+async function renderAjudaTab(panel, r, reload, isActive) {
   panel.innerHTML = '<p class="muted">A carregar...</p>';
   let company = {};
   try {
     const cfg = await api('/api/config');
     company = cfg.company || {};
   } catch { /* painel de ajuda so nao mostra contactos - nao e critico */ }
+  if (isActive && !isActive()) return;
   panel.innerHTML = `
     <div class="panel">
       <div class="panel-head"><h2>Precisa de ajuda?</h2></div>

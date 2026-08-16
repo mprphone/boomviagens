@@ -109,6 +109,12 @@ function renderView(body, reservation, line, data, reload, meta) {
         </div>`).join('') || '<p class="empty-note">Sem anexos nesta reserva.</p>'}
     </div>
     <form class="drawer-doc-form">
+      <select class="drawer-doc-type">
+        <option value="VOUCHER">Voucher</option>
+        <option value="TICKET">Bilhete</option>
+        <option value="ITINERARY">Itinerário/programa</option>
+        <option value="OTHER">Outro</option>
+      </select>
       <input type="file" class="drawer-doc-input" required>
       <button type="submit" class="ghost mini-action">Anexar</button>
     </form>
@@ -182,9 +188,10 @@ function renderView(body, reservation, line, data, reload, meta) {
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
+      const docType = body.querySelector('.drawer-doc-type').value;
       await api('/api/admin/documents/upload', {
         method: 'POST',
-        body: JSON.stringify({ reservationId: reservation.id, serviceLineId: line.id, type: 'OTHER', fileName: file.name, mimeType: file.type, fileBase64 })
+        body: JSON.stringify({ reservationId: reservation.id, serviceLineId: line.id, type: docType, fileName: file.name, mimeType: file.type, fileBase64 })
       });
       await reload();
       closeDrawer();
