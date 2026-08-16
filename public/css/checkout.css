@@ -197,6 +197,12 @@
   border-radius: var(--radius-sm);
   background: #eaf4fb;
 }
+/* Mesmo bug de especificidade ja apanhado noutros sitios do projeto:
+   display:flex do autor ganha ao [hidden] do user-agent stylesheet na
+   mesma especificidade - sem isto, o painel do codigo por email (e o
+   convite a criar password) aparecia sempre visivel, mesmo antes de
+   pedir o codigo ou quando o email ja vem verificado por sessao ativa. */
+.verify-panel[hidden] { display: none; }
 
 .verify-panel label { flex: 1 1 180px; margin: 0; }
 .verify-panel input { width: 100%; letter-spacing: .08em; }

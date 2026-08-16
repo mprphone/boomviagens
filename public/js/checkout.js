@@ -7,7 +7,7 @@ import { $ } from './utils.js';
 import { getCurrentOffer } from './state.js';
 import { setCheckoutStep, renderCheckoutSummary, openCheckoutModal, closeCheckoutModal } from './checkout/checkoutShell.js';
 import { resetCheckoutState, hasCheckoutProgress } from './checkout/checkoutState.js';
-import { renderCheckoutStep1 } from './checkout/billingStep.js';
+import { renderCheckoutStep1, applyExistingSessionIfAny } from './checkout/billingStep.js';
 
 // O checkout tem dados reais a perder (faturacao, passageiros) antes de
 // chegar ao pagamento - so ai a reserva fica guardada no servidor (e so
@@ -31,11 +31,15 @@ function closePassportModal() { $('#passportModal').hidden = true; }
 
 $('#passportModalClose').onclick = closePassportModal;
 $('#passportModal').addEventListener('click', e => { if (e.target.id === 'passportModal') closePassportModal(); });
-$('#passportModalAccept').onclick = () => {
+$('#passportModalAccept').onclick = async () => {
   closePassportModal();
   openCheckoutModal();
   resetCheckoutState();
   renderCheckoutSummary(getCurrentOffer());
   setCheckoutStep(1);
+  // Se ja houver sessao ativa da Area de Cliente, isto marca o email como
+  // verificado e pre-preenche os dados antes do primeiro render - sem
+  // isto, o formulario piscava rapidamente no estado "por verificar".
+  await applyExistingSessionIfAny();
   renderCheckoutStep1();
 };

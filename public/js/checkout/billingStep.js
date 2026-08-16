@@ -152,6 +152,25 @@ async function confirmEmailCode(emailValue) {
   }
 }
 
+// Se o visitante ja estiver autenticado na Area de Cliente (mesmo
+// cookie de sessao, mesma origem - api() envia-o automaticamente), o
+// email ja esta verificado a serio: pedir-lhe o codigo outra vez so
+// porque esta a fazer uma nova reserva era redundante. Chamado antes do
+// primeiro render do passo 1 (ver checkout.js), para nao haver "flash"
+// do formulario por verificar.
+export async function applyExistingSessionIfAny() {
+  try {
+    const session = await api('/api/customer/session');
+    if (!session.authenticated || !session.email) return;
+    setEmailVerified(true);
+    setBilling({ ...getBilling(), email: session.email });
+    await prefillFromExistingProfile();
+  } catch {
+    // Sem sessao ativa (ou falha a confirma-la) - segue o fluxo normal,
+    // pede verificacao por codigo como sempre.
+  }
+}
+
 // Depois de verificar o email, se ja existir uma conta com dados
 // guardados, sugere-os nos campos que o visitante ainda nao preencheu -
 // sem sobrepor nada que ja tenha escrito. Tambem sabe se ja ha password
