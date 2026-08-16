@@ -17,7 +17,11 @@
   border-radius: var(--radius);
   background: var(--card);
   box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: border-color .15s ease;
 }
+
+.trip-card:hover { border-color: var(--accent); }
 
 .trip-card-media {
   display: flex;

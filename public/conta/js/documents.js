@@ -40,7 +40,7 @@ export async function renderDocumentos() {
   });
 }
 
-function uploadFormHtml() {
+export function uploadFormHtml() {
   return `
     <form class="doc-upload-form">
       <select class="doc-type-select">
@@ -67,7 +67,7 @@ function reservationBlockHtml(r) {
     </div>`;
 }
 
-function wireUploadForm(block, reservationId) {
+export function wireUploadForm(block, reservationId) {
   const typeSelect = block.querySelector('.doc-type-select');
   const passengerInput = block.querySelector('.doc-passenger-name');
   passengerInput.placeholder = reservationId ? 'Nome do passageiro' : 'Nome da pessoa (ex.: filho, cônjuge)';
@@ -112,7 +112,7 @@ function wireUploadForm(block, reservationId) {
   };
 }
 
-async function loadDocs(reservationId, listEl) {
+export async function loadDocs(reservationId, listEl) {
   if (!listEl) return;
   listEl.innerHTML = 'A carregar...';
   try {

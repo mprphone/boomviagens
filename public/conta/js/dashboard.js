@@ -4,6 +4,7 @@
 // /api/customer/reservations - sem voo/transfer/clima/seguro inventados.
 
 import { $, esc, money, dateRange, daysUntil, statusLabel, api } from './utils.js';
+import { openTripDetail } from './tripDetail.js';
 
 function pickNextTrip(reservations) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -31,7 +32,7 @@ function renderNextTrip(trip) {
       <p class="next-trip-dates">📅 ${dateRange(offer.checkin, offer.checkout)} (${offer.nights} noites)</p>
       <p class="next-trip-countdown">${countdown}</p>
       <div class="next-trip-actions">
-        <button type="button" class="btn" data-goto="viagens">Ver detalhes da viagem</button>
+        <button type="button" class="btn" data-open-trip="${esc(trip.id)}">Ver detalhes da viagem</button>
       </div>
     </div>`;
 }
@@ -111,5 +112,8 @@ export async function renderDashboard() {
 
   el.querySelectorAll('[data-goto]').forEach(btn => {
     btn.addEventListener('click', () => document.querySelector(`.nav-item[data-view="${btn.dataset.goto}"]`)?.click());
+  });
+  el.querySelectorAll('[data-open-trip]').forEach(btn => {
+    btn.addEventListener('click', () => openTripDetail(btn.dataset.openTrip));
   });
 }

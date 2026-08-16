@@ -10,7 +10,7 @@ const crypto = require('crypto');
 
 module.exports = function registerCustomerRoutes(router, ctx) {
   const { json, unauthorized, parseBody, readDb, updateDb, customerPayload, validateEmail, validatePassword, rateLimit, domain, cleanText, fileStorage, mailer } = ctx;
-  const { ensureCollections, audit, id, now, missingDocumentsFor, DOCUMENT_TYPES, sanitizeCustomer, customerReservationView, isCustomerVisibleDocument } = domain;
+  const { ensureCollections, audit, id, now, missingDocumentsFor, DOCUMENT_TYPES, sanitizeCustomer, customerReservationView, customerReservationDetailView, isCustomerVisibleDocument } = domain;
   const { signToken, verifyToken, customerSessionEmail, setCustomerSessionCookie, clearCustomerSessionCookie, safeEqual, hashPassword, verifyPassword, hashLoginCode, CUSTOMER_CODE_TTL_MS, SESSION_TTL_MS } = ctx.auth;
 
   // So cria clientes novos. Quem ja existe so pode ser alterado por quem
@@ -150,6 +150,26 @@ module.exports = function registerCustomerRoutes(router, ctx) {
         payment: db.payments.find(p => p.reservationId === r.id) || null
       }));
     return json(res, 200, { ok: true, reservations });
+  });
+
+  // Pagina propria de uma viagem ("As minhas viagens" > clicar numa) -
+  // mais rica que a listagem (customerReservationDetailView em vez de
+  // customerReservationView), mas so para UMA reserva de cada vez e so
+  // depois de confirmar que pertence mesmo a este cliente.
+  router.get('/api/customer/reservations/detail', async (req, res, url) => {
+    const customerEmail = customerSessionEmail(req);
+    if (!customerEmail) return unauthorized(res);
+    const reservationId = cleanText(url.searchParams.get('reservationId'), 120);
+    const db = ensureCollections(await readDb());
+    const reservation = ownReservationOrNull(db, reservationId, customerEmail);
+    if (!reservation) return json(res, 404, { ok: false, error: 'Reserva não encontrada' });
+
+    const serviceLines = db.serviceLines.filter(l => l.reservationId === reservationId);
+    const payments = db.payments.filter(p => p.reservationId === reservationId);
+    const detail = customerReservationDetailView(reservation, {
+      serviceLines, payments, missingDocuments: missingDocumentsFor(reservation, db.documents)
+    });
+    return json(res, 200, { ok: true, reservation: detail });
   });
 
   router.get('/api/customer/profile', async (req, res) => {

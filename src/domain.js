@@ -531,6 +531,41 @@ function customerReservationView(reservation, { missingDocuments = [], payment }
   };
 }
 
+// Vista da pagina propria do processo (separador "As minhas viagens" >
+// uma viagem) - mais rica que customerReservationView (que serve as
+// listas), mas com o mesmo cuidado: cada linha de servico e pagamento so
+// leva os campos que o cliente pode ver. Nunca netValue/pvpValue/
+// discountPercent (custo e margem) nem notas internas.
+function customerReservationDetailView(reservation, { serviceLines = [], payments = [], missingDocuments = [] } = {}) {
+  const offer = reservation.offer || {};
+  return {
+    id: reservation.id,
+    processNumber: processNumber(reservation),
+    status: reservation.status,
+    passengers: reservation.passengers || [],
+    offer: {
+      hotel: offer.hotel,
+      destination: offer.destination,
+      country: offer.country,
+      checkin: offer.checkin,
+      checkout: offer.checkout,
+      nights: offer.nights,
+      board: offer.board,
+      finalPrice: offer.finalPrice
+    },
+    missingDocuments,
+    serviceLines: serviceLines
+      .filter(l => l.status !== 'CANCELADO')
+      .map(l => ({
+        id: l.id, type: l.type, description: l.description, supplierName: l.supplierName,
+        locator: l.locator, dateStart: l.dateStart, dateEnd: l.dateEnd, status: l.status
+      })),
+    payments: payments.map(p => ({
+      id: p.id, method: p.method, reference: p.reference, amount: p.amount, status: p.status, paidAt: p.paidAt
+    }))
+  };
+}
+
 module.exports = {
   RESERVATION_STATUSES,
   LEAD_STAGES,
@@ -586,6 +621,7 @@ module.exports = {
   sanitizeCustomer,
   sanitizeStaff,
   customerReservationView,
+  customerReservationDetailView,
   isCustomerVisibleDocument,
   computeServiceTotals,
   enrichServiceLinesWithPayments,
