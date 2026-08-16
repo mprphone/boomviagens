@@ -17,10 +17,31 @@ const CUSTOMER_DOC_TYPE_VALUES = new Set(CUSTOMER_DOC_TYPES.map(t => t.value));
 export function renderFaturasDocumentosSubTab(panel, reservation, reload, data = {}) {
   const documents = data.documents || [];
   const lines = data.serviceLines || [];
+  const payments = data.payments || [];
+  const events = data.events || [];
   const customerDocs = documents.filter(d => CUSTOMER_DOC_TYPE_VALUES.has(d.type) && !d.serviceLineId);
   const supplierDocs = documents.filter(d => d.type === 'INVOICE_PURCHASE');
 
+  // Pagamentos ja recebidos sem fatura de venda emitida - a emissao
+  // automatica (src/invoicing.js) falhou, foi ignorada (dados em falta) ou
+  // ainda nao correu. Mesma logica de domain.js#computeAlerts (que so avisa
+  // no Resumo), aqui com o motivo e um botão para tentar outra vez.
+  const invoicedPaymentIds = new Set(documents.filter(d => d.type === 'INVOICE_SALE' && d.paymentId).map(d => d.paymentId));
+  const pendingInvoices = payments.filter(p => p.status === 'PAID' && !invoicedPaymentIds.has(p.id));
+  // reservationEvents nao guarda a que pagamento cada emissão se refere -
+  // com mais de um pagamento pendente, o motivo mais recente serve de pista
+  // para todos, mesmo sem ser garantidamente exato por pagamento.
+  const lastIssueReason = [...events].find(e => e.type === 'INVOICE_ISSUE_FAILED' || e.type === 'INVOICE_ISSUE_SKIPPED')?.description;
+
   panel.innerHTML = `
+    ${pendingInvoices.length ? `
+      <div class="invoice-notice">
+        ${pendingInvoices.map(p => `
+          <p style="display:flex;align-items:center;justify-content:space-between;gap:10px;${pendingInvoices.length > 1 ? 'margin-bottom:8px' : ''}">
+            <span>⚠️ Pagamento de ${money(p.amount)} (${esc(p.method)}) ainda sem fatura${lastIssueReason ? ` - ${esc(lastIssueReason)}` : ''}.</span>
+            <button type="button" class="ghost mini-action invoice-retry" data-payment="${esc(p.id)}">Tentar emitir agora</button>
+          </p>`).join('')}
+      </div>` : ''}
     <p class="summary-block-label" style="margin-top:0">Documentos ao cliente</p>
     <div class="bo-table-wrap">
       <table class="bo-table">
@@ -88,6 +109,21 @@ export function renderFaturasDocumentosSubTab(panel, reservation, reload, data =
       </div>
       <p class="customer-form-message"></p>
     </form>`;
+
+  panel.querySelectorAll('.invoice-retry').forEach(btn => {
+    btn.onclick = async () => {
+      btn.disabled = true;
+      btn.textContent = 'A emitir...';
+      try {
+        await api('/api/admin/reservations/invoices/issue', { method: 'POST', body: JSON.stringify({ paymentId: btn.dataset.payment }) });
+        await reload('faturas');
+      } catch (err) {
+        alert(err.message);
+        btn.disabled = false;
+        btn.textContent = 'Tentar emitir agora';
+      }
+    };
+  });
 
   panel.querySelectorAll('.fin-doc-delete').forEach(btn => {
     btn.onclick = async () => {

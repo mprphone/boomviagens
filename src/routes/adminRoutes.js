@@ -4,7 +4,7 @@
 // cada rota).
 
 module.exports = function registerAdminRoutes(router, ctx) {
-  const { json, parseBody, readDb, updateDb, operators, cleanText, numberInRange, domain, fileStorage, reservationEmail } = ctx;
+  const { json, parseBody, readDb, updateDb, operators, cleanText, numberInRange, domain, fileStorage, reservationEmail, invoicing } = ctx;
   const {
     ensureCollections, audit, addOperatorLog, missingDocumentsFor, statusLabel, leadStage, leadStageLabel, id, now,
     RESERVATION_STATUSES, LEAD_STAGES, DOCUMENT_TYPES, CUSTOMER_FINANCIAL_DOC_TYPES, CONTACT_TYPES, COMPLAINT_STATUSES, COMPLAINT_DIRECTIONS,
@@ -279,7 +279,25 @@ module.exports = function registerAdminRoutes(router, ctx) {
       d.reservationEvents.unshift({ id: id('evt'), createdAt: now(), reservationId, actor: sessionUser(req), type: 'INFO', description: `Recebimento registado: ${amount.toFixed(2)} € (${method})` });
       audit(d, sessionUser(req), 'PAYMENT_LOGGED_MANUALLY', { reservationId, paymentId: payment.id, amount });
     });
-    return json(res, 200, { ok: true, payment });
+    // Mesmo hook automatico do checkout (ver src/invoicing.js) - um
+    // recebimento registado manualmente (ex.: transferencia bancaria) tambem
+    // precisa da fatura, nao so o pagamento self-service.
+    const invoice = await invoicing.issueInvoiceForPayment(reservationId, payment.id);
+    return json(res, 200, { ok: true, payment, invoice });
+  }, { admin: true, roles: ['FINANCEIRO', 'SUPERVISOR', 'ADMIN'] });
+
+  // Recuperacao manual: quando a emissao automatica falhou (dados em falta,
+  // API fora do ar) ou nunca chegou a correr, tenta outra vez a mesma logica
+  // - ver aviso em faturasDocumentosSubTab.js.
+  router.post('/api/admin/reservations/invoices/issue', async (req, res) => {
+    const body = await parseBody(req);
+    const paymentId = cleanText(body.paymentId, 120);
+    const db = ensureCollections(await readDb());
+    const payment = db.payments.find(p => p.id === paymentId);
+    if (!payment) return json(res, 404, { ok: false, error: 'Pagamento não encontrado' });
+    const invoice = await invoicing.issueInvoiceForPayment(payment.reservationId, payment.id);
+    if (!invoice.ok) return json(res, 502, { ok: false, error: invoice.reason });
+    return json(res, 200, { ok: true, invoice });
   }, { admin: true, roles: ['FINANCEIRO', 'SUPERVISOR', 'ADMIN'] });
 
   // Ficha de Reserva ("Processo de Viagem"): um unico pedido devolve tudo o

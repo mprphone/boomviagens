@@ -49,4 +49,19 @@ function clientIp(req) {
   return String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'local').split(',')[0].trim();
 }
 
-module.exports = { json, unauthorized, parseCookies, parseBody, clientIp };
+// Corpo tal como chegou, sem JSON.parse - parseBody() so devolve o objeto ja
+// interpretado, insuficiente para verificar assinaturas (ex.: webhook da
+// Stripe) que exigem os bytes exatos que o remetente assinou.
+function readRawBody(req) {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    req.on('data', chunk => {
+      body += chunk;
+      if (body.length > 12_000_000) { req.destroy(); reject(new Error('Pedido demasiado grande')); }
+    });
+    req.on('end', () => resolve(body));
+    req.on('error', reject);
+  });
+}
+
+module.exports = { json, unauthorized, parseCookies, parseBody, readRawBody, clientIp };

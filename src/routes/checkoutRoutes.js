@@ -10,8 +10,8 @@
 const crypto = require('crypto');
 
 module.exports = function registerCheckoutRoutes(router, ctx) {
-  const { json, unauthorized, parseBody, readDb, updateDb, operators, customerPayload, paymentMethod, cleanText, domain, reservationEmail } = ctx;
-  const { ensureCollections, audit, addOperatorLog, id, now } = domain;
+  const { json, unauthorized, parseBody, readDb, updateDb, operators, customerPayload, paymentMethod, cleanText, domain, paymentConfirmation } = ctx;
+  const { ensureCollections, audit, id, now } = domain;
   const { rateLimit } = ctx;
   const { customerSessionEmail, verifyToken } = ctx.auth;
 
@@ -140,7 +140,6 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
     const limited = rateLimit(req, res, 'payment-confirm', 40, 60 * 1000);
     if (limited) return limited;
     const body = await parseBody(req);
-    let resultPayload = null;
     const db = ensureCollections(await readDb());
     const payment = db.payments.find(p => p.id === body.paymentId || p.reservationId === body.reservationId);
     if (!payment) return json(res, 404, { ok: false, error: 'Pagamento nao encontrado' });
@@ -149,41 +148,17 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
     // O checkout exige email verificado antes de chegar aqui (ver
     // billingStep.js), por isso a sessao do cliente ja deve corresponder ao
     // dono da reserva - sem isto, qualquer pessoa que adivinhasse um
-    // paymentId conseguia confirmar o pagamento de outra reserva.
+    // paymentId conseguia confirmar o pagamento de outra reserva. So esta
+    // verificacao e especifica deste endpoint (chamado pelo browser) - o
+    // resto da logica e partilhada com o webhook da Stripe
+    // (src/paymentConfirmation.js), que nao tem sessao de cliente nenhuma
+    // (a propria assinatura do pedido e a autenticacao).
     const customerEmail = customerSessionEmail(req);
     if (!customerEmail || customerEmail !== reservation.customer?.email) return unauthorized(res);
 
-    const adapter = operators.getForOffer(reservation.offer);
-    // Operador desconhecido (ver auditoria) - nunca assumir o primeiro
-    // adapter registado, fica sempre para revisao humana.
-    const validation = adapter
-      ? await adapter.value({ offer: reservation.offer, reservation })
-      : { ok: false, operator: null, priceStillValid: false, availabilityStillValid: false, needsHumanReview: true, raw: { reason: `Operador desconhecido: "${reservation.offer?.operator || ''}"` } };
-
-    await updateDb(d => {
-      ensureCollections(d);
-      const p = d.payments.find(x => x.id === payment.id);
-      if (p.status !== 'PAID') {
-        p.status = 'PAID';
-        p.paidAt = now();
-      }
-      const r = d.reservations.find(x => x.id === reservation.id);
-      // needsHumanReview tem de bloquear a validacao automatica tal como
-      // priceStillValid/availabilityStillValid (ver auditoria) - antes so
-      // estes dois eram olhados, por isso uma oferta sem referencias reais
-      // da TourDiez (needsHumanReview=true) passava sempre a IN_VALIDATION
-      // como se tivesse sido mesmo validada.
-      r.status = validation.priceStillValid && validation.availabilityStillValid && !validation.needsHumanReview ? 'IN_VALIDATION' : 'HUMAN_REVIEW';
-      r.paymentReceivedAt = p.paidAt;
-      r.operatorValidation = validation.raw?.mock ? 'MOCK_VALUE_OK' : 'VALUE_SENT';
-      r.operatorValidationAt = now();
-      const email = reservationEmail({ reservation: r, payment: p });
-      d.emails.unshift({ id: id('email'), createdAt: now(), to: r.customer?.email || 'cliente@exemplo.pt', status: 'GERADO_DEMO', ...email });
-      addOperatorLog(d, 'VALUE', validation);
-      audit(d, 'system', 'PAYMENT_CONFIRMED_PENDING_OPERATOR', { reservationId: r.id, paymentId: p.id, status: r.status });
-      resultPayload = { payment: p, reservation: r, validation, next: 'Aguardando aprovacao do backoffice para confirmar no operador.' };
-    });
-    return json(res, 200, { ok: true, ...resultPayload });
+    const result = await paymentConfirmation.confirmPayment(payment.id);
+    if (!result.ok) return json(res, 404, result);
+    return json(res, 200, result);
   });
 
   router.post('/api/payment/confirm-legacy', async (req, res) => {

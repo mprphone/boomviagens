@@ -180,6 +180,12 @@ function computeAlerts(reservation, { serviceLines = [], documents = [], payment
   const pendingPayment = payments.find(p => p.status === 'PENDING');
   if (pendingPayment) alerts.push({ type: 'CUSTOMER_PAYMENT_PENDING', severity: 'warning', message: `Pagamento do cliente pendente (${pendingPayment.amount} €)` });
 
+  // Emissao automatica de fatura (ver src/invoicing.js) falhou ou nao
+  // correu para algum pagamento ja recebido - accao em Financeiro > Faturas
+  // e Documentos.
+  const paidWithoutInvoice = payments.filter(p => p.status === 'PAID' && !documents.some(d => d.type === 'INVOICE_SALE' && d.paymentId === p.id));
+  if (paidWithoutInvoice.length) alerts.push({ type: 'INVOICE_MISSING', severity: 'warning', message: `${paidWithoutInvoice.length} pagamento(s) recebido(s) sem fatura emitida` });
+
   if (checkin) {
     if (checkin <= inDays(2) && checkin >= today) alerts.push({ type: 'DEPARTURE_SOON', severity: 'critical', message: 'Partida em menos de 48 horas' });
     else if (checkin <= inDays(7) && checkin >= today) alerts.push({ type: 'DEPARTURE_NEAR', severity: 'warning', message: 'Partida dentro de 7 dias' });

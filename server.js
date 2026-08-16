@@ -4,7 +4,7 @@ const path = require('path');
 
 const { createRouter } = require('./src/http/router');
 const { createStaticServer } = require('./src/staticServer');
-const { json, unauthorized, parseBody } = require('./src/httpUtils');
+const { json, unauthorized, parseBody, readRawBody } = require('./src/httpUtils');
 const auth = require('./src/auth');
 const domain = require('./src/domain');
 const { readDb, updateDb } = require('./src/storage');
@@ -15,6 +15,9 @@ const { cleanText, searchPayload, customerPayload, paymentMethod, numberInRange,
 const fileStorage = require('./src/fileStorage');
 const mailer = require('./src/mailer');
 const { normalize } = require('./src/pricing');
+const { FacturalusaClient } = require('./src/facturalusaClient');
+const createInvoicing = require('./src/invoicing');
+const createPaymentConfirmation = require('./src/paymentConfirmation');
 
 const registerPublicRoutes = require('./src/routes/publicRoutes');
 const registerCustomerRoutes = require('./src/routes/customerRoutes');
@@ -24,11 +27,13 @@ const registerStaffRoutes = require('./src/routes/staffRoutes');
 const registerOpportunitiesRoutes = require('./src/routes/opportunitiesRoutes');
 const registerTeamRoutes = require('./src/routes/teamRoutes');
 const registerBranchesRoutes = require('./src/routes/branchesRoutes');
+const registerPaymentsRoutes = require('./src/routes/paymentsRoutes');
 
 const PORT = Number(process.env.PORT || 3000);
 const PUBLIC = path.join(__dirname, 'public');
 const tourdiezAdapter = new TourDiezAdapter(process.env);
 const operators = new OperatorRegistry([tourdiezAdapter]);
+const facturalusa = new FacturalusaClient(process.env);
 
 // Contexto partilhado por todas as rotas: cada modulo em src/routes/ so
 // pede o que precisa daqui, em vez de cada rota ter de repetir os mesmos
@@ -37,6 +42,7 @@ const ctx = {
   json,
   unauthorized,
   parseBody,
+  readRawBody,
   readDb,
   updateDb,
   operators,
@@ -59,8 +65,11 @@ const ctx = {
   validateEmail,
   validatePassword,
   normalize,
-  rateLimit: auth.rateLimit
+  rateLimit: auth.rateLimit,
+  facturalusa
 };
+ctx.invoicing = createInvoicing(ctx);
+ctx.paymentConfirmation = createPaymentConfirmation(ctx);
 
 const router = createRouter();
 registerPublicRoutes(router, ctx);
@@ -71,6 +80,7 @@ registerStaffRoutes(router, ctx);
 registerOpportunitiesRoutes(router, ctx);
 registerTeamRoutes(router, ctx);
 registerBranchesRoutes(router, ctx);
+registerPaymentsRoutes(router, ctx);
 
 const serveStatic = createStaticServer(PUBLIC);
 
