@@ -7,6 +7,7 @@
 
 import { $, esc, money, api } from './utils.js';
 import { openDrawer, closeDrawer } from './drawer.js';
+import { attachDragHandlers, attachDropHandlers } from './kanban.js';
 import { renderOpportunityCard } from './pipeline/opportunityCard.js';
 import { openOpportunityDetail } from './pipeline/opportunityDetail.js';
 
@@ -16,6 +17,12 @@ let staffList = [];
 let staffById = new Map();
 let summary = {};
 const filters = { staffId: '', temperature: '', origin: '', destination: '' };
+
+// Chamado a partir da Visão Geral da equipa antes de navegar para aqui,
+// para o quadro abrir ja filtrado por esse colaborador.
+export function filterPipelineByStaff(staffId) {
+  filters.staffId = staffId;
+}
 
 export async function renderPipeline() {
   const el = $('#view-pipeline');
@@ -102,7 +109,7 @@ function renderBoard() {
         <h3>${esc(s.label)}</h3>
         <div class="pipeline-col-meta" data-meta="${s.value}"></div>
       </div>
-      <div class="pipeline-col-body" data-stage="${s.value}"></div>
+      <div class="pipeline-col-body" data-col-value="${s.value}"></div>
     </div>`).join('');
 
   meta.stages.forEach(s => {
@@ -110,7 +117,7 @@ function renderBoard() {
     const total = stageOpportunities.reduce((sum, o) => sum + (Number(o.estimatedValue) || 0), 0);
     boardEl.querySelector(`[data-meta="${s.value}"]`).textContent = `${stageOpportunities.length} · ${money(total)}`;
 
-    const body = boardEl.querySelector(`.pipeline-col-body[data-stage="${s.value}"]`);
+    const body = boardEl.querySelector(`.pipeline-col-body[data-col-value="${s.value}"]`);
     stageOpportunities.forEach(o => {
       const card = renderOpportunityCard(o, staffById);
       card.addEventListener('click', () => { if (!card.classList.contains('dragging')) openOpportunityPage(o.id); });
@@ -119,28 +126,11 @@ function renderBoard() {
     });
   });
 
-  document.querySelectorAll('.pipeline-col-body').forEach(body => {
-    body.addEventListener('dragover', e => { e.preventDefault(); body.classList.add('drag-over'); });
-    body.addEventListener('dragleave', () => body.classList.remove('drag-over'));
-    body.addEventListener('drop', async e => {
-      e.preventDefault();
-      body.classList.remove('drag-over');
-      const opportunityId = e.dataTransfer.getData('text/plain');
-      const newStage = body.dataset.stage;
-      const opportunity = allOpportunities.find(o => o.id === opportunityId);
-      if (!opportunity || opportunity.stage === newStage) return;
-      await handleStageChange(opportunity, newStage);
-    });
+  attachDropHandlers(boardEl, async (opportunityId, newStage) => {
+    const opportunity = allOpportunities.find(o => o.id === opportunityId);
+    if (!opportunity || opportunity.stage === newStage) return;
+    await handleStageChange(opportunity, newStage);
   });
-}
-
-function attachDragHandlers(card) {
-  card.addEventListener('dragstart', e => {
-    e.dataTransfer.setData('text/plain', card.dataset.id);
-    e.dataTransfer.effectAllowed = 'move';
-    setTimeout(() => card.classList.add('dragging'), 0);
-  });
-  card.addEventListener('dragend', () => card.classList.remove('dragging'));
 }
 
 async function moveStage(opportunityId, stage, extra = {}) {

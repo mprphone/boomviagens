@@ -8,8 +8,13 @@ import { renderPipeline } from './pipeline.js';
 import { renderPropostas } from './propostas.js';
 import { renderFollowups } from './followups.js';
 import { renderReservas } from './reservations.js';
+import { renderPipelineOperacional } from './pipelineOperacional.js';
 import { renderClientes } from './customers.js';
 import { renderEquipa } from './team.js';
+import { renderVisaoGeral } from './team/overview.js';
+import { renderMeuDia } from './team/myDay.js';
+import { renderTarefasEquipa } from './team/tasks.js';
+import { renderAgenda } from './team/agenda.js';
 import { renderFornecedores } from './suppliers.js';
 import { renderMargens, renderEmails, renderOperador } from './system.js';
 
@@ -19,8 +24,13 @@ const VIEWS = {
   propostas: { title: 'Propostas', render: renderPropostas },
   followups: { title: 'Follow-ups', render: renderFollowups },
   reservas: { title: 'Reservas', render: renderReservas },
+  'pipeline-operacional': { title: 'Pipeline Operacional', render: renderPipelineOperacional },
   clientes: { title: 'Clientes', render: renderClientes },
+  'meu-dia': { title: 'O Meu Dia', render: renderMeuDia },
+  'visao-geral': { title: 'Visão Geral', render: renderVisaoGeral },
   equipa: { title: 'Equipa', render: renderEquipa },
+  'tarefas-equipa': { title: 'Tarefas', render: renderTarefasEquipa },
+  agenda: { title: 'Agenda', render: renderAgenda },
   fornecedores: { title: 'Fornecedores', render: renderFornecedores },
   margens: { title: 'Margens', render: renderMargens },
   emails: { title: 'Emails', render: renderEmails },

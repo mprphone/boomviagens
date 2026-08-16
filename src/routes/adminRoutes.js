@@ -169,13 +169,20 @@ module.exports = function registerAdminRoutes(router, ctx) {
 
   router.get('/api/admin/reservations', async (req, res) => {
     const db = ensureCollections(await readDb());
-    const reservations = db.reservations.map(r => ({
-      ...r,
-      processNumber: processNumber(r),
-      missingDocuments: missingDocumentsFor(r, db.documents),
-      serviceLinesCount: db.serviceLines.filter(s => s.reservationId === r.id).length,
-      openComplaintsCount: db.complaints.filter(c => c.reservationId === r.id && !['RESOLVED', 'CLOSED'].includes(c.status)).length
-    }));
+    const reservations = db.reservations.map(r => {
+      const paidAmount = db.payments.filter(p => p.reservationId === r.id && p.status === 'PAID').reduce((sum, p) => sum + (p.amount || 0), 0);
+      return {
+        ...r,
+        processNumber: processNumber(r),
+        missingDocuments: missingDocumentsFor(r, db.documents),
+        serviceLinesCount: db.serviceLines.filter(s => s.reservationId === r.id).length,
+        openComplaintsCount: db.complaints.filter(c => c.reservationId === r.id && !['RESOLVED', 'CLOSED'].includes(c.status)).length,
+        // Usados no cartao do Pipeline Operacional ("Por receber") - evita
+        // um pedido por reserva so para calcular isto.
+        paidAmount,
+        dueAmount: Math.max(0, (r.offer?.finalPrice || 0) - paidAmount)
+      };
+    });
     return json(res, 200, { ok: true, reservations, statuses: RESERVATION_STATUSES.map(value => ({ value, label: statusLabel(value) })) });
   }, { admin: true });
 
@@ -234,7 +241,7 @@ module.exports = function registerAdminRoutes(router, ctx) {
     });
     if (!saved) return json(res, 404, { ok: false, error: 'Reserva nao encontrada' });
     return json(res, 200, { ok: true, reservation: saved });
-  }, { admin: true });
+  }, { admin: true, roles: ['FINANCEIRO', 'SUPERVISOR', 'ADMIN'] });
 
   // Registo manual de um recebimento do cliente (separador "Vendas") - ex.:
   // um sinal pago por transferencia bancaria, fora do fluxo automatico de
@@ -258,7 +265,7 @@ module.exports = function registerAdminRoutes(router, ctx) {
       audit(d, sessionUser(req), 'PAYMENT_LOGGED_MANUALLY', { reservationId, paymentId: payment.id, amount });
     });
     return json(res, 200, { ok: true, payment });
-  }, { admin: true });
+  }, { admin: true, roles: ['FINANCEIRO', 'SUPERVISOR', 'ADMIN'] });
 
   // Ficha de Reserva ("Processo de Viagem"): um unico pedido devolve tudo o
   // que os separadores precisam (servicos, historico, tarefas, reclamacoes,
