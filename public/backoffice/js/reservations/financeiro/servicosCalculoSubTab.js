@@ -17,9 +17,12 @@ const TYPE_ICON = {
 const VAT_ABBR = { MARGEM: 'RM', ISENTO: 'Isento', REDUZIDA: 'Red.', NORMAL: 'Normal' };
 
 // Seguro de viagem e tipicamente isento de IVA (intermediacao de seguros,
-// Art. 9º CIVA), independentemente do regime aplicado ao resto do pacote -
-// so apresentacao, nao um campo gravado por linha.
+// Art. 9º CIVA) quando a linha nao tem um regime proprio definido. Uma
+// linha pode ter o seu proprio regime de IVA (line.vatRegime, gravado na
+// gaveta lateral); sem isso, usa o regime do processo como valor por
+// omissao - mantem o comportamento antigo para linhas ja existentes.
 function vatBadge(line, reservationVatRegime) {
+  if (line.vatRegime) return VAT_ABBR[line.vatRegime] || line.vatRegime;
   if (line.type === 'SEGURO') return 'Isento';
   return VAT_ABBR[reservationVatRegime] || reservationVatRegime;
 }

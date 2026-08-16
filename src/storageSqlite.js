@@ -74,7 +74,8 @@ CREATE TABLE IF NOT EXISTS reservations (
   vat_regime TEXT, invoice_number TEXT, invoice_date TEXT, invoice_system TEXT,
   post_trip_ok INTEGER, post_trip_notes TEXT,
   commercial_staff_id TEXT, operational_staff_id TEXT, financial_staff_id TEXT,
-  branch_id TEXT, origin TEXT
+  branch_id TEXT, origin TEXT,
+  margin_confirmed REAL, margin_confirmed_at TEXT, margin_final REAL, margin_final_at TEXT
 );
 CREATE INDEX IF NOT EXISTS reservations_status_idx ON reservations(status);
 CREATE TABLE IF NOT EXISTS payments (
@@ -98,9 +99,17 @@ CREATE TABLE IF NOT EXISTS reservation_service_lines (
   id TEXT PRIMARY KEY, created_at TEXT, updated_at TEXT, reservation_id TEXT, type TEXT, description TEXT,
   supplier_name TEXT, reference TEXT, locator TEXT, quantity REAL, date_start TEXT, date_end TEXT, status TEXT,
   net_value REAL, pvp_value REAL, discount_percent REAL, option_deadline TEXT, cancellation_terms TEXT,
-  paid INTEGER, paid_at TEXT, cancel_reason TEXT, refundable_amount REAL, refunded_amount REAL, refunded_at TEXT, notes TEXT
+  paid INTEGER, paid_at TEXT, cancel_reason TEXT, refundable_amount REAL, refunded_amount REAL, refunded_at TEXT, vat_regime TEXT, notes TEXT
 );
 CREATE INDEX IF NOT EXISTS reservation_service_lines_reservation_idx ON reservation_service_lines(reservation_id);
+CREATE TABLE IF NOT EXISTS service_line_payments (
+  id TEXT PRIMARY KEY, created_at TEXT, service_line_id TEXT, amount REAL, paid_at TEXT, method TEXT, reference TEXT, notes TEXT
+);
+CREATE INDEX IF NOT EXISTS service_line_payments_line_idx ON service_line_payments(service_line_id);
+CREATE TABLE IF NOT EXISTS refunds (
+  id TEXT PRIMARY KEY, created_at TEXT, reservation_id TEXT, service_line_id TEXT, direction TEXT, amount REAL, reason TEXT, notes TEXT, created_by TEXT
+);
+CREATE INDEX IF NOT EXISTS refunds_reservation_idx ON refunds(reservation_id);
 CREATE TABLE IF NOT EXISTS reservation_events (
   id TEXT PRIMARY KEY, created_at TEXT, reservation_id TEXT, actor TEXT, type TEXT, description TEXT,
   resolved INTEGER, resolution TEXT
@@ -285,7 +294,11 @@ function rowToReservation(row) {
     operationalStaffId: row.operational_staff_id || undefined,
     financialStaffId: row.financial_staff_id || undefined,
     branchId: row.branch_id || undefined,
-    origin: row.origin || undefined
+    origin: row.origin || undefined,
+    marginConfirmed: row.margin_confirmed ?? undefined,
+    marginConfirmedAt: row.margin_confirmed_at || undefined,
+    marginFinal: row.margin_final ?? undefined,
+    marginFinalAt: row.margin_final_at || undefined
   };
 }
 
@@ -318,8 +331,17 @@ function rowToServiceLine(row) {
     discountPercent: Number(row.discount_percent ?? 0), optionDeadline: row.option_deadline || '',
     cancellationTerms: row.cancellation_terms || '', paid: Boolean(row.paid), paidAt: row.paid_at || undefined,
     cancelReason: row.cancel_reason || '', refundableAmount: row.refundable_amount ?? undefined,
-    refundedAmount: row.refunded_amount ?? undefined, refundedAt: row.refunded_at || undefined, notes: row.notes || ''
+    refundedAmount: row.refunded_amount ?? undefined, refundedAt: row.refunded_at || undefined,
+    vatRegime: row.vat_regime || undefined, notes: row.notes || ''
   };
+}
+
+function rowToServiceLinePayment(row) {
+  return { id: row.id, createdAt: row.created_at, serviceLineId: row.service_line_id, amount: Number(row.amount), paidAt: row.paid_at, method: row.method || '', reference: row.reference || '', notes: row.notes || '' };
+}
+
+function rowToRefund(row) {
+  return { id: row.id, createdAt: row.created_at, reservationId: row.reservation_id, serviceLineId: row.service_line_id || undefined, direction: row.direction, amount: Number(row.amount), reason: row.reason || '', notes: row.notes || '', createdBy: row.created_by || undefined };
 }
 
 function rowToReservationEvent(row) {
@@ -386,6 +408,8 @@ function readDbSqlite() {
     complaints: conn.prepare('SELECT * FROM complaints ORDER BY created_at DESC').all().map(rowToComplaint),
     suppliers: conn.prepare('SELECT * FROM suppliers ORDER BY name ASC').all().map(rowToSupplier),
     serviceLines: conn.prepare('SELECT * FROM reservation_service_lines ORDER BY created_at ASC').all().map(rowToServiceLine),
+    serviceLinePayments: conn.prepare('SELECT * FROM service_line_payments ORDER BY paid_at ASC').all().map(rowToServiceLinePayment),
+    refunds: conn.prepare('SELECT * FROM refunds ORDER BY created_at DESC').all().map(rowToRefund),
     reservationEvents: conn.prepare('SELECT * FROM reservation_events ORDER BY created_at DESC').all().map(rowToReservationEvent),
     tasks: conn.prepare('SELECT * FROM tasks ORDER BY due_date ASC').all().map(rowToTask)
   };
@@ -404,7 +428,7 @@ function writeDbSqlite(dbState) {
       ON CONFLICT(id) DO UPDATE SET name=excluded.name, brand=excluded.brand, domain=excluded.domain, email=excluded.email, phone=excluded.phone, nif=excluded.nif, rnavt=excluded.rnavt, address=excluded.address, cae=excluded.cae, market_country=excluded.market_country, currency=excluded.currency, price_type=excluded.price_type, commission_included=excluded.commission_included, confirmation_mode=excluded.confirmation_mode, default_margin_percent=excluded.default_margin_percent`)
       .run(c.name, c.brand, c.domain || null, c.email || null, c.phone || null, c.nif || null, c.rnavt || null, c.address || null, c.cae || null, c.marketCountry || 'PT', c.currency || 'EUR', c.priceType || 'PVP', c.commissionIncluded !== false ? 1 : 0, c.confirmationMode || 'automatic', c.defaultMarginPercent ?? 5);
 
-    const tables = ['margins', 'branches', 'staff', 'customers', 'leads', 'opportunities', 'opportunity_events', 'proposals', 'reservations', 'payments', 'emails', 'operator_logs', 'audit_logs', 'idempotency_keys', 'documents', 'contact_log', 'complaints', 'suppliers', 'reservation_service_lines', 'reservation_events', 'tasks'];
+    const tables = ['margins', 'branches', 'staff', 'customers', 'leads', 'opportunities', 'opportunity_events', 'proposals', 'reservations', 'payments', 'emails', 'operator_logs', 'audit_logs', 'idempotency_keys', 'documents', 'contact_log', 'complaints', 'suppliers', 'reservation_service_lines', 'service_line_payments', 'refunds', 'reservation_events', 'tasks'];
     for (const t of tables) conn.exec(`DELETE FROM ${t}`);
 
     const insMargin = conn.prepare('INSERT INTO margins (id, name, match_rule, percent, min_value, round_to, active) VALUES (?,?,?,?,?,?,?)');
@@ -431,8 +455,8 @@ function writeDbSqlite(dbState) {
     const insProposal = conn.prepare('INSERT INTO proposals (id, created_at, updated_at, opportunity_id, version, status, services, cost_value, sale_value, notes) VALUES (?,?,?,?,?,?,?,?,?,?)');
     for (const p of dbState.proposals || []) insProposal.run(p.id, p.createdAt, p.updatedAt || null, p.opportunityId, p.version ?? 1, p.status || 'RASCUNHO', p.services || null, p.costValue ?? null, p.saleValue ?? null, p.notes || null);
 
-    const insRes = conn.prepare(`INSERT INTO reservations (id, created_at, updated_at, status, customer, passengers, offer, operator, source, notes, payment_received_at, operator_validation, operator_validation_at, operator_confirmation, operator_locator, confirmed_at, vat_regime, invoice_number, invoice_date, invoice_system, post_trip_ok, post_trip_notes, commercial_staff_id, operational_staff_id, financial_staff_id, branch_id, origin) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
-    for (const r of dbState.reservations || []) insRes.run(r.id, r.createdAt, r.updatedAt || null, r.status, j(r.customer || {}), j(r.passengers || []), j(r.offer || {}), r.operator || null, r.source || 'site', r.notes || null, r.paymentReceivedAt || null, r.operatorValidation || null, r.operatorValidationAt || null, r.operatorConfirmation || null, r.operatorLocator || null, r.confirmedAt || null, r.vatRegime || 'MARGEM', r.invoiceNumber || null, r.invoiceDate || null, r.invoiceSystem || null, r.postTripOk === undefined ? null : (r.postTripOk ? 1 : 0), r.postTripNotes || null, r.commercialStaffId || null, r.operationalStaffId || null, r.financialStaffId || null, r.branchId || null, r.origin || null);
+    const insRes = conn.prepare(`INSERT INTO reservations (id, created_at, updated_at, status, customer, passengers, offer, operator, source, notes, payment_received_at, operator_validation, operator_validation_at, operator_confirmation, operator_locator, confirmed_at, vat_regime, invoice_number, invoice_date, invoice_system, post_trip_ok, post_trip_notes, commercial_staff_id, operational_staff_id, financial_staff_id, branch_id, origin, margin_confirmed, margin_confirmed_at, margin_final, margin_final_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+    for (const r of dbState.reservations || []) insRes.run(r.id, r.createdAt, r.updatedAt || null, r.status, j(r.customer || {}), j(r.passengers || []), j(r.offer || {}), r.operator || null, r.source || 'site', r.notes || null, r.paymentReceivedAt || null, r.operatorValidation || null, r.operatorValidationAt || null, r.operatorConfirmation || null, r.operatorLocator || null, r.confirmedAt || null, r.vatRegime || 'MARGEM', r.invoiceNumber || null, r.invoiceDate || null, r.invoiceSystem || null, r.postTripOk === undefined ? null : (r.postTripOk ? 1 : 0), r.postTripNotes || null, r.commercialStaffId || null, r.operationalStaffId || null, r.financialStaffId || null, r.branchId || null, r.origin || null, r.marginConfirmed ?? null, r.marginConfirmedAt || null, r.marginFinal ?? null, r.marginFinalAt || null);
 
     const insPay = conn.prepare('INSERT INTO payments (id, created_at, reservation_id, method, amount, status, reference, paid_at, expires_at) VALUES (?,?,?,?,?,?,?,?,?)');
     for (const p of dbState.payments || []) insPay.run(p.id, p.createdAt, p.reservationId, p.method, p.amount, p.status, p.reference || null, p.paidAt || null, p.expiresAt || null);
@@ -449,8 +473,14 @@ function writeDbSqlite(dbState) {
     const insIdem = conn.prepare('INSERT INTO idempotency_keys (idempotency_key, reservation_id, payment_id, created_at) VALUES (?,?,?,?)');
     for (const [key, value] of Object.entries(dbState.idempotencyKeys || {})) insIdem.run(key, value.reservationId, value.paymentId, value.createdAt || new Date().toISOString());
 
-    const insServiceLine = conn.prepare('INSERT INTO reservation_service_lines (id, created_at, updated_at, reservation_id, type, description, supplier_name, reference, locator, quantity, date_start, date_end, status, net_value, pvp_value, discount_percent, option_deadline, cancellation_terms, paid, paid_at, cancel_reason, refundable_amount, refunded_amount, refunded_at, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
-    for (const s of dbState.serviceLines || []) insServiceLine.run(s.id, s.createdAt, s.updatedAt || null, s.reservationId, s.type, s.description, s.supplierName || null, s.reference || null, s.locator || null, s.quantity ?? 1, s.dateStart || null, s.dateEnd || null, s.status || 'NAO_CONFIRMADO', s.netValue ?? 0, s.pvpValue ?? 0, s.discountPercent ?? 0, s.optionDeadline || null, s.cancellationTerms || null, s.paid ? 1 : 0, s.paidAt || null, s.cancelReason || null, s.refundableAmount ?? null, s.refundedAmount ?? null, s.refundedAt || null, s.notes || null);
+    const insServiceLine = conn.prepare('INSERT INTO reservation_service_lines (id, created_at, updated_at, reservation_id, type, description, supplier_name, reference, locator, quantity, date_start, date_end, status, net_value, pvp_value, discount_percent, option_deadline, cancellation_terms, paid, paid_at, cancel_reason, refundable_amount, refunded_amount, refunded_at, vat_regime, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+    for (const s of dbState.serviceLines || []) insServiceLine.run(s.id, s.createdAt, s.updatedAt || null, s.reservationId, s.type, s.description, s.supplierName || null, s.reference || null, s.locator || null, s.quantity ?? 1, s.dateStart || null, s.dateEnd || null, s.status || 'NAO_CONFIRMADO', s.netValue ?? 0, s.pvpValue ?? 0, s.discountPercent ?? 0, s.optionDeadline || null, s.cancellationTerms || null, s.paid ? 1 : 0, s.paidAt || null, s.cancelReason || null, s.refundableAmount ?? null, s.refundedAmount ?? null, s.refundedAt || null, s.vatRegime || null, s.notes || null);
+
+    const insServiceLinePayment = conn.prepare('INSERT INTO service_line_payments (id, created_at, service_line_id, amount, paid_at, method, reference, notes) VALUES (?,?,?,?,?,?,?,?)');
+    for (const p of dbState.serviceLinePayments || []) insServiceLinePayment.run(p.id, p.createdAt, p.serviceLineId, p.amount, p.paidAt, p.method || null, p.reference || null, p.notes || null);
+
+    const insRefund = conn.prepare('INSERT INTO refunds (id, created_at, reservation_id, service_line_id, direction, amount, reason, notes, created_by) VALUES (?,?,?,?,?,?,?,?,?)');
+    for (const r of dbState.refunds || []) insRefund.run(r.id, r.createdAt, r.reservationId, r.serviceLineId || null, r.direction, r.amount, r.reason || null, r.notes || null, r.createdBy || null);
 
     const insEvent = conn.prepare('INSERT INTO reservation_events (id, created_at, reservation_id, actor, type, description, resolved, resolution) VALUES (?,?,?,?,?,?,?,?)');
     for (const e of dbState.reservationEvents || []) insEvent.run(e.id, e.createdAt, e.reservationId, e.actor || null, e.type, e.description || null, e.resolved ? 1 : 0, e.resolution || null);

@@ -65,6 +65,17 @@ const TASK_PRIORITIES = ['LOW', 'NORMAL', 'HIGH', 'URGENT'];
 // nao substitui software certificado para emitir a fatura real.
 const VAT_REGIMES = ['MARGEM', 'NORMAL', 'ISENTO', 'REDUZIDA'];
 const SUPPLIER_TYPES = ['OPERADOR', 'HOTEL', 'SEGURADORA', 'TRANSPORTE', 'OUTRO'];
+// Sentido de um reembolso/nota de credito (separador Financeiro > Conta do
+// Processo) - CUSTOMER_REFUND e dinheiro que a agencia devolve ao cliente
+// (movimento negativo), SUPPLIER_CREDIT e uma nota de credito que um
+// fornecedor emite a agencia por um servico cancelado (movimento positivo).
+const REFUND_DIRECTIONS = ['CUSTOMER_REFUND', 'SUPPLIER_CREDIT'];
+// Fases da margem do processo (separador Financeiro > Conta do Processo) -
+// "prevista" ja existe (reservation.offer.marginValue, congelada na
+// criacao), estas duas sao instantaneos manuais que a equipa regista
+// quando a compra fica fechada com os fornecedores e quando o processo e
+// encerrado, para comparar com a margem "ao vivo" das linhas de servico.
+const MARGIN_SNAPSHOT_STAGES = ['confirmed', 'final'];
 // Linhas de servico (compras/vendas) dentro de uma reserva - separador
 // "Servicos" da Ficha de Reserva. Cada linha e um item comprado a um
 // fornecedor e revendido ao cliente (voo, hotel, seguro...), com o seu
@@ -133,6 +144,8 @@ function ensureCollections(db) {
   db.complaints ||= [];
   db.suppliers ||= [];
   db.serviceLines ||= [];
+  db.serviceLinePayments ||= [];
+  db.refunds ||= [];
   db.reservationEvents ||= [];
   db.tasks ||= [];
   return db;
@@ -196,6 +209,30 @@ function computeServiceTotals(lines = []) {
   netTotal = Number(netTotal.toFixed(2));
   pvpTotal = Number(pvpTotal.toFixed(2));
   return { netTotal, pvpTotal, margin: Number((pvpTotal - netTotal).toFixed(2)) };
+}
+
+// Pagamentos a fornecedores em tranches (separador Financeiro > Serviços e
+// Reservas): substitui o antigo paid/paidAt booleano por um ledger real
+// (service_line_payments, varios pagamentos por linha). Devolve as linhas
+// com paid/paidAt/paidAmount calculados a partir da soma dos pagamentos,
+// para todo o codigo que ja lia line.paid (alertas, extrato de Movimentos)
+// continuar a funcionar sem alteracoes - so a origem do valor muda.
+function enrichServiceLinesWithPayments(lines = [], payments = []) {
+  return lines.map(line => {
+    const linePayments = payments
+      .filter(p => p.serviceLineId === line.id)
+      .sort((a, b) => new Date(a.paidAt) - new Date(b.paidAt));
+    const paidAmount = Number(linePayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0).toFixed(2));
+    const dueAmount = (Number(line.netValue) || 0) * (Number(line.quantity) || 1);
+    const paid = paidAmount > 0 && paidAmount >= dueAmount - 0.005;
+    return {
+      ...line,
+      payments: linePayments,
+      paidAmount,
+      paid,
+      paidAt: paid ? linePayments[linePayments.length - 1]?.paidAt : undefined
+    };
+  });
 }
 
 function serviceTypeLabel(type) {
@@ -513,6 +550,8 @@ module.exports = {
   COMPLAINT_DIRECTIONS,
   VAT_REGIMES,
   SUPPLIER_TYPES,
+  REFUND_DIRECTIONS,
+  MARGIN_SNAPSHOT_STAGES,
   SERVICE_TYPES,
   SERVICE_STATUSES,
   SERVICE_STATUS_FLOW_BY_TYPE,
@@ -549,6 +588,7 @@ module.exports = {
   customerReservationView,
   isCustomerVisibleDocument,
   computeServiceTotals,
+  enrichServiceLinesWithPayments,
   serviceTypeLabel,
   serviceStatusLabel,
   eventTypeLabel,

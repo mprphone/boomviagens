@@ -9,7 +9,8 @@ module.exports = function registerAdminRoutes(router, ctx) {
     ensureCollections, audit, addOperatorLog, missingDocumentsFor, statusLabel, leadStage, leadStageLabel, id, now,
     RESERVATION_STATUSES, LEAD_STAGES, DOCUMENT_TYPES, CUSTOMER_FINANCIAL_DOC_TYPES, CONTACT_TYPES, COMPLAINT_STATUSES, COMPLAINT_DIRECTIONS,
     VAT_REGIMES, SUPPLIER_TYPES, SERVICE_TYPES, SERVICE_STATUSES, MANUAL_EVENT_TYPES, OCCURRENCE_EVENT_TYPES, TASK_STATUSES, TASK_PRIORITIES,
-    sanitizeCustomer, computeServiceTotals, serviceTypeLabel, serviceStatusLabel, serviceStatusesForType, eventTypeLabel,
+    REFUND_DIRECTIONS, MARGIN_SNAPSHOT_STAGES,
+    sanitizeCustomer, computeServiceTotals, enrichServiceLinesWithPayments, serviceTypeLabel, serviceStatusLabel, serviceStatusesForType, eventTypeLabel,
     taskStatusLabel, taskPriorityLabel, complaintStatusLabel, documentTypeLabel, processNumber, computeAlerts
   } = domain;
   const { sessionUser } = ctx.auth;
@@ -292,7 +293,10 @@ module.exports = function registerAdminRoutes(router, ctx) {
     const reservation = db.reservations.find(r => r.id === reservationId);
     if (!reservation) return json(res, 404, { ok: false, error: 'Processo nao encontrado' });
 
-    const serviceLines = db.serviceLines.filter(s => s.reservationId === reservationId).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    const rawServiceLines = db.serviceLines.filter(s => s.reservationId === reservationId).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    const serviceLineIds = rawServiceLines.map(s => s.id);
+    const serviceLines = enrichServiceLinesWithPayments(rawServiceLines, db.serviceLinePayments.filter(p => serviceLineIds.includes(p.serviceLineId)));
+    const refunds = db.refunds.filter(r => r.reservationId === reservationId);
     const events = db.reservationEvents.filter(e => e.reservationId === reservationId);
     const tasks = db.tasks.filter(t => t.reservationId === reservationId);
     const complaints = db.complaints.filter(c => c.reservationId === reservationId);
@@ -326,6 +330,8 @@ module.exports = function registerAdminRoutes(router, ctx) {
       documents: documentsWithUrls,
       communications,
       suppliers: db.suppliers.map(s => ({ id: s.id, name: s.name })),
+      refunds,
+      refundDirections: REFUND_DIRECTIONS,
       alerts: computeAlerts(reservation, { serviceLines, documents, payments, tasks })
     });
   }, { admin: true });
@@ -355,17 +361,22 @@ module.exports = function registerAdminRoutes(router, ctx) {
       discountPercent: numberInRange(body.discountPercent, 'Desconto', 0, 100, 0),
       optionDeadline: cleanText(body.optionDeadline, 30),
       cancellationTerms: cleanText(body.cancellationTerms, 1000),
-      paid: Boolean(body.paid),
-      paidAt: body.paid ? (cleanText(body.paidAt, 30) || now()) : undefined,
+      // vatRegime opcional - quando nao definido, a linha usa o regime do
+      // processo (reservation.vatRegime) como valor por omissao (ver
+      // servicosCalculoSubTab.js#vatBadge). paid/paidAt deixaram de se
+      // gravar aqui: sao calculados a partir do ledger real de pagamentos
+      // (ver domain.js#enrichServiceLinesWithPayments e a rota
+      // /reservations/services/payments).
+      vatRegime: VAT_REGIMES.includes(body.vatRegime) ? body.vatRegime : undefined,
       notes: cleanText(body.notes, 1000)
     };
     // So faz sentido preencher os campos de cancelamento quando a linha
     // fica com estado CANCELADO - evita lixo em linhas normais.
+    // refundedAmount/refundedAt deixaram de se gravar aqui: um reembolso
+    // real passa a ser um movimento proprio (ver rota /reservations/refunds).
     if (status === 'CANCELADO') {
       updates.cancelReason = cleanText(body.cancelReason, 500);
       updates.refundableAmount = body.refundableAmount !== undefined ? numberInRange(body.refundableAmount, 'Valor reembolsável', 0, 1000000, 0) : undefined;
-      updates.refundedAmount = body.refundedAmount !== undefined ? numberInRange(body.refundedAmount, 'Valor reembolsado', 0, 1000000, 0) : undefined;
-      updates.refundedAt = body.refundedAmount ? (cleanText(body.refundedAt, 30) || now()) : undefined;
     }
 
     const db = ensureCollections(await readDb());
@@ -407,11 +418,100 @@ module.exports = function registerAdminRoutes(router, ctx) {
     await updateDb(d => {
       ensureCollections(d);
       d.serviceLines = d.serviceLines.filter(s => s.id !== lineId);
+      // Cascade local do lado de pagamentos - no Supabase ja cai por FK
+      // (on delete cascade), aqui evita ficarem pagamentos orfaos em
+      // memoria a apontar para uma linha que ja nao existe.
+      d.serviceLinePayments = d.serviceLinePayments.filter(p => p.serviceLineId !== lineId);
       d.reservationEvents.unshift({ id: id('evt'), createdAt: now(), reservationId, actor: sessionUser(req), type: 'SERVICE_REMOVED', description: `${serviceTypeLabel(line.type)}: ${line.description}` });
       audit(d, sessionUser(req), 'SERVICE_LINE_DELETED', { reservationId, lineId });
     });
     return json(res, 200, { ok: true });
   }, { admin: true });
+
+  // Pagamento a fornecedor em tranches (separador Financeiro > Serviços e
+  // Reservas > gaveta de uma linha): registo append-only, uma linha pode
+  // ter varios. "Pago"/"por pagar" deixam de ser um booleano manual e
+  // passam a ser a soma destes registos - ver domain.js#enrichServiceLinesWithPayments.
+  router.post('/api/admin/reservations/services/payments', async (req, res) => {
+    const body = await parseBody(req);
+    const reservationId = cleanText(body.reservationId, 120);
+    const lineId = cleanText(body.serviceLineId, 120);
+    const amount = numberInRange(body.amount, 'Valor', 0.01, 1000000, 0);
+    const paidAt = cleanText(body.paidAt, 30) || now();
+    const method = cleanText(body.method, 60);
+    const reference = cleanText(body.reference, 100);
+    const notes = cleanText(body.notes, 500);
+    const db = ensureCollections(await readDb());
+    const line = db.serviceLines.find(s => s.id === lineId && s.reservationId === reservationId);
+    if (!line) return json(res, 404, { ok: false, error: 'Linha de serviço não encontrada' });
+
+    const payment = { id: id('slp'), createdAt: now(), serviceLineId: lineId, amount, paidAt, method, reference, notes };
+    await updateDb(d => {
+      ensureCollections(d);
+      d.serviceLinePayments.push(payment);
+      d.reservationEvents.unshift({ id: id('evt'), createdAt: now(), reservationId, actor: sessionUser(req), type: 'SERVICE_UPDATED', description: `Pagamento a fornecedor registado: ${amount.toFixed(2)} € (${line.description})` });
+      audit(d, sessionUser(req), 'SERVICE_LINE_PAYMENT_LOGGED', { reservationId, lineId, paymentId: payment.id, amount });
+    });
+    return json(res, 200, { ok: true, payment });
+  }, { admin: true, roles: ['FINANCEIRO', 'SUPERVISOR', 'ADMIN'] });
+
+  // Reembolso ao cliente / nota de credito do fornecedor, como movimento
+  // real (aparece no extrato de Movimentos da Conta do Processo) - antes
+  // era so um campo solto (refundedAmount) numa linha cancelada.
+  router.post('/api/admin/reservations/refunds', async (req, res) => {
+    const body = await parseBody(req);
+    const reservationId = cleanText(body.reservationId, 120);
+    const lineId = cleanText(body.serviceLineId, 120) || undefined;
+    const direction = REFUND_DIRECTIONS.includes(body.direction) ? body.direction : null;
+    if (!direction) return json(res, 400, { ok: false, error: 'Sentido do reembolso inválido' });
+    const amount = numberInRange(body.amount, 'Valor', 0.01, 1000000, 0);
+    const reason = cleanText(body.reason, 300);
+    const notes = cleanText(body.notes, 500);
+    const db = ensureCollections(await readDb());
+    const reservation = db.reservations.find(r => r.id === reservationId);
+    if (!reservation) return json(res, 404, { ok: false, error: 'Reserva nao encontrada' });
+    if (lineId && !db.serviceLines.find(s => s.id === lineId && s.reservationId === reservationId)) return json(res, 404, { ok: false, error: 'Linha de serviço não encontrada' });
+
+    const refund = { id: id('refund'), createdAt: now(), reservationId, serviceLineId: lineId, direction, amount, reason, notes, createdBy: sessionUser(req) };
+    await updateDb(d => {
+      ensureCollections(d);
+      d.refunds.push(refund);
+      const label = direction === 'CUSTOMER_REFUND' ? 'Reembolso ao cliente' : 'Nota de crédito do fornecedor';
+      d.reservationEvents.unshift({ id: id('evt'), createdAt: now(), reservationId, actor: sessionUser(req), type: 'INFO', description: `${label} registado: ${amount.toFixed(2)} €${reason ? ` (${reason})` : ''}` });
+      audit(d, sessionUser(req), 'REFUND_LOGGED', { reservationId, refundId: refund.id, direction, amount });
+    });
+    return json(res, 200, { ok: true, refund });
+  }, { admin: true, roles: ['FINANCEIRO', 'SUPERVISOR', 'ADMIN'] });
+
+  // Instantaneo da margem do processo (separador Financeiro > Conta do
+  // Processo): "prevista" ja existe (reservation.offer.marginValue,
+  // congelada na criacao) - isto guarda "confirmada" (compra fechada com
+  // fornecedores) e "final" (processo encerrado), para comparar com a
+  // margem ao vivo das linhas de servico.
+  router.post('/api/admin/reservations/margin-snapshot', async (req, res) => {
+    const body = await parseBody(req);
+    const reservationId = cleanText(body.reservationId, 120);
+    const stage = MARGIN_SNAPSHOT_STAGES.includes(body.stage) ? body.stage : null;
+    if (!stage) return json(res, 400, { ok: false, error: 'Fase inválida' });
+    const db = ensureCollections(await readDb());
+    const reservation = db.reservations.find(r => r.id === reservationId);
+    if (!reservation) return json(res, 404, { ok: false, error: 'Reserva nao encontrada' });
+    const activeLines = db.serviceLines.filter(s => s.reservationId === reservationId && s.status !== 'CANCELADO');
+    const { margin } = computeServiceTotals(activeLines);
+
+    const saved = await updateDb(d => {
+      ensureCollections(d);
+      const r = d.reservations.find(x => x.id === reservationId);
+      if (!r) return null;
+      if (stage === 'confirmed') { r.marginConfirmed = margin; r.marginConfirmedAt = now(); }
+      else { r.marginFinal = margin; r.marginFinalAt = now(); }
+      r.updatedAt = now();
+      audit(d, sessionUser(req), 'MARGIN_SNAPSHOT_SAVED', { reservationId, stage, margin });
+      return r;
+    });
+    if (!saved) return json(res, 404, { ok: false, error: 'Reserva nao encontrada' });
+    return json(res, 200, { ok: true, reservation: saved });
+  }, { admin: true, roles: ['FINANCEIRO', 'SUPERVISOR', 'ADMIN'] });
 
   // Separador "Histórico"/"Ocorrências": registo manual de informacoes,
   // alteracoes, problemas, incidentes, atrasos, servicos nao prestados,
@@ -800,7 +900,10 @@ module.exports = function registerAdminRoutes(router, ctx) {
       const r = reservations.find(x => x.id === d.reservationId);
       return { ...d, processNumber: r?.processNumber, signedUrl: await fileStorage.signedUrl(d.storagePath) };
     }));
-    const paidServiceLines = db.serviceLines.filter(l => reservationIds.includes(l.reservationId) && l.status !== 'CANCELADO' && l.paid);
+    const relevantLines = db.serviceLines.filter(l => reservationIds.includes(l.reservationId));
+    const relevantLineIds = relevantLines.map(l => l.id);
+    const enrichedLines = enrichServiceLinesWithPayments(relevantLines, db.serviceLinePayments.filter(p => relevantLineIds.includes(p.serviceLineId)));
+    const paidServiceLines = enrichedLines.filter(l => l.status !== 'CANCELADO' && l.paid);
 
     const vendaTotal = reservations.reduce((sum, r) => sum + (r.offer?.finalPrice || 0), 0);
     const faturado = financialDocs.reduce((sum, d) => sum + (Number(d.amount) || 0), 0) || vendaTotal;

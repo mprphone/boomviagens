@@ -434,7 +434,11 @@ function rowToReservation(row) {
     operationalStaffId: row.operational_staff_id || undefined,
     financialStaffId: row.financial_staff_id || undefined,
     branchId: row.branch_id || undefined,
-    origin: row.origin || undefined
+    origin: row.origin || undefined,
+    marginConfirmed: row.margin_confirmed ?? undefined,
+    marginConfirmedAt: row.margin_confirmed_at || undefined,
+    marginFinal: row.margin_final ?? undefined,
+    marginFinalAt: row.margin_final_at || undefined
   };
 }
 
@@ -466,7 +470,11 @@ function reservationToRow(r) {
     operational_staff_id: r.operationalStaffId || null,
     financial_staff_id: r.financialStaffId || null,
     branch_id: r.branchId || null,
-    origin: r.origin || null
+    origin: r.origin || null,
+    margin_confirmed: r.marginConfirmed ?? null,
+    margin_confirmed_at: r.marginConfirmedAt || null,
+    margin_final: r.marginFinal ?? null,
+    margin_final_at: r.marginFinalAt || null
   };
 }
 
@@ -608,6 +616,7 @@ function rowToServiceLine(row) {
     refundableAmount: row.refundable_amount ?? undefined,
     refundedAmount: row.refunded_amount ?? undefined,
     refundedAt: row.refunded_at || undefined,
+    vatRegime: row.vat_regime || undefined,
     notes: row.notes || ''
   };
 }
@@ -638,7 +647,62 @@ function serviceLineToRow(s) {
     refundable_amount: s.refundableAmount ?? null,
     refunded_amount: s.refundedAmount ?? null,
     refunded_at: s.refundedAt || null,
+    vat_regime: s.vatRegime || null,
     notes: s.notes || null
+  };
+}
+
+function rowToServiceLinePayment(row) {
+  return {
+    id: row.id,
+    createdAt: row.created_at,
+    serviceLineId: row.service_line_id,
+    amount: Number(row.amount),
+    paidAt: row.paid_at,
+    method: row.method || '',
+    reference: row.reference || '',
+    notes: row.notes || ''
+  };
+}
+
+function serviceLinePaymentToRow(p) {
+  return {
+    id: p.id,
+    created_at: p.createdAt,
+    service_line_id: p.serviceLineId,
+    amount: p.amount,
+    paid_at: p.paidAt,
+    method: p.method || null,
+    reference: p.reference || null,
+    notes: p.notes || null
+  };
+}
+
+function rowToRefund(row) {
+  return {
+    id: row.id,
+    createdAt: row.created_at,
+    reservationId: row.reservation_id,
+    serviceLineId: row.service_line_id || undefined,
+    direction: row.direction,
+    amount: Number(row.amount),
+    reason: row.reason || '',
+    notes: row.notes || '',
+    createdBy: row.created_by || undefined
+  };
+}
+
+function refundToRow(r) {
+  return {
+    id: r.id,
+    created_at: r.createdAt,
+    reservation_id: r.reservationId,
+    service_line_id: r.serviceLineId || null,
+    direction: r.direction,
+    amount: r.amount,
+    reason: r.reason || null,
+    notes: r.notes || null,
+    created_by: r.createdBy || null
   };
 }
 
@@ -822,7 +886,7 @@ function idemEntryToRow([key, value]) {
 }
 
 async function readDbSupabase() {
-  const [companyRows, marginRows, branchRows, staffRows, customerRows, leadRows, opportunityRows, opportunityEventRows, proposalRows, reservationRows, paymentRows, emailRows, operatorLogRows, auditLogRows, idemRows, documentRows, contactRows, complaintRows, supplierRows, serviceLineRows, eventRows, taskRows] = await Promise.all([
+  const [companyRows, marginRows, branchRows, staffRows, customerRows, leadRows, opportunityRows, opportunityEventRows, proposalRows, reservationRows, paymentRows, emailRows, operatorLogRows, auditLogRows, idemRows, documentRows, contactRows, complaintRows, supplierRows, serviceLineRows, serviceLinePaymentRows, refundRows, eventRows, taskRows] = await Promise.all([
     selectAll('company_settings', '&id=eq.main'),
     selectAll('margins', '&order=created_at.asc'),
     selectAll('branches', '&order=created_at.asc'),
@@ -843,6 +907,8 @@ async function readDbSupabase() {
     selectAll('complaints', '&order=created_at.desc'),
     selectAll('suppliers', '&order=name.asc'),
     selectAll('reservation_service_lines', '&order=created_at.asc'),
+    selectAll('service_line_payments', '&order=paid_at.asc'),
+    selectAll('refunds', '&order=created_at.desc'),
     selectAll('reservation_events', '&order=created_at.desc'),
     selectAll('tasks', '&order=due_date.asc')
   ]);
@@ -868,6 +934,8 @@ async function readDbSupabase() {
     complaints: (complaintRows || []).map(rowToComplaint),
     suppliers: (supplierRows || []).map(rowToSupplier),
     serviceLines: (serviceLineRows || []).map(rowToServiceLine),
+    serviceLinePayments: (serviceLinePaymentRows || []).map(rowToServiceLinePayment),
+    refunds: (refundRows || []).map(rowToRefund),
     reservationEvents: (eventRows || []).map(rowToReservationEvent),
     tasks: (taskRows || []).map(rowToTask)
   };
@@ -898,6 +966,10 @@ async function writeDbSupabase(db) {
     upsertRows('reservation_service_lines', (db.serviceLines || []).map(serviceLineToRow)),
     upsertRows('reservation_events', (db.reservationEvents || []).map(reservationEventToRow)),
     upsertRows('tasks', (db.tasks || []).map(taskToRow))
+  ]);
+  await Promise.all([
+    upsertRows('service_line_payments', (db.serviceLinePayments || []).map(serviceLinePaymentToRow)),
+    upsertRows('refunds', (db.refunds || []).map(refundToRow))
   ]);
   await upsertRows('idempotency_keys', Object.entries(db.idempotencyKeys || {}).map(idemEntryToRow), 'idempotency_key');
   return db;
@@ -944,6 +1016,8 @@ async function updateDbSupabase(mutator) {
   const complaintRows = diffById(before.complaints, db.complaints).map(complaintToRow);
   const supplierRows = diffById(before.suppliers, db.suppliers).map(supplierToRow);
   const serviceLineRows = diffById(before.serviceLines, db.serviceLines).map(serviceLineToRow);
+  const serviceLinePaymentRows = diffById(before.serviceLinePayments, db.serviceLinePayments).map(serviceLinePaymentToRow);
+  const refundRows = diffById(before.refunds, db.refunds).map(refundToRow);
   const eventRows = diffById(before.reservationEvents, db.reservationEvents).map(reservationEventToRow);
   const taskRows = diffById(before.tasks, db.tasks).map(taskToRow);
   const idemRows = diffMapEntries(before.idempotencyKeys, db.idempotencyKeys).map(idemEntryToRow);
@@ -993,6 +1067,13 @@ async function updateDbSupabase(mutator) {
   ];
   if (removedDocIds.length) thirdTasks.push(deleteRows('documents', removedDocIds));
   await Promise.all(thirdTasks);
+  // service_line_payments/refunds referenciam reservation_service_lines
+  // (e refunds tambem reservations) - so podem ser gravados depois de
+  // ambas ja terem aterrado, por isso ficam de fora do thirdTasks.
+  await Promise.all([
+    upsertRows('service_line_payments', serviceLinePaymentRows),
+    upsertRows('refunds', refundRows)
+  ]);
   await upsertRows('idempotency_keys', idemRows, 'idempotency_key');
   return result;
 }

@@ -8,6 +8,17 @@ import { esc, money, api } from '../utils.js';
 import { openDrawer, closeDrawer } from '../drawer.js';
 import { lineTotal, serviceStatusPillClass } from './serviceCalc.js';
 
+// Mesmos 4 regimes de domain.js#VAT_REGIMES - vazio = usa o regime do
+// processo (reservation.vatRegime), ver servicosCalculoSubTab.js#vatBadge.
+const LINE_VAT_REGIMES = [
+  { value: '', label: '(igual ao processo)' },
+  { value: 'MARGEM', label: 'Regime da margem' },
+  { value: 'NORMAL', label: 'Normal' },
+  { value: 'ISENTO', label: 'Isento' },
+  { value: 'REDUZIDA', label: 'Taxa reduzida' }
+];
+const REFUND_DIRECTION_LABELS = { SUPPLIER_CREDIT: 'Nota de crédito do fornecedor', CUSTOMER_REFUND: 'Reembolso ao cliente' };
+
 export function openLineDrawer(reservation, line, data, reload) {
   const types = data.serviceTypes || [];
   const statuses = data.serviceStatuses || [];
@@ -25,6 +36,11 @@ export function openLineDrawer(reservation, line, data, reload) {
 function renderView(body, reservation, line, data, reload, meta) {
   if (!line) { renderForm(body, reservation, line, data, reload, meta); return; }
   const docs = (data.documents || []).filter(d => d.serviceLineId === line.id);
+  const linePayments = line.payments || [];
+  const dueAmount = (Number(line.netValue) || 0) * (Number(line.quantity) || 1);
+  const paidAmount = Number(line.paidAmount) || 0;
+  const lineRefunds = (data.refunds || []).filter(r => r.serviceLineId === line.id);
+  const vatRegimeLabel = LINE_VAT_REGIMES.find(r => r.value === (line.vatRegime || ''))?.label || line.vatRegime;
 
   body.innerHTML = `
     <div class="drawer-field-grid">
@@ -37,16 +53,51 @@ function renderView(body, reservation, line, data, reload, meta) {
       <div><span class="muted small">Custo (NET)</span><div>${money(line.netValue)}</div></div>
       <div><span class="muted small">Venda (PVP)</span><div>${money(line.pvpValue)}</div></div>
       <div><span class="muted small">A faturar</span><div><b>${money(lineTotal(line))}</b></div></div>
-      <div><span class="muted small">Pago ao fornecedor</span><div>${line.paid ? `<span class="pill pill-ok">Sim${line.paidAt ? ` · ${new Date(line.paidAt).toLocaleDateString('pt-PT')}` : ''}</span>` : '<span class="pill pill-warning">Não</span>'}</div></div>
+      <div><span class="muted small">IVA da linha</span><div>${esc(vatRegimeLabel)}</div></div>
+      <div><span class="muted small">Pago ao fornecedor</span><div>${money(paidAmount)} de ${money(dueAmount)} ${line.paid ? '<span class="pill pill-ok">Pago</span>' : paidAmount > 0 ? '<span class="pill pill-warning">Parcial</span>' : '<span class="pill pill-warning">Não</span>'}</div></div>
     </div>
     ${line.cancellationTerms ? `<p class="summary-detail-line"><b>Condições de cancelamento:</b> ${esc(line.cancellationTerms)}</p>` : ''}
     ${line.status === 'CANCELADO' ? `
       <div class="service-line-cancel-fields">
         <p class="service-line-form-title">Cancelamento</p>
         <p class="summary-detail-line"><b>Motivo:</b> ${esc(line.cancelReason || '—')}</p>
-        <p class="summary-detail-line"><b>Reembolsável:</b> ${money(line.refundableAmount)} · <b>Reembolsado:</b> ${money(line.refundedAmount)}</p>
+        <p class="summary-detail-line"><b>Reembolsável:</b> ${money(line.refundableAmount)}</p>
       </div>` : ''}
     ${line.notes ? `<p class="summary-detail-line"><b>Notas:</b> ${esc(line.notes)}</p>` : ''}
+
+    <p class="summary-block-label">Pagamentos ao fornecedor</p>
+    <div class="doc-list">
+      ${linePayments.map(p => `
+        <div class="doc-item">
+          <span class="muted">${new Date(p.paidAt).toLocaleDateString('pt-PT')} · ${money(p.amount)}${p.method ? ` · ${esc(p.method)}` : ''}${p.reference ? ` · ${esc(p.reference)}` : ''}</span>
+        </div>`).join('') || '<p class="empty-note">Sem pagamentos registados.</p>'}
+    </div>
+    <form class="drawer-payment-form">
+      <div class="customer-profile-grid">
+        <label>Valor (€) <input type="number" name="amount" min="0.01" step="0.01" required /></label>
+        <label>Data <input type="date" name="paidAt" value="${new Date().toISOString().slice(0, 10)}" /></label>
+        <label>Método <input name="method" placeholder="ex.: Transferência bancária" /></label>
+      </div>
+      <button type="submit" class="ghost mini-action">Registar pagamento</button>
+      <p class="customer-form-message"></p>
+    </form>
+
+    <p class="summary-block-label">Reembolsos / notas de crédito</p>
+    <div class="doc-list">
+      ${lineRefunds.map(r => `
+        <div class="doc-item">
+          <span class="muted">${new Date(r.createdAt).toLocaleDateString('pt-PT')} · ${esc(REFUND_DIRECTION_LABELS[r.direction] || r.direction)} · ${money(r.amount)}${r.reason ? ` · ${esc(r.reason)}` : ''}</span>
+        </div>`).join('') || '<p class="empty-note">Sem reembolsos/notas de crédito nesta linha.</p>'}
+    </div>
+    <form class="drawer-refund-form">
+      <div class="customer-profile-grid">
+        <label>Tipo <select name="direction">${Object.entries(REFUND_DIRECTION_LABELS).map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select></label>
+        <label>Valor (€) <input type="number" name="amount" min="0.01" step="0.01" required /></label>
+        <label>Motivo <input name="reason" placeholder="ex.: cancelamento parcial" /></label>
+      </div>
+      <button type="submit" class="ghost mini-action">Registar</button>
+      <p class="customer-form-message"></p>
+    </form>
 
     <p class="summary-block-label">Anexos</p>
     <div class="doc-list">
@@ -66,6 +117,44 @@ function renderView(body, reservation, line, data, reload, meta) {
       <button type="button" class="btn mini-action drawer-edit">Editar</button>
       <button type="button" class="ghost mini-action drawer-delete">Eliminar</button>
     </div>`;
+
+  body.querySelector('.drawer-payment-form').onsubmit = async ev => {
+    ev.preventDefault();
+    const f = ev.target;
+    const btn = f.querySelector('button[type=submit]');
+    const msg = f.querySelector('.customer-form-message');
+    btn.disabled = true;
+    try {
+      await api('/api/admin/reservations/services/payments', {
+        method: 'POST',
+        body: JSON.stringify({ reservationId: reservation.id, serviceLineId: line.id, amount: f.amount.value, paidAt: f.paidAt.value, method: f.method.value })
+      });
+      await reload();
+      closeDrawer();
+    } catch (err) {
+      msg.textContent = err.message;
+      btn.disabled = false;
+    }
+  };
+
+  body.querySelector('.drawer-refund-form').onsubmit = async ev => {
+    ev.preventDefault();
+    const f = ev.target;
+    const btn = f.querySelector('button[type=submit]');
+    const msg = f.querySelector('.customer-form-message');
+    btn.disabled = true;
+    try {
+      await api('/api/admin/reservations/refunds', {
+        method: 'POST',
+        body: JSON.stringify({ reservationId: reservation.id, serviceLineId: line.id, direction: f.direction.value, amount: f.amount.value, reason: f.reason.value })
+      });
+      await reload();
+      closeDrawer();
+    } catch (err) {
+      msg.textContent = err.message;
+      btn.disabled = false;
+    }
+  };
 
   body.querySelectorAll('.drawer-doc-delete').forEach(btn => {
     btn.onclick = async () => {
@@ -138,15 +227,15 @@ function renderForm(body, reservation, line, data, reload, meta) {
         <label>Custo NET (€) <input type="number" name="netValue" min="0" step="0.01" value="${line?.netValue ?? 0}" /></label>
         <label>Venda PVP (€) <input type="number" name="pvpValue" min="0" step="0.01" value="${line?.pvpValue ?? 0}" /></label>
         <label>Desconto (%) <input type="number" name="discountPercent" min="0" max="100" step="0.1" value="${line?.discountPercent ?? 0}" /></label>
+        <label>IVA da linha <select name="vatRegime">${LINE_VAT_REGIMES.map(r => `<option value="${r.value}" ${(line?.vatRegime || '') === r.value ? 'selected' : ''}>${r.label}</option>`).join('')}</select></label>
       </div>
       <label class="service-line-notes">Condições de cancelamento <textarea name="cancellationTerms" rows="2">${esc(line?.cancellationTerms || '')}</textarea></label>
-      <label class="service-line-checkbox"><input type="checkbox" name="paid" ${line?.paid ? 'checked' : ''} /> Já pago ao fornecedor</label>
+      <p class="muted small">Pagamentos ao fornecedor e reembolsos/notas de crédito registam-se no ecrã de detalhe (fora deste formulário), para manter o histórico de cada movimento.</p>
 
       <div class="service-line-cancel-fields" hidden>
         <p class="service-line-form-title">Cancelamento</p>
         <label>Motivo <input name="cancelReason" value="${esc(line?.cancelReason || '')}" /></label>
         <label>Valor reembolsável (€) <input type="number" name="refundableAmount" min="0" step="0.01" value="${line?.refundableAmount ?? ''}" /></label>
-        <label>Valor reembolsado (€) <input type="number" name="refundedAmount" min="0" step="0.01" value="${line?.refundedAmount ?? ''}" /></label>
       </div>
 
       <label class="service-line-notes">Notas <textarea name="notes" rows="2">${esc(line?.notes || '')}</textarea></label>
@@ -214,11 +303,10 @@ function renderForm(body, reservation, line, data, reload, meta) {
           netValue: form.netValue.value,
           pvpValue: form.pvpValue.value,
           discountPercent: form.discountPercent.value,
+          vatRegime: form.vatRegime.value || undefined,
           cancellationTerms: form.cancellationTerms.value,
-          paid: form.paid.checked,
           cancelReason: form.cancelReason.value,
           refundableAmount: form.refundableAmount.value || undefined,
-          refundedAmount: form.refundedAmount.value || undefined,
           notes: form.notes.value
         })
       });
