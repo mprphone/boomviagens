@@ -42,13 +42,35 @@
 }
 
 .pipeline-col {
-  flex: 0 0 260px;
+  flex: 1 1 0;
+  min-width: 190px;
   border-radius: var(--radius);
   background: var(--bg);
   border: 1px solid var(--line);
   padding: 10px;
   display: flex;
   flex-direction: column;
+}
+
+/* Colunas que agrupam 2 fases reais (Proposta = a preparar/enviada; Em
+   decisao = follow-up/negociacao) - cada sub-lane tem a sua propria zona
+   de largar (.pipeline-col-body dentro dela), ver pipeline.js#COLUMN_GROUPS. */
+.pipeline-sublane:not(:first-child) {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+}
+
+.pipeline-sublane-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .02em;
+  margin-bottom: 6px;
+  padding: 0 2px;
 }
 
 .pipeline-col-head {

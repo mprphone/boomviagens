@@ -11,6 +11,29 @@ import { attachDragHandlers, attachDropHandlers } from './kanban.js';
 import { renderOpportunityCard } from './pipeline/opportunityCard.js';
 import { openOpportunityDetail } from './pipeline/opportunityDetail.js';
 
+// Agrupamento visual das colunas do quadro - as 8 fases reais
+// (OPPORTUNITY_STAGES, ver src/domain.js) continuam a existir tal como
+// estao gravadas; isto so decide como se distribuem por colunas no ecra.
+// "A preparar proposta"/"Proposta enviada" e "Follow-up"/"Negociacao"
+// partilham coluna (2 sub-lanes, cada uma com a sua propria zona de
+// largar - kanban.js#attachDropHandlers ja suporta varias zonas por
+// coluna, nao assume uma-para-uma), para caber 6 colunas no ecra em vez
+// de 8 sem perder a distincao entre os 2 estados de cada par.
+const COLUMN_GROUPS = [
+  { key: 'NOVO_INTERESSE', stages: ['NOVO_INTERESSE'] },
+  { key: 'CONTACTADO', stages: ['CONTACTADO'] },
+  {
+    key: 'PROPOSTA', label: 'Proposta', stages: ['A_PREPARAR_PROPOSTA', 'PROPOSTA_ENVIADA'],
+    subLabels: { A_PREPARAR_PROPOSTA: 'A preparar', PROPOSTA_ENVIADA: 'Enviada' }
+  },
+  {
+    key: 'EM_DECISAO', label: 'Em decisão', stages: ['FOLLOW_UP', 'NEGOCIACAO'],
+    subLabels: { FOLLOW_UP: 'Follow-up', NEGOCIACAO: 'Negociação' }
+  },
+  { key: 'GANHO', stages: ['GANHO'] },
+  { key: 'PERDIDO', stages: ['PERDIDO'] }
+];
+
 let allOpportunities = [];
 let meta = {};
 let staffList = [];
@@ -113,20 +136,35 @@ function applyFilters(list) {
 function renderBoard() {
   const boardEl = $('#pipelineBoard');
   const filtered = applyFilters(allOpportunities);
+  const stageMeta = new Map(meta.stages.map(s => [s.value, s]));
 
-  boardEl.innerHTML = meta.stages.map(s => `
-    <div class="pipeline-col">
-      <div class="pipeline-col-head">
-        <h3>${esc(s.label)}</h3>
-        <div class="pipeline-col-meta" data-meta="${s.value}"></div>
-      </div>
-      <div class="pipeline-col-body" data-col-value="${s.value}"></div>
-    </div>`).join('');
+  boardEl.innerHTML = COLUMN_GROUPS.map(g => {
+    const label = g.label || stageMeta.get(g.stages[0])?.label || g.stages[0];
+    const body = g.stages.length > 1
+      ? g.stages.map(stageValue => `
+          <div class="pipeline-sublane">
+            <div class="pipeline-sublane-head">
+              <span>${esc(g.subLabels[stageValue])}</span>
+              <span data-meta="${stageValue}"></span>
+            </div>
+            <div class="pipeline-col-body" data-col-value="${stageValue}"></div>
+          </div>`).join('')
+      : `<div class="pipeline-col-body" data-col-value="${g.stages[0]}"></div>`;
+    return `
+      <div class="pipeline-col">
+        <div class="pipeline-col-head">
+          <h3>${esc(label)}</h3>
+          <div class="pipeline-col-meta" data-meta="${g.key}"></div>
+        </div>
+        ${body}
+      </div>`;
+  }).join('');
 
   meta.stages.forEach(s => {
     const stageOpportunities = filtered.filter(o => o.stage === s.value);
     const total = stageOpportunities.reduce((sum, o) => sum + (Number(o.estimatedValue) || 0), 0);
-    boardEl.querySelector(`[data-meta="${s.value}"]`).textContent = `${stageOpportunities.length} · ${money(total)}`;
+    const metaEl = boardEl.querySelector(`[data-meta="${s.value}"]`);
+    if (metaEl) metaEl.textContent = `${stageOpportunities.length} · ${money(total)}`;
 
     const body = boardEl.querySelector(`.pipeline-col-body[data-col-value="${s.value}"]`);
     stageOpportunities.forEach(o => {
@@ -135,6 +173,14 @@ function renderBoard() {
       attachDragHandlers(card);
       body.appendChild(card);
     });
+  });
+
+  // Contagem agregada no cabecalho de cada coluna (soma das fases do
+  // grupo) - para colunas de 1 fase so, e o mesmo valor ja escrito acima.
+  COLUMN_GROUPS.forEach(g => {
+    const groupOpportunities = filtered.filter(o => g.stages.includes(o.stage));
+    const total = groupOpportunities.reduce((sum, o) => sum + (Number(o.estimatedValue) || 0), 0);
+    boardEl.querySelector(`.pipeline-col-meta[data-meta="${g.key}"]`).textContent = `${groupOpportunities.length} · ${money(total)}`;
   });
 
   attachDropHandlers(boardEl, async (opportunityId, newStage) => {
