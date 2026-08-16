@@ -76,7 +76,9 @@ export function wireLogin(onSuccess) {
       pendingChallenge = data.challenge;
       $('#loginEmailForm').hidden = true;
       $('#loginCodeForm').hidden = false;
-      $('#loginCodeMessage').textContent = `Código (demo, sem email real): ${data.demoCode}`;
+      $('#loginCodeMessage').textContent = data.demoCode
+        ? `Código (demo, sem email real): ${data.demoCode}`
+        : 'Código enviado por email. Verifique a sua caixa de entrada.';
     } catch (err) {
       msg.textContent = err.message;
       msg.classList.add('is-error');
