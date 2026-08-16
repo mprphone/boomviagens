@@ -4,6 +4,8 @@
 // aparecem no cabecalho fixo da ficha - aqui nao se repetem.
 
 import { esc, money, api } from '../utils.js';
+import { openOpportunityQuickCreate } from '../pipeline/opportunityQuickCreate.js';
+import { openOpportunityPage } from '../pipeline.js';
 
 export function renderResumoTab(panel, data, email, reload) {
   const c = data.customer;
@@ -11,6 +13,10 @@ export function renderResumoTab(panel, data, email, reload) {
   const nextTrip = data.indicators?.nextTrip;
 
   panel.innerHTML = `
+    <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
+      <button type="button" class="btn mini-action quick-create-opportunity">+ Criar oportunidade</button>
+    </div>
+
     <div class="summary-cards-row">
       ${nextTrip ? `
         <div class="summary-card">
@@ -75,6 +81,13 @@ export function renderResumoTab(panel, data, email, reload) {
           </div>`).join('') || '<p class="empty-note">Sem movimentos registados.</p>'}
       </div>
     </div>`;
+
+  panel.querySelector('.quick-create-opportunity').onclick = () => {
+    openOpportunityQuickCreate(
+      { customerName: c.name, customerEmail: c.email, customerPhone: c.phone },
+      opportunity => openOpportunityPage(opportunity.id)
+    );
+  };
 
   panel.querySelectorAll('.alert-remove').forEach(btn => {
     btn.onclick = async () => {

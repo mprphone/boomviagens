@@ -250,6 +250,16 @@ function processNumber(reservation) {
   return `PV-${year}-${suffix}`;
 }
 
+// Mesma logica do processNumber, mas para oportunidades (OP-). Quando uma
+// oportunidade e convertida em reserva, o id da reserva reaproveita este
+// mesmo sufixo (ver opportunitiesRoutes.js), pelo que OP-2026-1C322A e
+// PV-2026-1C322A identificam o mesmo processo comercial em duas fases.
+function opportunityNumber(opportunity) {
+  const year = (opportunity.createdAt || '').slice(0, 4) || String(new Date().getFullYear());
+  const suffix = String(opportunity.id || '').split('-').pop() || '000000';
+  return `OP-${year}-${suffix}`;
+}
+
 function missingDocumentsFor(reservation, documents) {
   const docs = documents.filter(d => d.reservationId === reservation.id);
   const missing = [];
@@ -484,5 +494,6 @@ module.exports = {
   complaintStatusLabel,
   documentTypeLabel,
   processNumber,
+  opportunityNumber,
   computeAlerts
 };

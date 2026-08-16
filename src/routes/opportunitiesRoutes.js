@@ -9,7 +9,7 @@ module.exports = function registerOpportunitiesRoutes(router, ctx) {
     ensureCollections, audit, id, now,
     OPPORTUNITY_STAGES, OPPORTUNITY_TEMPERATURES, OPPORTUNITY_TAGS, OPPORTUNITY_ORIGINS, NEXT_ACTION_TYPES, LOSS_REASONS, PROPOSAL_STATUSES,
     opportunityStageLabel, opportunityTemperatureLabel, opportunityTagLabel, opportunityOriginLabel, nextActionTypeLabel, lossReasonLabel, proposalStatusLabel,
-    opportunityHealth, sanitizeStaff, processNumber
+    opportunityHealth, sanitizeStaff, processNumber, opportunityNumber
   } = domain;
   const { sessionUser } = ctx.auth;
 
@@ -38,6 +38,7 @@ module.exports = function registerOpportunitiesRoutes(router, ctx) {
     const db = ensureCollections(await readDb());
     const opportunities = db.opportunities.map(o => ({
       ...o,
+      opportunityNumber: opportunityNumber(o),
       health: opportunityHealth(o, { lastEventAt: lastActivityAt(db, o.id) })
     }));
 
@@ -74,7 +75,7 @@ module.exports = function registerOpportunitiesRoutes(router, ctx) {
 
     return json(res, 200, {
       ok: true,
-      opportunity: { ...opportunity, health: opportunityHealth(opportunity, { lastEventAt: lastActivityAt(db, opportunity.id) }) },
+      opportunity: { ...opportunity, opportunityNumber: opportunityNumber(opportunity), health: opportunityHealth(opportunity, { lastEventAt: lastActivityAt(db, opportunity.id) }) },
       events: db.opportunityEvents.filter(e => e.opportunityId === opportunityId),
       tasks: db.tasks.filter(t => t.opportunityId === opportunityId),
       communications: db.contactLog.filter(c => c.opportunityId === opportunityId),
@@ -208,8 +209,15 @@ module.exports = function registerOpportunitiesRoutes(router, ctx) {
     const finalPrice = acceptedProposal?.saleValue ?? opportunity.estimatedValue ?? 0;
     const costPrice = acceptedProposal?.costValue;
 
+    // O id da reserva reaproveita o sufixo do id da oportunidade, para que
+    // processNumber(reservation) (PV-...) e opportunityNumber(opportunity)
+    // (OP-...) partilhem o mesmo sufixo e a ligacao fique visivel so pelo
+    // numero, sem ter de abrir o processo.
+    const opportunitySuffix = String(opportunity.id || '').split('-').pop();
+    const reservationId = id('res').replace(/-[^-]+$/, `-${opportunitySuffix}`);
+
     const reservation = {
-      id: id('res'),
+      id: reservationId,
       createdAt: now(),
       status: 'PENDING_PAYMENT',
       customer: { name: opportunity.customerName, email: opportunity.customerEmail, phone: opportunity.customerPhone },
@@ -224,7 +232,7 @@ module.exports = function registerOpportunitiesRoutes(router, ctx) {
         costPrice
       },
       source: 'pipeline',
-      notes: `Processo criado a partir da oportunidade comercial (${opportunity.id}).`,
+      notes: `Processo criado a partir da oportunidade comercial ${opportunityNumber(opportunity)}.`,
       commercialStaffId: opportunity.commercialStaffId || undefined,
       operationalStaffId: operationalStaffId || undefined
     };
@@ -261,7 +269,8 @@ module.exports = function registerOpportunitiesRoutes(router, ctx) {
         ...p,
         opportunityCustomerName: opportunity?.customerName,
         opportunityDestination: opportunity?.destination,
-        opportunityStage: opportunity?.stage
+        opportunityStage: opportunity?.stage,
+        opportunityNumber: opportunity ? opportunityNumber(opportunity) : undefined
       };
     }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     return json(res, 200, { ok: true, proposals, ...metaPayload() });

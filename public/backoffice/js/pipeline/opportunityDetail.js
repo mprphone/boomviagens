@@ -33,7 +33,7 @@ function renderHeader(data) {
   return `
     <div class="process-header">
       <div class="process-header-title">
-        <b>${esc(o.customerName)}</b>${o.destination ? ` · ${esc(o.destination)}` : ''}
+        <b>${esc(o.opportunityNumber)}</b> · ${esc(o.customerName)}${o.destination ? ` · ${esc(o.destination)}` : ''}
       </div>
       <div class="process-header-trip">${o.dateStart ? `${esc(o.dateStart)} → ${esc(o.dateEnd || '')} · ` : ''}${paxCount} passageiro${paxCount === 1 ? '' : 's'}${o.estimatedValue ? ` · ${money(o.estimatedValue)}` : ''}</div>
       <div class="process-header-status">

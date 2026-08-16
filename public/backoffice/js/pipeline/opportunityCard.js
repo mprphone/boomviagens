@@ -32,6 +32,7 @@ export function renderOpportunityCard(o, staffById) {
   card.dataset.id = o.id;
   card.innerHTML = `
     <div class="pipeline-card-name">${esc(o.customerName)}</div>
+    ${o.opportunityNumber ? `<div class="muted small">${esc(o.opportunityNumber)}</div>` : ''}
     <div class="pipeline-card-dest">${esc(o.destination || 'Destino por definir')}</div>
     ${o.dateStart ? `<div class="pipeline-card-dates">${esc(o.dateStart)} → ${esc(o.dateEnd || '')} · ${paxCount} passageiro${paxCount === 1 ? '' : 's'}</div>` : ''}
     ${o.tags?.length ? `<div class="pipeline-card-tags">${o.tags.map(t => `<span class="pill">${esc(TAG_LABEL[t] || t)}</span>`).join('')}</div>` : ''}
