@@ -1,6 +1,5 @@
-// Cabecalho: dropdowns de "Mais servicos/Mais viagens/Informacoes",
-// atalhos de destino/servico ainda nao disponivel, e o link simples
-// "Pesquisar" que volta a homepage.
+// Cabecalho: atalhos de destino/servico ainda nao disponivel, e os links
+// simples que voltam a homepage (nav plana, sem dropdowns).
 
 import { $ } from './utils.js';
 import { goHome } from './router.js';
@@ -20,29 +19,6 @@ document.querySelectorAll('a[data-destino], a[data-soon]').forEach(link => {
     location.hash = '#pesquisa';
     form.requestSubmit();
   });
-});
-
-document.querySelectorAll('.nav-dropdown-trigger').forEach(btn => {
-  btn.addEventListener('click', e => {
-    e.preventDefault();
-    e.stopPropagation();
-    const parent = btn.closest('.nav-dropdown');
-    const wasOpen = parent.classList.contains('open');
-    document.querySelectorAll('.nav-dropdown.open').forEach(d => d.classList.remove('open'));
-    if (!wasOpen) parent.classList.add('open');
-  });
-});
-
-document.querySelectorAll('.nav-dropdown-panel a').forEach(link => {
-  link.addEventListener('click', () => {
-    link.closest('.nav-dropdown')?.classList.remove('open');
-  });
-});
-
-document.addEventListener('click', e => {
-  if (!e.target.closest('.nav-dropdown')) {
-    document.querySelectorAll('.nav-dropdown.open').forEach(d => d.classList.remove('open'));
-  }
 });
 
 document.querySelectorAll('.main-nav a[href="#pesquisa"]:not([data-destino]):not([data-soon])').forEach(link => {

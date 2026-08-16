@@ -27,10 +27,12 @@ module.exports = function registerBranchesRoutes(router, ctx) {
       if (branch) {
         branch.name = name;
         branch.code = cleanText(body.code, 20);
+        branch.address = cleanText(body.address, 200);
+        branch.phone = cleanText(body.phone, 40);
         branch.active = body.active !== false;
         branch.updatedAt = now();
       } else {
-        branch = { id: id('branch'), createdAt: now(), name, code: cleanText(body.code, 20), active: true };
+        branch = { id: id('branch'), createdAt: now(), name, code: cleanText(body.code, 20), address: cleanText(body.address, 200), phone: cleanText(body.phone, 40), active: true };
         d.branches.unshift(branch);
       }
       audit(d, sessionUser(req), branchId ? 'BRANCH_UPDATED' : 'BRANCH_CREATED', { branchId: branch.id });

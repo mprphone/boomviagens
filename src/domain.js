@@ -441,7 +441,9 @@ function publicDeals(db, baseOffers, getOfferById) {
       price: priced.finalPrice || offer.base,
       operator: offer.operator,
       image: offerImages[offer.id],
-      tag: index < 3 ? 'Last call' : 'Novidade'
+      tag: index < 3 ? 'Últimos lugares' : 'Novidade',
+      rating: offer.rating,
+      freeCancellation: offer.freeCancellation
     };
   }).sort((a, b) => a.price - b.price);
 }

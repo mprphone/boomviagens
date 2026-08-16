@@ -19,6 +19,8 @@ export async function renderAgencias() {
       <form id="newBranchForm" class="customer-profile-grid" hidden style="margin-bottom:14px">
         <label>Nome <input name="name" required placeholder="ex.: Fafe" /></label>
         <label>Código <input name="code" placeholder="ex.: FAF" maxlength="20" /></label>
+        <label>Morada <input name="address" placeholder="ex.: Rua Dr. José Summavielle, 4820-253 Fafe" /></label>
+        <label>Telefone <input name="phone" placeholder="ex.: 253 695 089" /></label>
         <button class="btn mini-action" type="submit">Criar</button>
         <p class="customer-form-message"></p>
       </form>
@@ -37,7 +39,7 @@ export async function renderAgencias() {
     const msg = f.querySelector('.customer-form-message');
     btn.disabled = true;
     try {
-      await api('/api/admin/branches', { method: 'POST', body: JSON.stringify({ name: f.name.value, code: f.code.value }) });
+      await api('/api/admin/branches', { method: 'POST', body: JSON.stringify({ name: f.name.value, code: f.code.value, address: f.address.value, phone: f.phone.value }) });
       f.reset();
       f.hidden = true;
       await loadBranches();
@@ -67,6 +69,7 @@ function renderList() {
     <div class="customer-row">
       <div class="customer-summary" data-id="${esc(b.id)}">
         <b>${esc(b.name)}</b>${b.code ? ` · ${esc(b.code)}` : ''} ${b.active ? '' : '<span class="pill pill-warning">Inativa</span>'}
+        ${b.address ? `<br><span class="muted small">${esc(b.address)}${b.phone ? ` · ${esc(b.phone)}` : ''}</span>` : ''}
       </div>
       <div class="customer-detail" data-id="${esc(b.id)}" hidden></div>
     </div>`).join('') || '<p class="empty-note">Sem agências criadas ainda.</p>';
@@ -91,6 +94,8 @@ function renderBranchForm(panel, b) {
       <div class="customer-profile-grid">
         <label>Nome <input name="name" value="${esc(b.name)}" required /></label>
         <label>Código <input name="code" value="${esc(b.code || '')}" maxlength="20" /></label>
+        <label>Morada <input name="address" value="${esc(b.address || '')}" /></label>
+        <label>Telefone <input name="phone" value="${esc(b.phone || '')}" /></label>
         <label class="service-line-checkbox"><input type="checkbox" name="active" ${b.active ? 'checked' : ''} /> Ativa</label>
       </div>
       <button class="btn mini-action" type="submit">Guardar</button>
@@ -105,7 +110,7 @@ function renderBranchForm(panel, b) {
     btn.disabled = true;
     btn.textContent = 'A guardar...';
     try {
-      await api('/api/admin/branches', { method: 'POST', body: JSON.stringify({ id: b.id, name: f.name.value, code: f.code.value, active: f.active.checked }) });
+      await api('/api/admin/branches', { method: 'POST', body: JSON.stringify({ id: b.id, name: f.name.value, code: f.code.value, address: f.address.value, phone: f.phone.value, active: f.active.checked }) });
       btn.textContent = 'Guardado ✓';
       await loadBranches();
     } catch (err) {

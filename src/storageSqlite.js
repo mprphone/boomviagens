@@ -40,7 +40,8 @@ CREATE TABLE IF NOT EXISTS leads (
   search TEXT, top_result TEXT
 );
 CREATE TABLE IF NOT EXISTS branches (
-  id TEXT PRIMARY KEY, created_at TEXT, updated_at TEXT, name TEXT, code TEXT, active INTEGER
+  id TEXT PRIMARY KEY, created_at TEXT, updated_at TEXT, name TEXT, code TEXT,
+  address TEXT, phone TEXT, active INTEGER
 );
 CREATE TABLE IF NOT EXISTS staff (
   id TEXT PRIMARY KEY, created_at TEXT, updated_at TEXT, name TEXT, email TEXT,
@@ -231,7 +232,7 @@ function rowToLead(row) {
 }
 
 function rowToBranch(row) {
-  return { id: row.id, createdAt: row.created_at, updatedAt: row.updated_at || undefined, name: row.name, code: row.code || '', active: Boolean(row.active) };
+  return { id: row.id, createdAt: row.created_at, updatedAt: row.updated_at || undefined, name: row.name, code: row.code || '', address: row.address || '', phone: row.phone || '', active: Boolean(row.active) };
 }
 
 function rowToStaff(row) {

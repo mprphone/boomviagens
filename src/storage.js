@@ -171,6 +171,8 @@ function rowToBranch(row) {
     updatedAt: row.updated_at || undefined,
     name: row.name,
     code: row.code || '',
+    address: row.address || '',
+    phone: row.phone || '',
     active: row.active !== false
   };
 }
@@ -182,6 +184,8 @@ function branchToRow(b) {
     updated_at: b.updatedAt || null,
     name: b.name,
     code: b.code || null,
+    address: b.address || null,
+    phone: b.phone || null,
     active: b.active !== false
   };
 }

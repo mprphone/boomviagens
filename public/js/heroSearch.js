@@ -3,6 +3,20 @@
 
 import { $, esc, api } from './utils.js';
 
+// Duas abas sobre o mesmo #searchForm (nao dois formularios): "Pesquisa
+// rapida" mostra os campos estruturados, "Ajuda-me a encontrar" mostra o
+// texto livre. Os dois conjuntos de campos ficam sempre no DOM - so a
+// visibilidade muda - por isso o motor de pesquisa (que ja aceita os
+// dois em conjunto, ver smartParse em src/mockOperators.js) continua a
+// receber tudo o que foi preenchido, seja qual for a aba usada por
+// ultimo.
+document.querySelectorAll('.search-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.search-tab').forEach(t => { t.classList.toggle('is-active', t === tab); t.setAttribute('aria-selected', t === tab ? 'true' : 'false'); });
+    $('#searchForm').classList.toggle('mode-ai', tab.dataset.mode === 'ai');
+  });
+});
+
 // Destinos que o motor de pesquisa reconhece (ver smartParse em
 // src/mockOperators.js) - a sugestao so mostra o que realmente vai dar
 // resultados relevantes, nao uma lista generica desligada dos dados.

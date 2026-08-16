@@ -4,7 +4,7 @@
 
 import { $, esc, money, dateRange, api, formToJson } from './utils.js';
 import { goHome, goToResults } from './router.js';
-import { applyRoomOption } from './offers.js';
+import { applyRoomOption, computeHighlights } from './offers.js';
 import { showReview } from './review.js';
 
 // Nomes tal como vem do sistema do operador sao codigos internos em
@@ -138,44 +138,8 @@ $('#results').addEventListener('click', e => {
 // proprios resultados (nunca inventadas) - a que tem maior pontuacao
 // de compatibilidade (ja calculada no servidor por computeScore), a
 // mais barata e a mais bem avaliada. Se duas categorias caírem na
-// mesma oferta, so aparece uma vez.
-function reasonsFor(offer, kind, budget) {
-  const reasons = [];
-  if (kind === 'escolha') {
-    if (offer.finalPrice <= budget) reasons.push('Dentro do orçamento');
-    if (offer.freeCancellation) reasons.push('Cancelamento flexível');
-    if (/tudo inclu/i.test(offer.board || '')) reasons.push('Tudo incluído');
-  } else if (kind === 'preco') {
-    reasons.push('Preço mais baixo da pesquisa');
-    if (offer.rating) reasons.push(`${offer.rating}★ de avaliação`);
-    if (offer.freeCancellation) reasons.push('Cancelamento flexível');
-  } else {
-    if (offer.rating) reasons.push(`Classificação mais alta (${offer.rating}★)`);
-    if (/tudo inclu/i.test(offer.board || '')) reasons.push('Tudo incluído');
-    if (offer.freeCancellation) reasons.push('Cancelamento flexível');
-  }
-  return reasons.slice(0, 3);
-}
-
-function computeHighlights(results, budget) {
-  if (!results.length) return [];
-  const byScore = [...results].sort((a, b) => (b.score || 0) - (a.score || 0));
-  const byPrice = [...results].sort((a, b) => a.finalPrice - b.finalPrice);
-  const byRating = [...results].sort((a, b) => (b.rating || 0) - (a.rating || 0) || (b.score || 0) - (a.score || 0));
-
-  const used = new Set();
-  const picks = [];
-  const add = (label, ribbon, kind, offer) => {
-    if (!offer || used.has(offer.id)) return;
-    used.add(offer.id);
-    picks.push({ label, ribbon, offer, reasons: reasonsFor(offer, kind, budget), hotelIndex: results.indexOf(offer) });
-  };
-  add('Melhor escolha', '🏆', 'escolha', byScore[0]);
-  add('Melhor preço', '💰', 'preco', byPrice[0]);
-  add('Melhor hotel', '✨', 'hotel', byRating[0]);
-  return picks;
-}
-
+// mesma oferta, so aparece uma vez. Logica partilhada com a homepage
+// (secao "Recomendado para si") - ver offers.js#computeHighlights.
 function renderHighlights(results, budget) {
   const el = $('#resultsHighlights');
   const picks = computeHighlights(results, budget);

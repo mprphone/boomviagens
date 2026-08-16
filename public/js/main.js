@@ -10,8 +10,10 @@ import './review.js';
 import './checkout.js';
 import './chat.js';
 
+// #modeBadge existia para o programador ver de relance se a TourDiez real
+// estava configurada - informacao interna, sem interesse para quem
+// visita o site, por isso deixou de ter elemento correspondente no HTML.
 api('/api/config').then(c => {
-  $('#modeBadge').textContent = c.tourdiezConfigured ? 'TourDiez real configurado' : 'modo demo / mock';
   $('#rnavt').textContent = c.company.rnavt || 'INSERIR_RNAVT';
 });
 

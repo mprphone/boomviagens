@@ -2,6 +2,15 @@
 
 import { $, esc, api } from './utils.js';
 
+$('#chatTriggerBtn')?.addEventListener('click', () => {
+  $('#chatPanel').hidden = false;
+  $('#chatTriggerBtn').hidden = true;
+});
+$('#chatCloseBtn')?.addEventListener('click', () => {
+  $('#chatPanel').hidden = true;
+  $('#chatTriggerBtn').hidden = false;
+});
+
 $('#chatForm').addEventListener('submit', async e => {
   e.preventDefault();
   const msg = e.target.message.value.trim();

@@ -40,8 +40,11 @@ module.exports = function registerPublicRoutes(router, ctx) {
   });
 
   router.get('/api/config', async (req, res) => {
-    const db = await readDb();
-    return json(res, 200, { company: db.company, margins: db.margins, paymentsMode: process.env.PAYMENTS_MODE || 'mock', operators: operators.list(), tourdiezConfigured: operators.list().some(o => o.name === 'TourDiez' && o.configured) });
+    const db = ensureCollections(await readDb());
+    // So agencias com morada preenchida (nunca uma agencia recem-criada e
+    // ainda vazia) - ver seccao "4 agencias" da homepage.
+    const branches = db.branches.filter(b => b.active && b.address).map(b => ({ name: b.name, address: b.address, phone: b.phone }));
+    return json(res, 200, { company: db.company, margins: db.margins, branches, paymentsMode: process.env.PAYMENTS_MODE || 'mock', operators: operators.list(), tourdiezConfigured: operators.list().some(o => o.name === 'TourDiez' && o.configured) });
   });
 
   router.get('/api/deals', async (req, res) => {
