@@ -97,9 +97,22 @@ async function post(path, body, cookie = adminCookie) {
   if (!['IN_VALIDATION', 'HUMAN_REVIEW'].includes(paid.reservation.status)) throw new Error('Reserva deveria ficar pendente de aprovacao interna');
   console.log('Pagamento validado:', paid.reservation.status);
 
+  // Esta oferta e demo (sem IdOperation/code/idDistributions reais da
+  // TourDiez), por isso a aprovacao automatica agora tem de pedir revisao
+  // humana em vez de inventar um localizador e confirmar sozinha (ver
+  // auditoria) - so confirma de facto quando ha mesmo um localizador
+  // vindo do operador.
   const approved = await post('/api/admin/reservations/approve', { reservationId: checkout.reservation.id });
-  if (approved.reservation.status !== 'CONFIRMED') throw new Error('Aprovacao admin deveria confirmar a reserva');
-  console.log('Confirmada:', approved.reservation.status, approved.reservation.operatorLocator);
+  if (approved.reservation.status === 'CONFIRMED') throw new Error('Reserva demo (sem referencias reais TourDiez) nao deveria confirmar sozinha');
+  if (!approved.needsHumanReview || approved.confirmation.locator) throw new Error('Aprovacao deveria pedir revisao humana, sem localizador inventado');
+  console.log('Aprovacao pediu revisao humana (correto, sem localizador inventado):', approved.needsHumanReview);
+
+  // A partir daqui e um humano a confirmar manualmente (ex.: verificou a
+  // reserva por telefone/email com o operador) - o mesmo caminho que o
+  // botao "Guardar estado" da ficha da reserva ja usa.
+  const manualConfirm = await post('/api/admin/reservations/update', { reservationId: checkout.reservation.id, status: 'CONFIRMED' });
+  if (manualConfirm.reservation.status !== 'CONFIRMED') throw new Error('Confirmacao manual deveria funcionar');
+  console.log('Confirmada manualmente:', manualConfirm.reservation.status);
 })().catch(err => {
   console.error(err);
   process.exit(1);

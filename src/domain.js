@@ -41,6 +41,12 @@ const DOCUMENT_TYPES = ['PASSPORT', 'VISA', 'INSURANCE', 'VOUCHER', 'TICKET', 'I
 // Tipos de documento financeiro (separador Financeiro > Faturas e
 // Documentos) - so estes tres usam document_number/document_date/amount.
 const CUSTOMER_FINANCIAL_DOC_TYPES = ['INVOICE_SALE', 'RECEIPT', 'CREDIT_NOTE'];
+// Tipos que a Area de Cliente pode mostrar (ver auditoria) - so documentos
+// de viagem, nunca financeiros/internos (faturas de compra, recibos,
+// notas de credito, fotos de ocorrencia, "outro"). Por defeito fechado:
+// um tipo novo em DOCUMENT_TYPES so fica visivel ao cliente se for
+// explicitamente acrescentado aqui.
+const CUSTOMER_VISIBLE_DOCUMENT_TYPES = ['PASSPORT', 'VISA', 'INSURANCE', 'VOUCHER', 'TICKET', 'ITINERARY'];
 const CONTACT_TYPES = ['CALL', 'EMAIL', 'WHATSAPP', 'IN_PERSON', 'OTHER'];
 const COMPLAINT_STATUSES = ['OPEN', 'ANALYZING', 'SENT_TO_SUPPLIER', 'AWAITING_RESPONSE', 'RESPONSE_RECEIVED', 'NEGOTIATING', 'APPROVED', 'REJECTED', 'RESOLVED', 'CLOSED'];
 // Uma reclamacao pode ser do cliente contra a agencia, ou da agencia contra
@@ -260,6 +266,17 @@ function opportunityNumber(opportunity) {
   return `OP-${year}-${suffix}`;
 }
 
+// O proprio cliente ve sempre o que ele mesmo anexou (qualquer tipo) - a
+// restricao de tipo e so para documentos que a equipa anexou do lado do
+// backoffice. Documentos de ocorrencia/reclamacao ficam sempre de fora,
+// seja qual for o tipo ou quem anexou - sao registos internos de um
+// incidente, nao documentos de viagem do cliente.
+function isCustomerVisibleDocument(doc, customerEmail) {
+  if (doc.eventId || doc.complaintId) return false;
+  if (doc.uploadedBy === customerEmail) return true;
+  return CUSTOMER_VISIBLE_DOCUMENT_TYPES.includes(doc.type);
+}
+
 function missingDocumentsFor(reservation, documents) {
   const docs = documents.filter(d => d.reservationId === reservation.id);
   const missing = [];
@@ -435,6 +452,37 @@ function sanitizeStaff(staff) {
   return rest;
 }
 
+// So os campos que a Area de Cliente mesmo usa (ver auditoria) - antes
+// devolvia a reserva inteira, incluindo offer.costPrice/margem, notas
+// internas, responsaveis internos e o estado da validacao com o operador.
+// Ao adicionar aqui um campo novo, confirmar primeiro que o frontend de
+// public/conta/ precisa mesmo dele.
+function customerReservationView(reservation, { missingDocuments = [], payment } = {}) {
+  const offer = reservation.offer || {};
+  return {
+    id: reservation.id,
+    status: reservation.status,
+    offer: {
+      hotel: offer.hotel,
+      destination: offer.destination,
+      country: offer.country,
+      checkin: offer.checkin,
+      checkout: offer.checkout,
+      nights: offer.nights,
+      board: offer.board,
+      finalPrice: offer.finalPrice
+    },
+    missingDocuments,
+    payment: payment ? {
+      id: payment.id,
+      status: payment.status,
+      method: payment.method,
+      reference: payment.reference,
+      amount: payment.amount
+    } : null
+  };
+}
+
 module.exports = {
   RESERVATION_STATUSES,
   LEAD_STAGES,
@@ -485,6 +533,8 @@ module.exports = {
   publicDeals,
   sanitizeCustomer,
   sanitizeStaff,
+  customerReservationView,
+  isCustomerVisibleDocument,
   computeServiceTotals,
   serviceTypeLabel,
   serviceStatusLabel,

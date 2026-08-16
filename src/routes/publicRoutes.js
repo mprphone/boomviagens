@@ -1,9 +1,39 @@
 // Rotas publicas: nada disto exige sessao. Pesquisa, calendario de precos,
 // destaques da homepage, saude do servico e o chat local.
 
+// Preco cotado fica valido por 30 minutos - depois disso o checkout pede
+// para pesquisar de novo em vez de aceitar um preco antigo.
+const OFFER_TOKEN_TTL_MS = 30 * 60 * 1000;
+
 module.exports = function registerPublicRoutes(router, ctx) {
   const { json, readDb, updateDb, operators, tourdiezAdapter, searchOffers, baseOffers, getOfferById, searchPayload, normalize, rateLimit, domain } = ctx;
   const { publicDeals, ensureCollections, addOperatorLog, now } = domain;
+  const { signToken } = ctx.auth;
+
+  // Assina costPrice/finalPrice/referencias do operador no momento em que
+  // o preco e calculado no servidor (ver auditoria) - o browser reenvia
+  // isto tal e qual no checkout, mas so os valores de dentro do token
+  // assinado sao usados para dinheiro; nunca o que o browser disser que
+  // costPrice/finalPrice sao.
+  function signOffer(offer) {
+    return signToken({
+      scope: 'offer',
+      costPrice: offer.costPrice,
+      finalPrice: offer.finalPrice,
+      tourdiez: offer.tourdiez || null,
+      exp: Date.now() + OFFER_TOKEN_TTL_MS
+    });
+  }
+
+  function attachOfferTokens(results) {
+    return results.map(offer => ({
+      ...offer,
+      offerToken: signOffer(offer),
+      roomOptions: Array.isArray(offer.roomOptions)
+        ? offer.roomOptions.map(opt => ({ ...opt, offerToken: signOffer(opt) }))
+        : offer.roomOptions
+    }));
+  }
 
   router.get('/api/health', async (req, res) => {
     return json(res, 200, { ok: true, service: 'Boomviagens', time: now(), mode: process.env.TOURDIEZ_MODE || 'mock' });
@@ -85,7 +115,7 @@ module.exports = function registerPublicRoutes(router, ctx) {
     // tecnico do operador; o lead so nasce mais tarde, quando ha um sinal
     // real de interesse (ex.: avancar para o checkout).
     if (operatorLog) await updateDb(d => { ensureCollections(d); addOperatorLog(d, operatorLog.type, operatorLog.payload); });
-    return json(res, 200, { ok: true, parsed, results, operatorStatus });
+    return json(res, 200, { ok: true, parsed, results: attachOfferTokens(results), operatorStatus });
   });
 
   router.post('/api/chat', async (req, res) => {

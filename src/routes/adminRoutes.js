@@ -144,22 +144,36 @@ module.exports = function registerAdminRoutes(router, ctx) {
     approvalsInProgress.add(reservationId);
     try {
       const adapter = operators.getForOffer(reservation.offer);
-      const confirmation = await adapter.confirm({ reservation, payment });
+      // Operador desconhecido (ver auditoria) - nunca assumir o primeiro
+      // adapter registado, fica sempre para revisao humana.
+      const confirmation = adapter
+        ? await adapter.confirm({ reservation, payment })
+        : { ok: false, operator: null, locator: null, needsHumanReview: true, raw: { reason: `Operador desconhecido: "${reservation.offer?.operator || ''}"` } };
+      // So passa a CONFIRMED com uma confirmacao real e completa: chamada
+      // aceite pelo operador, localizador real devolvido, e sem pedido de
+      // revisao humana (ver auditoria) - nunca confirmar so porque a rota
+      // foi chamada. Sem isto, o localizador ficava sempre inventado.
+      const canAutoConfirm = confirmation.ok && confirmation.locator && !confirmation.needsHumanReview;
       let resultPayload = null;
 
       await updateDb(d => {
         ensureCollections(d);
         const r = d.reservations.find(x => x.id === reservation.id);
         const p = d.payments.find(x => x.id === payment.id);
-        r.status = 'CONFIRMED';
-        r.confirmedAt = now();
-        r.operatorLocator = confirmation.locator;
-        r.operatorConfirmation = confirmation.raw?.mock ? 'MOCK_CONFIRM_OK' : 'CONFIRM_SENT';
-        const email = reservationEmail({ reservation: r, payment: p });
-        d.emails.unshift({ id: id('email'), createdAt: now(), to: r.customer?.email || 'cliente@exemplo.pt', status: 'GERADO_DEMO', ...email });
         addOperatorLog(d, 'CONFIRM', confirmation);
-        audit(d, sessionUser(req), 'RESERVATION_APPROVED', { reservationId: r.id, operatorLocator: r.operatorLocator });
-        resultPayload = { reservation: r, payment: p, confirmation };
+        if (canAutoConfirm) {
+          r.status = 'CONFIRMED';
+          r.confirmedAt = now();
+          r.operatorLocator = confirmation.locator;
+          r.operatorConfirmation = confirmation.raw?.mock ? 'MOCK_CONFIRM_OK' : 'CONFIRM_SENT';
+          const email = reservationEmail({ reservation: r, payment: p });
+          d.emails.unshift({ id: id('email'), createdAt: now(), to: r.customer?.email || 'cliente@exemplo.pt', status: 'GERADO_DEMO', ...email });
+          audit(d, sessionUser(req), 'RESERVATION_APPROVED', { reservationId: r.id, operatorLocator: r.operatorLocator });
+        } else {
+          r.operatorConfirmation = 'NEEDS_HUMAN_REVIEW';
+          audit(d, sessionUser(req), 'RESERVATION_APPROVAL_NEEDS_REVIEW', { reservationId: r.id });
+        }
+        resultPayload = { reservation: r, payment: p, confirmation, needsHumanReview: !canAutoConfirm };
       });
       return json(res, 200, { ok: true, ...resultPayload });
     } finally {

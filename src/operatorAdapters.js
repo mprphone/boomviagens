@@ -280,6 +280,14 @@ class TourDiezAdapter extends OperatorAdapter {
     return Boolean(refs.idOperation && refs.code && refs.idDistributions);
   }
 
+  // M1 = sucesso, mesmo codigo usado pelo login (ver ensureSession() em
+  // tourdiezClient.js) - qualquer outro cod_result, ou XML sem cod_result
+  // (ex.: resposta mock local), nao pode ser tratado como sucesso real.
+  isSuccessResult(raw) {
+    if (raw?.mock) return true;
+    return this.tag(raw?.responseXml, 'cod_result') === 'M1';
+  }
+
   async value({ offer }) {
     if (!this.hasTourdiezRefs(offer)) {
       return {
@@ -293,15 +301,28 @@ class TourDiezAdapter extends OperatorAdapter {
       };
     }
     const raw = await this.client.value(this.tourdiezRefs(offer));
-    return this.normalizeValue(raw, offer);
+    // Ver auditoria: antes disto priceStillValid/availabilityStillValid
+    // eram sempre true mesmo com referencias reais, sem olhar a resposta.
+    // O nome exato do campo com o preco/disponibilidade atual da TourDiez
+    // ainda nao esta documentado neste projeto, por isso o unico sinal
+    // fiavel que temos e o proprio cod_result da chamada.
+    const ok = this.isSuccessResult(raw);
+    return {
+      ok,
+      operator: this.name,
+      offerId: offer?.id,
+      priceStillValid: ok,
+      availabilityStillValid: ok,
+      raw
+    };
   }
 
   async confirm({ reservation }) {
     if (!this.hasTourdiezRefs(reservation.offer)) {
       return {
-        ok: true,
+        ok: false,
         operator: this.name,
-        locator: `BDV-${Math.floor(100000 + Math.random() * 900000)}`,
+        locator: null,
         needsHumanReview: true,
         raw: { skipped: true, reason: 'Oferta sem IdOperation/code/idDistributions da TourDiez; confirmacao real nao enviada.' }
       };
@@ -311,10 +332,17 @@ class TourDiezAdapter extends OperatorAdapter {
       clientLocalizer: reservation.id,
       clients: reservation.passengers?.length ? reservation.passengers : [{ name: reservation.customer?.name || 'Cliente' }]
     });
+    // Nunca inventar um localizador (ver auditoria). cod_result diz-nos se
+    // a TourDiez aceitou o pedido, mas o campo exato com o localizador real
+    // na resposta ainda nao esta documentado neste projeto - por isso fica
+    // sempre para revisao humana (ler raw.responseXml e confirmar) em vez
+    // de arriscar mostrar ao cliente uma referencia que nao existe no
+    // operador.
     return {
-      ok: true,
+      ok: this.isSuccessResult(raw),
       operator: this.name,
-      locator: `BDV-${Math.floor(100000 + Math.random() * 900000)}`,
+      locator: null,
+      needsHumanReview: true,
       raw
     };
   }
@@ -339,14 +367,16 @@ class OperatorRegistry {
    * dentro de `offer.operator` - por isso o `operator` de uma oferta tem
    * de conter o nome exato passado ao construtor do adapter (ex.: uma
    * oferta Hotelbeds real teria de ter operator a incluir "Hotelbeds").
-   * As ofertas demo em src/mockOperators.js usam nomes tipo "TourDiez
-   * Demo"/"W2M Demo" que nao correspondem a nenhum adapter real, por
-   * isso caem sempre no fallback (`this.adapters[0]`) - aceitavel porque
-   * ofertas demo nunca chegam a bater num operador de verdade.
+   * Devolve null quando nao ha correspondencia (ver auditoria) - antes
+   * caia sempre no primeiro adapter registado, o que enviaria reservas de
+   * um operador desconhecido para o adapter errado assim que houvesse
+   * mais de um adapter registado. Quem chama trata null como "operador
+   * desconhecido, precisa de revisao humana" (ver checkoutRoutes.js e
+   * adminRoutes.js).
    */
   getForOffer(offer = {}) {
     const operator = String(offer.operator || '').toLowerCase();
-    return this.adapters.find(adapter => operator.includes(adapter.name.toLowerCase())) || this.adapters[0];
+    return this.adapters.find(adapter => operator.includes(adapter.name.toLowerCase())) || null;
   }
 
   list() {

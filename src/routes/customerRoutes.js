@@ -10,7 +10,7 @@ const crypto = require('crypto');
 
 module.exports = function registerCustomerRoutes(router, ctx) {
   const { json, unauthorized, parseBody, readDb, updateDb, customerPayload, validateEmail, validatePassword, rateLimit, domain, cleanText, fileStorage, mailer } = ctx;
-  const { ensureCollections, audit, id, now, missingDocumentsFor, DOCUMENT_TYPES, sanitizeCustomer } = domain;
+  const { ensureCollections, audit, id, now, missingDocumentsFor, DOCUMENT_TYPES, sanitizeCustomer, customerReservationView, isCustomerVisibleDocument } = domain;
   const { signToken, verifyToken, customerSessionEmail, setCustomerSessionCookie, clearCustomerSessionCookie, safeEqual, hashPassword, verifyPassword, hashLoginCode, CUSTOMER_CODE_TTL_MS, SESSION_TTL_MS } = ctx.auth;
 
   // So cria clientes novos. Quem ja existe so pode ser alterado por quem
@@ -145,8 +145,7 @@ module.exports = function registerCustomerRoutes(router, ctx) {
     const db = ensureCollections(await readDb());
     const reservations = db.reservations
       .filter(r => r.customer?.email === customerEmail)
-      .map(r => ({
-        ...r,
+      .map(r => customerReservationView(r, {
         missingDocuments: missingDocumentsFor(r, db.documents),
         payment: db.payments.find(p => p.reservationId === r.id) || null
       }));
@@ -214,6 +213,10 @@ module.exports = function registerCustomerRoutes(router, ctx) {
     } else {
       documents = db.documents.filter(d => d.customerEmail === customerEmail);
     }
+    // So documentos de viagem (ou o que o proprio cliente anexou) - nunca
+    // faturas de compra, documentacao interna ou de ocorrencia/reclamacao
+    // (ver auditoria).
+    documents = documents.filter(d => isCustomerVisibleDocument(d, customerEmail));
     const withUrls = await Promise.all(documents.map(async d => ({ ...d, signedUrl: await fileStorage.signedUrl(d.storagePath) })));
     return json(res, 200, { ok: true, documents: withUrls });
   });
@@ -261,8 +264,12 @@ module.exports = function registerCustomerRoutes(router, ctx) {
     return json(res, 200, { ok: true, document });
   });
 
+  // Ver auditoria: nao basta pertencer a uma reserva do cliente - um
+  // documento interno/financeiro ligado a essa mesma reserva (ex.: fatura
+  // de compra ao fornecedor) nao pode ser visto nem apagado pelo cliente,
+  // mesmo sabendo o documentId.
   function ownDocumentOrNull(db, document, customerEmail) {
-    if (!document) return null;
+    if (!document || !isCustomerVisibleDocument(document, customerEmail)) return null;
     if (document.reservationId) return ownReservationOrNull(db, document.reservationId, customerEmail) ? document : null;
     return document.customerEmail === customerEmail ? document : null;
   }

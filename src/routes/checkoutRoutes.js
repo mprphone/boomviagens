@@ -13,7 +13,7 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
   const { json, unauthorized, parseBody, readDb, updateDb, operators, customerPayload, paymentMethod, cleanText, domain, reservationEmail } = ctx;
   const { ensureCollections, audit, addOperatorLog, id, now } = domain;
   const { rateLimit } = ctx;
-  const { customerSessionEmail } = ctx.auth;
+  const { customerSessionEmail, verifyToken } = ctx.auth;
 
   router.post('/api/checkout', async (req, res) => {
     const limited = rateLimit(req, res, 'checkout', 30, 60 * 1000);
@@ -25,8 +25,21 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
     let offer = body.offer || ctx.getOfferById(body.offerId, db.margins);
     if (!offer) return json(res, 404, { ok: false, error: 'Oferta nao encontrada' });
 
-    // O offer vem do cliente (o browser reenvia o que recebeu na pesquisa),
-    // por isso nada garante que finalPrice nao foi alterado entretanto.
+    // Quando a oferta vem do browser (body.offer, reenviado tal como veio
+    // da pesquisa), so os precos de dentro do offerToken assinado no
+    // momento da pesquisa sao de confianca - nunca costPrice/finalPrice
+    // enviados diretamente (ver auditoria: bastava mandar os dois iguais
+    // para "provar" que a margem nao tinha sido violada). offerId sozinho
+    // (sem offer) continua a vir de getOfferById, calculado de novo no
+    // servidor, sem depender de nada vindo do browser.
+    if (body.offer) {
+      const signed = verifyToken(offer.offerToken);
+      if (!signed || signed.scope !== 'offer') {
+        return json(res, 400, { ok: false, error: 'Esta oferta expirou ou é inválida - faça a pesquisa novamente.' });
+      }
+      offer = { ...offer, costPrice: signed.costPrice, finalPrice: signed.finalPrice, tourdiez: signed.tourdiez || undefined };
+    }
+
     // applyMargin() nunca produz um finalPrice abaixo do costPrice (a
     // margem e sempre >= 0 e o arredondamento e sempre para cima) - uma
     // oferta que viole isso so pode ter sido manipulada, e e rejeitada
@@ -136,7 +149,11 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
     if (!customerEmail || customerEmail !== reservation.customer?.email) return unauthorized(res);
 
     const adapter = operators.getForOffer(reservation.offer);
-    const validation = await adapter.value({ offer: reservation.offer, reservation });
+    // Operador desconhecido (ver auditoria) - nunca assumir o primeiro
+    // adapter registado, fica sempre para revisao humana.
+    const validation = adapter
+      ? await adapter.value({ offer: reservation.offer, reservation })
+      : { ok: false, operator: null, priceStillValid: false, availabilityStillValid: false, needsHumanReview: true, raw: { reason: `Operador desconhecido: "${reservation.offer?.operator || ''}"` } };
 
     await updateDb(d => {
       ensureCollections(d);
@@ -146,7 +163,12 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
         p.paidAt = now();
       }
       const r = d.reservations.find(x => x.id === reservation.id);
-      r.status = validation.priceStillValid && validation.availabilityStillValid ? 'IN_VALIDATION' : 'HUMAN_REVIEW';
+      // needsHumanReview tem de bloquear a validacao automatica tal como
+      // priceStillValid/availabilityStillValid (ver auditoria) - antes so
+      // estes dois eram olhados, por isso uma oferta sem referencias reais
+      // da TourDiez (needsHumanReview=true) passava sempre a IN_VALIDATION
+      // como se tivesse sido mesmo validada.
+      r.status = validation.priceStillValid && validation.availabilityStillValid && !validation.needsHumanReview ? 'IN_VALIDATION' : 'HUMAN_REVIEW';
       r.paymentReceivedAt = p.paidAt;
       r.operatorValidation = validation.raw?.mock ? 'MOCK_VALUE_OK' : 'VALUE_SENT';
       r.operatorValidationAt = now();
