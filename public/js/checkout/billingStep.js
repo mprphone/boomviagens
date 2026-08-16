@@ -5,12 +5,16 @@
 
 import { $, esc, api, formToJson, isValidNif } from '../utils.js';
 import { setCheckoutStep } from './checkoutShell.js';
-import { getBilling, setBilling, isEmailVerified, setEmailVerified, getVerifyChallenge, setVerifyChallenge, setPassengerIndex, hasExistingPassword, setHasExistingPassword } from './checkoutState.js';
+import { getBilling, setBilling, isEmailVerified, setEmailVerified, getVerifyChallenge, setVerifyChallenge, setPassengerIndex, hasExistingPassword, setHasExistingPassword, getExistingProfile, setExistingProfile } from './checkoutState.js';
 import { renderPassengerStep } from './passengerStep.js';
 
 export function renderCheckoutStep1() {
   const billing = getBilling();
   const verified = isEmailVerified();
+  // NIF ja gravado na conta - nao deixa alterar por aqui (evita trocar por
+  // engano um dado fiscal usado na fatura); para corrigir, e' na propria
+  // conta, em "Os meus dados".
+  const nifLocked = Boolean(getExistingProfile()?.nif);
 
   $('#checkoutMain').innerHTML = `
     <form id="checkoutStep1Form" class="checkout-form">
@@ -41,10 +45,11 @@ export function renderCheckoutStep1() {
       ${verified && hasExistingPassword() ? '<p class="muted small">Já tem uma password definida para esta conta. Pode alterá-la em Os meus dados depois de entrar.</p>' : ''}
       <div class="form-row">
         <label>Telefone <input name="phone" value="${esc(billing.phone)}" required /></label>
-        <label>Contribuinte (NIF) <input name="nif" id="billingNif" value="${esc(billing.nif)}" maxlength="9" placeholder="opcional" />
+        <label>Contribuinte (NIF) <input name="nif" id="billingNif" value="${esc(billing.nif)}" maxlength="9" placeholder="opcional" ${nifLocked ? 'readonly' : ''} />
           <span class="field-error-text" id="nifError" hidden>NIF inválido.</span>
         </label>
       </div>
+      ${nifLocked ? '<p class="muted small">NIF definido na sua conta. Para alterar, faça-o em "Os meus dados".</p>' : ''}
       <label>Morada <span class="muted">(opcional)</span> <input name="address" value="${esc(billing.address)}" placeholder="Rua, número, código postal, localidade" /></label>
       <div id="checkoutFormError"></div>
       <button class="btn wide" type="submit" id="step1Continue" ${verified ? '' : 'disabled'}>Continuar para passageiros</button>
@@ -96,10 +101,31 @@ function wireStep1Form() {
       return;
     }
     setBilling({ name: f.name, email: f.email, phone: f.phone, nif: f.nif || '', address: f.address || '' });
+    syncBlankProfileFields(f);
     setCheckoutStep(2);
     setPassengerIndex(0);
     renderPassengerStep();
   });
+}
+
+// So grava na ficha os campos que ainda estavam vazios antes desta reserva -
+// nunca sobrepoe um valor ja existente (o NIF, alias, nem chega a ficar
+// editavel nesse caso - ver renderCheckoutStep1). Sessao ja garantida: so se
+// chega aqui com isEmailVerified() true, que so acontece com sessao valida.
+function syncBlankProfileFields(f) {
+  const c = getExistingProfile() || {};
+  const updates = {};
+  if (!c.name) updates.name = f.name;
+  if (!c.phone) updates.phone = f.phone;
+  if (!c.nif) updates.nif = f.nif || '';
+  if (!c.address) updates.address = f.address || '';
+  if (!Object.keys(updates).length) return;
+  api('/api/customer/profile', { method: 'POST', body: JSON.stringify({ ...c, ...updates }) })
+    .then(data => setExistingProfile(data.customer))
+    .catch(() => {
+      // Melhor esforco - se falhar, a reserva segue na mesma, so nao fica
+      // gravado para a proxima vez.
+    });
 }
 
 async function requestEmailCode(emailValue) {
@@ -179,6 +205,7 @@ async function prefillFromExistingProfile() {
   try {
     const data = await api('/api/customer/profile');
     const c = data.customer;
+    setExistingProfile(c);
     const current = getBilling();
     setBilling({
       name: current.name || c.name || '',

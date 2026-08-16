@@ -6,7 +6,7 @@
 import { $, esc, api, formToJson } from '../utils.js';
 import { getCurrentOffer, setLastPayment, setLastReservation } from '../state.js';
 import { setCheckoutStep } from './checkoutShell.js';
-import { getBilling, getPassengers, setPassenger, getPassengerIndex, setPassengerIndex, setReservationCreated } from './checkoutState.js';
+import { getBilling, getPassengers, setPassenger, getPassengerIndex, setPassengerIndex, setReservationCreated, isEmailVerified, getSavedPassengers, setSavedPassengers } from './checkoutState.js';
 import { renderCheckoutStep1 } from './billingStep.js';
 import { renderCheckoutStep3 } from './paymentStep.js';
 
@@ -16,7 +16,48 @@ function guessFirstAndLastName(fullName) {
   return { name: parts.slice(0, -1).join(' '), surname: parts[parts.length - 1] };
 }
 
-export function renderPassengerStep() {
+// Traduz um passageiro da carteira (public/conta/js/passengers.js, campo
+// "name" unico) para o formato dos campos deste passo (name/surname
+// separados) - so os campos que existem dos dois lados.
+function fromWalletShape(w) {
+  return {
+    ...guessFirstAndLastName(w.name),
+    birthdate: w.birthdate || '',
+    gender: '',
+    nationality: w.nationality || 'Portuguesa',
+    documentType: w.documentType === 'PASSPORT' ? 'PASSPORT' : 'CC',
+    documentNumber: w.documentNumber || '',
+    documentCountry: 'Portugal',
+    documentExpiry: w.documentExpiry || ''
+  };
+}
+
+// Sentido inverso, para guardar um passageiro deste passo na carteira -
+// so os campos que a carteira conhece (ver toWalletShape/fromWalletShape em
+// public/conta/js/passengers.js).
+function toWalletShape(p) {
+  return {
+    name: [p.name, p.surname].filter(Boolean).join(' '),
+    birthdate: p.birthdate || '',
+    nationality: p.nationality || '',
+    documentType: p.documentType === 'PASSPORT' ? 'PASSPORT' : 'CC',
+    documentNumber: p.documentNumber || '',
+    documentExpiry: p.documentExpiry || ''
+  };
+}
+
+export async function renderPassengerStep() {
+  // Carteira de passageiros do cliente (se tiver sessao) - carregada uma so
+  // vez por checkout, reaproveitada nos passos seguintes/anteriores.
+  if (isEmailVerified() && getSavedPassengers() === null) {
+    try {
+      const data = await api('/api/customer/profile');
+      setSavedPassengers(data.customer.passengers || []);
+    } catch {
+      setSavedPassengers([]);
+    }
+  }
+
   const offer = getCurrentOffer();
   const adults = offer.adults || 1;
   const total = adults + (offer.children || 0);
@@ -30,6 +71,14 @@ export function renderPassengerStep() {
     ? { ...guessFirstAndLastName(getBilling().name), nationality: 'Portuguesa' }
     : { nationality: 'Portuguesa' });
 
+  // So oferece passageiros da carteira que ainda nao estao atribuidos a
+  // outro lugar desta mesma reserva (nao faz sentido escolher a mesma
+  // pessoa duas vezes).
+  const assignedElsewhere = new Set(passengers
+    .map((p, i) => (i !== index && p) ? `${p.name || ''} ${p.surname || ''}`.trim().toLowerCase() : null)
+    .filter(Boolean));
+  const pickable = (getSavedPassengers() || []).filter(w => !assignedElsewhere.has((w.name || '').trim().toLowerCase()));
+
   $('#checkoutMain').innerHTML = `
     <form id="passengerForm" class="checkout-form">
       <h3>Passageiros</h3>
@@ -38,6 +87,11 @@ export function renderPassengerStep() {
         <span class="legal-notice-icon">⚠️</span>
         <p>Os nomes têm de corresponder exatamente ao documento de identificação (Cartão de Cidadão ou Passaporte). Correções depois da confirmação podem implicar custos adicionais cobrados pelo operador.</p>
       </div>
+      ${pickable.length ? `
+        <div class="field-label">Passageiros guardados</div>
+        <div class="saved-passenger-chips">
+          ${pickable.map(w => `<button type="button" class="ghost mini-action saved-passenger-chip" data-id="${esc(w.id)}">${esc(w.name)}</button>`).join('')}
+        </div>` : ''}
       <div class="passenger-card">
         <div class="passenger-card-grid">
           <label>Nome <input name="name" value="${esc(existing.name || '')}" required /></label>
@@ -62,6 +116,7 @@ export function renderPassengerStep() {
           <label>Validade do documento <input name="documentExpiry" type="date" value="${esc(existing.documentExpiry || '')}" /></label>
         </div>
       </div>
+      <label class="consent"><input type="checkbox" id="saveToWalletCheck" /><span>Guardar este passageiro na minha lista para reservas futuras</span></label>
       ${isLast ? `
         <label class="consent"><input type="checkbox" required /><span>Confirmo que os nomes e dados dos passageiros estão corretos e coincidem com o documento de identificação que vão usar na viagem.</span></label>
         <label class="field-label">Método de pagamento</label>
@@ -79,6 +134,15 @@ export function renderPassengerStep() {
       </div>
     </form>`;
 
+  document.querySelectorAll('.saved-passenger-chip').forEach(chip => {
+    chip.onclick = () => {
+      const w = pickable.find(x => x.id === chip.dataset.id);
+      if (!w) return;
+      setPassenger(index, fromWalletShape(w));
+      renderPassengerStep();
+    };
+  });
+
   $('#passengerBack').onclick = () => {
     setPassenger(index, readPassengerForm());
     if (index === 0) {
@@ -92,7 +156,13 @@ export function renderPassengerStep() {
 
   $('#passengerForm').addEventListener('submit', async e => {
     e.preventDefault();
-    setPassenger(index, readPassengerForm());
+    const data = readPassengerForm();
+    setPassenger(index, data);
+    // Aguarda-se: se nao ficasse serializado com o passageiro seguinte, os
+    // dois "guardar na carteira" (cada um substitui a lista completa) podiam
+    // correr em paralelo com a mesma lista em cache e o segundo apagava o
+    // primeiro.
+    if ($('#saveToWalletCheck').checked) await saveToWallet(data);
     if (!isLast) {
       setPassengerIndex(index + 1);
       renderPassengerStep();
@@ -100,6 +170,25 @@ export function renderPassengerStep() {
     }
     await submitCheckout(e.target);
   });
+}
+
+// Melhor esforco, nao bloqueia o avanco no checkout se falhar - so grava
+// para a proxima reserva ser mais rapida. Atualiza uma entrada existente
+// (mesmo nome) em vez de duplicar.
+async function saveToWallet(passengerData) {
+  const wallet = toWalletShape(passengerData);
+  if (!wallet.name) return;
+  const current = getSavedPassengers() || [];
+  const matchIdx = current.findIndex(w => (w.name || '').trim().toLowerCase() === wallet.name.trim().toLowerCase());
+  const next = matchIdx >= 0
+    ? current.map((w, i) => i === matchIdx ? { ...w, ...wallet, id: w.id } : w)
+    : [...current, wallet];
+  try {
+    const data = await api('/api/customer/passengers', { method: 'POST', body: JSON.stringify({ passengers: next }) });
+    setSavedPassengers(data.customer.passengers || next);
+  } catch {
+    // Sem sorte desta vez - a reserva segue na mesma.
+  }
 }
 
 function readPassengerForm() {

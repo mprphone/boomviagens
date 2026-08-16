@@ -241,6 +241,13 @@ input.is-valid { border-color: #4fae7d; }
 .passenger-nav .btn { flex: 1 1 auto; }
 .passenger-nav .ghost { flex: 0 0 auto; }
 
+.saved-passenger-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -4px 0 4px;
+}
+
 .passenger-card {
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);

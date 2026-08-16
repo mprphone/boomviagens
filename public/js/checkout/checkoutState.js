@@ -9,9 +9,24 @@ let passengers = [];
 let currentPassengerIndex = 0;
 let reservationCreated = false;
 let hasPassword = false;
+let existingProfile = null;
+let savedPassengers = null;
 
 export const getBilling = () => billing;
 export const setBilling = value => { billing = value; };
+
+// Perfil do cliente tal como estava gravado antes desta reserva (ou null se
+// nao houver conta) - guardado no momento do pre-preenchimento, para saber
+// que campos ja estavam la (e por isso nao devem ser reescritos "por cima"
+// nem, no caso do NIF, deixados editar sem mais).
+export const getExistingProfile = () => existingProfile;
+export const setExistingProfile = value => { existingProfile = value; };
+
+// Carteira de passageiros do cliente (null = ainda nao carregada nesta
+// sessao de checkout). Carregada uma vez, atualizada depois de cada
+// "guardar para o futuro" na etapa de passageiros.
+export const getSavedPassengers = () => savedPassengers;
+export const setSavedPassengers = value => { savedPassengers = value; };
 
 export const isEmailVerified = () => emailVerified;
 export const setEmailVerified = value => { emailVerified = value; };
@@ -47,4 +62,6 @@ export function resetCheckoutState() {
   currentPassengerIndex = 0;
   reservationCreated = false;
   hasPassword = false;
+  existingProfile = null;
+  savedPassengers = null;
 }
