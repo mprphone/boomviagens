@@ -164,6 +164,11 @@
   gap: 10px;
   margin-bottom: 12px;
 }
+/* Mesmo bug de especificidade ja apanhado no site publico e no login-gate
+   do backoffice: display:grid do autor ganha ao [hidden] do user-agent
+   stylesheet na mesma especificidade. Afeta os formularios "+ Novo..."
+   escondidos ate clicar (team.js/agencias.js/suppliers.js). */
+.customer-profile-grid[hidden] { display: none; }
 
 .customer-profile-form textarea {
   width: 100%;
