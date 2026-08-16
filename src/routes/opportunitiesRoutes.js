@@ -213,6 +213,26 @@ module.exports = function registerOpportunitiesRoutes(router, ctx) {
     const finalPrice = acceptedProposal?.saleValue ?? opportunity.estimatedValue ?? 0;
     const costPrice = acceptedProposal?.costValue;
 
+    // Ver auditoria: a conversao perdia passageiros e a proposta aceite
+    // nao deixava rasto nenhum na reserva, so o total. Passageiros: se o
+    // cliente ja existir, reaproveita-se a lista de passageiros ja
+    // conhecida (separador "Passageiros" da ficha do cliente) - o formato
+    // e um pouco diferente do de reservation.passengers, por isso e
+    // mapeado, nao copiado tal e qual.
+    const existingCustomer = db.customers.find(c => c.email === opportunity.customerEmail);
+    const passengers = (existingCustomer?.passengers || []).map(p => ({
+      name: p.name || '',
+      surname: '',
+      type: 'ADT',
+      birthdate: p.birthdate || '',
+      gender: '',
+      nationality: p.nationality || '',
+      documentType: p.documentType || '',
+      documentNumber: p.documentNumber || '',
+      documentCountry: '',
+      documentExpiry: p.documentExpiry || ''
+    }));
+
     // O id da reserva reaproveita o sufixo do id da oportunidade, para que
     // processNumber(reservation) (PV-...) e opportunityNumber(opportunity)
     // (OP-...) partilhem o mesmo sufixo e a ligacao fique visivel so pelo
@@ -225,7 +245,7 @@ module.exports = function registerOpportunitiesRoutes(router, ctx) {
       createdAt: now(),
       status: 'PENDING_PAYMENT',
       customer: { name: opportunity.customerName, email: opportunity.customerEmail, phone: opportunity.customerPhone },
-      passengers: [],
+      passengers,
       offer: {
         destination: opportunity.destination,
         checkin: opportunity.dateStart,
@@ -243,12 +263,41 @@ module.exports = function registerOpportunitiesRoutes(router, ctx) {
       origin: opportunity.origin || undefined
     };
 
+    // Linhas de servico: a proposta aceite ainda so tem um campo de texto
+    // livre (services), sem itens estruturados (ver auditoria - isso fica
+    // para um trabalho maior, separado) - por agora cria-se uma linha
+    // unica que resume a proposta aceite, para o Financeiro do processo
+    // nao comecar vazio quando ja havia um acordo fechado.
+    const serviceLine = acceptedProposal?.services ? {
+      id: id('svc'),
+      createdAt: now(),
+      reservationId: reservation.id,
+      type: 'DIVERSOS',
+      description: acceptedProposal.services,
+      status: 'NAO_CONFIRMADO',
+      supplierName: '',
+      reference: '',
+      locator: '',
+      quantity: 1,
+      dateStart: opportunity.dateStart || '',
+      dateEnd: opportunity.dateEnd || '',
+      netValue: costPrice || 0,
+      pvpValue: finalPrice,
+      discountPercent: 0,
+      paid: false,
+      notes: `Linha criada automaticamente a partir da proposta aceite (V${acceptedProposal.version}).`
+    } : null;
+
     await updateDb(d => {
       ensureCollections(d);
       d.reservations.unshift(reservation);
-      let existingCustomer = d.customers.find(c => c.email === opportunity.customerEmail);
-      if (!existingCustomer) {
+      let customer = d.customers.find(c => c.email === opportunity.customerEmail);
+      if (!customer) {
         d.customers.unshift({ id: id('cli'), createdAt: now(), name: opportunity.customerName, email: opportunity.customerEmail, phone: opportunity.customerPhone });
+      }
+      if (serviceLine) {
+        d.serviceLines.push(serviceLine);
+        d.reservationEvents.unshift({ id: id('evt'), createdAt: now(), reservationId: reservation.id, actor: sessionUser(req), type: 'SERVICE_ADDED', description: `${serviceLine.description} (linha automática da proposta aceite)` });
       }
       const opp = d.opportunities.find(o => o.id === opportunityId);
       opp.stage = 'GANHO';
