@@ -23,6 +23,7 @@ const registerAdminRoutes = require('./src/routes/adminRoutes');
 const registerStaffRoutes = require('./src/routes/staffRoutes');
 const registerOpportunitiesRoutes = require('./src/routes/opportunitiesRoutes');
 const registerTeamRoutes = require('./src/routes/teamRoutes');
+const registerBranchesRoutes = require('./src/routes/branchesRoutes');
 
 const PORT = Number(process.env.PORT || 3000);
 const PUBLIC = path.join(__dirname, 'public');
@@ -69,6 +70,7 @@ registerAdminRoutes(router, ctx);
 registerStaffRoutes(router, ctx);
 registerOpportunitiesRoutes(router, ctx);
 registerTeamRoutes(router, ctx);
+registerBranchesRoutes(router, ctx);
 
 const serveStatic = createStaticServer(PUBLIC);
 

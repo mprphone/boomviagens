@@ -10,6 +10,7 @@ import { openReservationDetail } from './reservations/reservationDetail.js';
 
 let allReservations = [];
 let statuses = [];
+let branchList = [];
 
 export async function renderReservas() {
   const el = $('#view-reservas');
@@ -18,12 +19,14 @@ export async function renderReservas() {
       <div class="toolbar">
         <input id="reservationsSearch" type="search" placeholder="Pesquisar por processo, localizador, NIF, telefone, hotel, destino, cliente..." />
         <select id="reservationsStatusFilter"></select>
+        <select id="reservationsBranchFilter"></select>
       </div>
       <div id="reservationsList"><p class="muted">A carregar...</p></div>
     </div>`;
 
   $('#reservationsSearch').addEventListener('input', renderTable);
   $('#reservationsStatusFilter').addEventListener('change', renderTable);
+  $('#reservationsBranchFilter').addEventListener('change', renderTable);
 
   await loadReservations();
 }
@@ -33,16 +36,19 @@ async function loadReservations() {
     const data = await api('/api/admin/reservations');
     allReservations = data.reservations;
     statuses = data.statuses;
+    branchList = data.branches || [];
     const filterEl = $('#reservationsStatusFilter');
     filterEl.innerHTML = '<option value="">Todos os estados</option>' + statuses.map(s => `<option value="${s.value}">${s.label}</option>`).join('');
+    $('#reservationsBranchFilter').innerHTML = '<option value="">Todas as agências</option>' + branchList.map(b => `<option value="${esc(b.id)}">${esc(b.name)}</option>`).join('');
     renderTable();
   } catch (err) {
     $('#reservationsList').innerHTML = `<p class="error">${esc(err.message)}</p>`;
   }
 }
 
-function matchesFilter(r, query, status) {
+function matchesFilter(r, query, status, branchId) {
   if (status && r.status !== status) return false;
+  if (branchId && r.branchId !== branchId) return false;
   if (!query) return true;
   const haystack = `${r.id} ${r.processNumber || ''} ${r.customer?.name || ''} ${r.customer?.email || ''} ${r.customer?.phone || ''} ${r.customer?.nif || ''} ${r.offer?.hotel || ''} ${r.offer?.destination || ''} ${r.operator || ''} ${r.operatorLocator || ''} ${r.invoiceNumber || ''}`.toLowerCase();
   return haystack.includes(query.toLowerCase());
@@ -55,7 +61,8 @@ function statusLabel(status) {
 function renderTable() {
   const query = $('#reservationsSearch').value.trim();
   const status = $('#reservationsStatusFilter').value;
-  const filtered = allReservations.filter(r => matchesFilter(r, query, status));
+  const branchId = $('#reservationsBranchFilter').value;
+  const filtered = allReservations.filter(r => matchesFilter(r, query, status, branchId));
 
   if (!filtered.length) {
     $('#reservationsList').innerHTML = '<p class="empty-note">Sem reservas.</p>';

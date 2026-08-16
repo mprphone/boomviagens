@@ -22,6 +22,10 @@ const LEAD_STAGES = ['NOVA', 'EM_CONSULTA', 'PROPOSTA_ENVIADA', 'RESERVADO', 'PE
 // correspondem aos tres "responsaveis" possiveis de um processo (ver
 // reservations.commercial_staff_id/operational_staff_id/financial_staff_id).
 const STAFF_ROLES = ['COMERCIAL', 'OPERACIONAL', 'FINANCEIRO', 'SUPERVISOR', 'ADMIN'];
+// Distingue colaborador interno de freelancer (separador "Equipa") - por
+// agora so isto; um freelancer trabalhar para varias agencias ao mesmo
+// tempo ou ter regras de comissao proprias fica para pedir depois.
+const EMPLOYMENT_TYPES = ['INTERNO', 'FREELANCER'];
 
 // Fases do Pipeline comercial (quadro por arrasto, ver separador
 // "Pipeline"). Fixas no codigo por agora (nao editaveis pelo
@@ -112,6 +116,7 @@ function now() { return new Date().toISOString(); }
 
 function ensureCollections(db) {
   db.staff ||= [];
+  db.branches ||= [];
   db.customers ||= [];
   db.leads ||= [];
   db.opportunities ||= [];
@@ -334,6 +339,10 @@ function staffRoleLabel(role) {
   return ({ COMERCIAL: 'Comercial', OPERACIONAL: 'Operacional', FINANCEIRO: 'Financeiro', SUPERVISOR: 'Supervisor', ADMIN: 'Administrador' })[role] || role;
 }
 
+function employmentTypeLabel(type) {
+  return ({ INTERNO: 'Interno', FREELANCER: 'Freelancer' })[type] || type;
+}
+
 function opportunityStageLabel(stage) {
   return ({
     NOVO_INTERESSE: 'Novo interesse', CONTACTADO: 'Contactado', A_PREPARAR_PROPOSTA: 'A preparar proposta',
@@ -487,6 +496,7 @@ module.exports = {
   RESERVATION_STATUSES,
   LEAD_STAGES,
   STAFF_ROLES,
+  EMPLOYMENT_TYPES,
   OPPORTUNITY_STAGES,
   OPPORTUNITY_TEMPERATURES,
   OPPORTUNITY_TAGS,
@@ -521,6 +531,7 @@ module.exports = {
   leadStageLabel,
   leadStage,
   staffRoleLabel,
+  employmentTypeLabel,
   opportunityStageLabel,
   opportunityTemperatureLabel,
   opportunityTagLabel,

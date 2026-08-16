@@ -11,7 +11,7 @@
 
 module.exports = function registerStaffRoutes(router, ctx) {
   const { json, parseBody, readDb, updateDb, cleanText, domain } = ctx;
-  const { ensureCollections, audit, id, now, STAFF_ROLES, sanitizeStaff, staffRoleLabel } = domain;
+  const { ensureCollections, audit, id, now, STAFF_ROLES, EMPLOYMENT_TYPES, sanitizeStaff, staffRoleLabel, employmentTypeLabel } = domain;
   const { sessionUser, sessionStaff, signToken, safeEqual, hashPassword, verifyPassword, setSessionCookie, clearSessionCookie, rateLimit, SESSION_TTL_MS } = ctx.auth;
 
   router.get('/api/admin/session', async (req, res) => {
@@ -43,7 +43,8 @@ module.exports = function registerStaffRoutes(router, ctx) {
       if (safeEqual(username, envUser) && safeEqual(password, envPassword)) {
         staffMember = {
           id: id('staff'), createdAt: now(), name: 'Administrador', email: '',
-          username: envUser, passwordHash: hashPassword(envPassword), role: 'ADMIN', color: '', active: true
+          username: envUser, passwordHash: hashPassword(envPassword), role: 'ADMIN', color: '', active: true,
+          branchId: 'branch-sede', employmentType: 'INTERNO'
         };
         await updateDb(d => {
           ensureCollections(d);
@@ -75,7 +76,9 @@ module.exports = function registerStaffRoutes(router, ctx) {
     return json(res, 200, {
       ok: true,
       staff: db.staff.map(sanitizeStaff),
-      roles: STAFF_ROLES.map(value => ({ value, label: staffRoleLabel(value) }))
+      roles: STAFF_ROLES.map(value => ({ value, label: staffRoleLabel(value) })),
+      employmentTypes: EMPLOYMENT_TYPES.map(value => ({ value, label: employmentTypeLabel(value) })),
+      branches: db.branches.filter(b => b.active)
     });
   }, { admin: true });
 
@@ -110,7 +113,9 @@ module.exports = function registerStaffRoutes(router, ctx) {
         name, username, role,
         email: cleanText(body.email, 254),
         color: cleanText(body.color, 20),
-        active: body.active !== false
+        active: body.active !== false,
+        employmentType: EMPLOYMENT_TYPES.includes(body.employmentType) ? body.employmentType : 'INTERNO',
+        branchId: cleanText(body.branchId, 120) || undefined
       };
       if (password) updates.passwordHash = hashPassword(password);
       if (staffMember) {

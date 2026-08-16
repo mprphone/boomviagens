@@ -9,9 +9,19 @@ import { $, esc, api } from './utils.js';
 
 let allStaff = [];
 let roles = [];
+let employmentTypes = [];
+let branchList = [];
 
 function roleLabel(role) {
   return roles.find(r => r.value === role)?.label || role;
+}
+
+function employmentTypeLabel(type) {
+  return employmentTypes.find(t => t.value === type)?.label || type;
+}
+
+function branchName(branchId) {
+  return branchList.find(b => b.id === branchId)?.name || '';
 }
 
 export async function renderEquipa() {
@@ -28,6 +38,8 @@ export async function renderEquipa() {
         <label>Password <input name="password" type="password" required minlength="8" /></label>
         <label>Email <input name="email" type="email" /></label>
         <label>Perfil <select name="role"></select></label>
+        <label>Vínculo <select name="employmentType"></select></label>
+        <label>Agência <select name="branchId"><option value="">Sem agência fixa</option></select></label>
         <label>Cor <input name="color" type="color" value="#4f46e5" /></label>
         <button class="btn mini-action" type="submit">Criar</button>
         <p class="customer-form-message"></p>
@@ -41,6 +53,8 @@ export async function renderEquipa() {
   await loadStaff();
 
   $('#newStaffForm select[name=role]').innerHTML = roles.map(r => `<option value="${r.value}">${esc(r.label)}</option>`).join('');
+  $('#newStaffForm select[name=employmentType]').innerHTML = employmentTypes.map(t => `<option value="${t.value}">${esc(t.label)}</option>`).join('');
+  $('#newStaffForm select[name=branchId]').innerHTML += branchList.map(b => `<option value="${esc(b.id)}">${esc(b.name)}</option>`).join('');
   $('#newStaffForm').addEventListener('submit', async e => {
     e.preventDefault();
     const f = e.target;
@@ -50,7 +64,10 @@ export async function renderEquipa() {
     try {
       await api('/api/admin/staff', {
         method: 'POST',
-        body: JSON.stringify({ name: f.name.value, username: f.username.value, password: f.password.value, email: f.email.value, role: f.role.value, color: f.color.value })
+        body: JSON.stringify({
+          name: f.name.value, username: f.username.value, password: f.password.value, email: f.email.value, role: f.role.value, color: f.color.value,
+          employmentType: f.employmentType.value, branchId: f.branchId.value || undefined
+        })
       });
       f.reset();
       f.hidden = true;
@@ -68,6 +85,8 @@ async function loadStaff() {
     const data = await api('/api/admin/staff');
     allStaff = data.staff;
     roles = data.roles;
+    employmentTypes = data.employmentTypes || [];
+    branchList = data.branches || [];
     renderList();
   } catch (err) {
     $('#staffList').innerHTML = `<p class="error">${esc(err.message)}</p>`;
@@ -82,8 +101,8 @@ function renderList() {
     <div class="customer-row">
       <div class="customer-summary" data-id="${esc(s.id)}">
         <span class="staff-color-dot" style="background:${esc(s.color || '#94a3b8')}"></span>
-        <b>${esc(s.name)}</b> · ${esc(roleLabel(s.role))} ${s.active ? '' : '<span class="pill pill-warning">Inativo</span>'}<br>
-        <span class="muted">@${esc(s.username)}${s.email ? ` · ${esc(s.email)}` : ''}</span>
+        <b>${esc(s.name)}</b> · ${esc(roleLabel(s.role))}${s.employmentType === 'FREELANCER' ? ' · <span class="pill">Freelancer</span>' : ''} ${s.active ? '' : '<span class="pill pill-warning">Inativo</span>'}<br>
+        <span class="muted">@${esc(s.username)}${s.email ? ` · ${esc(s.email)}` : ''}${branchName(s.branchId) ? ` · ${esc(branchName(s.branchId))}` : ''}</span>
       </div>
       <div class="customer-detail" data-id="${esc(s.id)}" hidden></div>
     </div>`).join('') || '<p class="empty-note">Sem colaboradores.</p>';
@@ -111,6 +130,8 @@ function renderStaffForm(panel, s) {
         <label>Nova password <input name="password" type="password" minlength="8" placeholder="deixar vazio para manter" /></label>
         <label>Email <input name="email" type="email" value="${esc(s.email || '')}" /></label>
         <label>Perfil <select name="role">${roles.map(r => `<option value="${r.value}" ${r.value === s.role ? 'selected' : ''}>${esc(r.label)}</option>`).join('')}</select></label>
+        <label>Vínculo <select name="employmentType">${employmentTypes.map(t => `<option value="${t.value}" ${t.value === s.employmentType ? 'selected' : ''}>${esc(t.label)}</option>`).join('')}</select></label>
+        <label>Agência <select name="branchId"><option value="">Sem agência fixa</option>${branchList.map(b => `<option value="${esc(b.id)}" ${b.id === s.branchId ? 'selected' : ''}>${esc(b.name)}</option>`).join('')}</select></label>
         <label>Cor <input name="color" type="color" value="${esc(s.color || '#4f46e5')}" /></label>
         <label class="service-line-checkbox"><input type="checkbox" name="active" ${s.active ? 'checked' : ''} /> Ativo</label>
       </div>
@@ -130,7 +151,8 @@ function renderStaffForm(panel, s) {
         method: 'POST',
         body: JSON.stringify({
           id: s.id, name: f.name.value, username: f.username.value, password: f.password.value,
-          email: f.email.value, role: f.role.value, color: f.color.value, active: f.active.checked
+          email: f.email.value, role: f.role.value, color: f.color.value, active: f.active.checked,
+          employmentType: f.employmentType.value, branchId: f.branchId.value || undefined
         })
       });
       btn.textContent = 'Guardado ✓';

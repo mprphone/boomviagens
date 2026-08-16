@@ -35,11 +35,29 @@ create table if not exists public.margins (
   updated_at timestamptz not null default now()
 );
 
+-- Agencias/balcoes (separador "Agências") - CRUD proprio pelo proprio
+-- utilizador, sem nomes fixos no codigo (a lista cresce). "Sede/Online"
+-- e semeada com um id fixo (branch-sede) para dados sem agencia real
+-- ficarem sempre atribuidos a ela.
+create table if not exists public.branches (
+  id text primary key,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz,
+  name text not null,
+  code text,
+  active boolean not null default true
+);
+insert into public.branches (id, name, code, active)
+values ('branch-sede', 'Sede/Online', 'SEDE', true)
+on conflict (id) do nothing;
+
 -- Equipa (staff) - login multi-utilizador com perfil (COMERCIAL/
 -- OPERACIONAL/FINANCEIRO/SUPERVISOR/ADMIN). Substitui o login unico por
 -- variaveis de ambiente (ADMIN_USERNAME/ADMIN_PASSWORD) - essas
 -- credenciais continuam a funcionar como arranque do primeiro
 -- utilizador (role ADMIN) enquanto esta tabela estiver vazia.
+-- branch_id: agencia principal (freelancer pode ficar sem nenhuma).
+-- employment_type: INTERNO/FREELANCER.
 create table if not exists public.staff (
   id text primary key,
   created_at timestamptz not null default now(),
@@ -48,6 +66,8 @@ create table if not exists public.staff (
   email text,
   username text not null unique,
   password_hash text not null,
+  branch_id text references public.branches(id) on delete set null,
+  employment_type text not null default 'INTERNO',
   role text not null default 'COMERCIAL',
   color text,
   active boolean not null default true
@@ -117,7 +137,8 @@ create table if not exists public.opportunities (
   next_action_notes text,
   loss_reason text,
   loss_notes text,
-  notes text
+  notes text,
+  branch_id text references public.branches(id) on delete set null
   -- reservation_id (referencia a public.reservations) e adicionada mais
   -- abaixo, depois de a tabela reservations existir - ver alter table
   -- perto do fim deste ficheiro.
@@ -166,6 +187,10 @@ create table if not exists public.reservations (
   offer jsonb not null default '{}'::jsonb,
   operator text,
   source text not null default 'site',
+  -- canal de venda (mesmo dominio de opportunities.origin - BALCAO/
+  -- WEBSITE/TELEFONE/etc.) - checkout do site fixa sempre 'WEBSITE'.
+  origin text,
+  branch_id text references public.branches(id) on delete set null,
   notes text,
   payment_received_at timestamptz,
   operator_validation text,
@@ -427,6 +452,7 @@ create index if not exists tasks_opportunity_id_idx on public.tasks(opportunity_
 
 alter table public.company_settings enable row level security;
 alter table public.margins enable row level security;
+alter table public.branches enable row level security;
 alter table public.staff enable row level security;
 alter table public.customers enable row level security;
 alter table public.leads enable row level security;

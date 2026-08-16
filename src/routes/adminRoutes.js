@@ -197,7 +197,7 @@ module.exports = function registerAdminRoutes(router, ctx) {
         dueAmount: Math.max(0, (r.offer?.finalPrice || 0) - paidAmount)
       };
     });
-    return json(res, 200, { ok: true, reservations, statuses: RESERVATION_STATUSES.map(value => ({ value, label: statusLabel(value) })) });
+    return json(res, 200, { ok: true, reservations, statuses: RESERVATION_STATUSES.map(value => ({ value, label: statusLabel(value) })), branches: db.branches.filter(b => b.active) });
   }, { admin: true });
 
   router.post('/api/admin/reservations/update', async (req, res) => {

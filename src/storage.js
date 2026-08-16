@@ -164,6 +164,28 @@ function marginToRow(m) {
   };
 }
 
+function rowToBranch(row) {
+  return {
+    id: row.id,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at || undefined,
+    name: row.name,
+    code: row.code || '',
+    active: row.active !== false
+  };
+}
+
+function branchToRow(b) {
+  return {
+    id: b.id,
+    created_at: b.createdAt,
+    updated_at: b.updatedAt || null,
+    name: b.name,
+    code: b.code || null,
+    active: b.active !== false
+  };
+}
+
 function rowToCustomer(row) {
   return {
     id: row.id,
@@ -221,7 +243,9 @@ function rowToStaff(row) {
     passwordHash: row.password_hash,
     role: row.role || 'COMERCIAL',
     color: row.color || '',
-    active: row.active !== false
+    active: row.active !== false,
+    branchId: row.branch_id || undefined,
+    employmentType: row.employment_type || 'INTERNO'
   };
 }
 
@@ -236,7 +260,9 @@ function staffToRow(s) {
     password_hash: s.passwordHash,
     role: s.role || 'COMERCIAL',
     color: s.color || null,
-    active: s.active !== false
+    active: s.active !== false,
+    branch_id: s.branchId || null,
+    employment_type: s.employmentType || 'INTERNO'
   };
 }
 
@@ -266,7 +292,8 @@ function rowToOpportunity(row) {
     lossReason: row.loss_reason || '',
     lossNotes: row.loss_notes || '',
     notes: row.notes || '',
-    reservationId: row.reservation_id || undefined
+    reservationId: row.reservation_id || undefined,
+    branchId: row.branch_id || undefined
   };
 }
 
@@ -296,7 +323,8 @@ function opportunityToRow(o) {
     loss_reason: o.lossReason || null,
     loss_notes: o.lossNotes || null,
     notes: o.notes || null,
-    reservation_id: o.reservationId || null
+    reservation_id: o.reservationId || null,
+    branch_id: o.branchId || null
   };
 }
 
@@ -400,7 +428,9 @@ function rowToReservation(row) {
     postTripNotes: row.post_trip_notes || undefined,
     commercialStaffId: row.commercial_staff_id || undefined,
     operationalStaffId: row.operational_staff_id || undefined,
-    financialStaffId: row.financial_staff_id || undefined
+    financialStaffId: row.financial_staff_id || undefined,
+    branchId: row.branch_id || undefined,
+    origin: row.origin || undefined
   };
 }
 
@@ -430,7 +460,9 @@ function reservationToRow(r) {
     post_trip_notes: r.postTripNotes || null,
     commercial_staff_id: r.commercialStaffId || null,
     operational_staff_id: r.operationalStaffId || null,
-    financial_staff_id: r.financialStaffId || null
+    financial_staff_id: r.financialStaffId || null,
+    branch_id: r.branchId || null,
+    origin: r.origin || null
   };
 }
 
@@ -786,9 +818,10 @@ function idemEntryToRow([key, value]) {
 }
 
 async function readDbSupabase() {
-  const [companyRows, marginRows, staffRows, customerRows, leadRows, opportunityRows, opportunityEventRows, proposalRows, reservationRows, paymentRows, emailRows, operatorLogRows, auditLogRows, idemRows, documentRows, contactRows, complaintRows, supplierRows, serviceLineRows, eventRows, taskRows] = await Promise.all([
+  const [companyRows, marginRows, branchRows, staffRows, customerRows, leadRows, opportunityRows, opportunityEventRows, proposalRows, reservationRows, paymentRows, emailRows, operatorLogRows, auditLogRows, idemRows, documentRows, contactRows, complaintRows, supplierRows, serviceLineRows, eventRows, taskRows] = await Promise.all([
     selectAll('company_settings', '&id=eq.main'),
     selectAll('margins', '&order=created_at.asc'),
+    selectAll('branches', '&order=created_at.asc'),
     selectAll('staff', '&order=created_at.asc'),
     selectAll('customers', '&order=created_at.desc'),
     selectAll('leads', '&order=created_at.desc'),
@@ -813,6 +846,7 @@ async function readDbSupabase() {
   return {
     company: rowToCompany((companyRows || [])[0]),
     margins: (marginRows || []).map(rowToMargin),
+    branches: (branchRows || []).map(rowToBranch),
     staff: (staffRows || []).map(rowToStaff),
     customers: (customerRows || []).map(rowToCustomer),
     leads: (leadRows || []).map(rowToLead),
@@ -838,6 +872,7 @@ async function readDbSupabase() {
 async function writeDbSupabase(db) {
   await upsertRows('company_settings', [companyToRow(db.company)]);
   await upsertRows('margins', (db.margins || []).map(marginToRow));
+  await upsertRows('branches', (db.branches || []).map(branchToRow));
   await upsertRows('staff', (db.staff || []).map(staffToRow));
   await upsertRows('customers', (db.customers || []).map(customerToRow));
   await upsertRows('leads', (db.leads || []).map(leadToRow));
@@ -888,6 +923,7 @@ async function updateDbSupabase(mutator) {
   const result = mutator(db) || db;
 
   const marginRows = diffById(before.margins, db.margins).map(marginToRow);
+  const branchRows = diffById(before.branches, db.branches).map(branchToRow);
   const staffRows = diffById(before.staff, db.staff).map(staffToRow);
   const customerRows = diffById(before.customers, db.customers).map(customerToRow);
   const leadRows = diffById(before.leads, db.leads).map(leadToRow);
@@ -913,6 +949,10 @@ async function updateDbSupabase(mutator) {
     firstTasks.push(upsertRows('company_settings', [companyToRow(db.company)]));
   }
   firstTasks.push(upsertRows('margins', marginRows));
+  // branches e escrito antes de staff/reservations/opportunities (todos
+  // referenciam branch_id) - mesmo principio do comentario abaixo sobre
+  // reservations ter de aterrar antes de opportunities.
+  firstTasks.push(upsertRows('branches', branchRows));
   firstTasks.push(upsertRows('staff', staffRows));
   firstTasks.push(upsertRows('customers', customerRows));
   firstTasks.push(upsertRows('leads', leadRows));

@@ -61,7 +61,12 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
       offer,
       operator: offer.operator,
       source: 'site',
-      notes: 'Reserva criada em modo semi-automatico. Confirmacao no operador exige aprovacao do backoffice.'
+      notes: 'Reserva criada em modo semi-automatico. Confirmacao no operador exige aprovacao do backoffice.',
+      // O site continua exatamente como esta para o cliente (nada disto e
+      // visivel/pedido no checkout) - agencia e canal ficam sempre fixos,
+      // ver auditoria/multiagencia.
+      branchId: 'branch-sede',
+      origin: 'WEBSITE'
     };
     // O separador "Reservas" (linhas de servico) comeca vazio ate o
     // backoffice tratar o processo junto do fornecedor - mas nao faz

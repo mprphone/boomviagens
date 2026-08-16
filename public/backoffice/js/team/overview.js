@@ -9,18 +9,35 @@ import { filterOperacionalByStaff } from '../pipelineOperacional.js';
 
 const WORKLOAD_LABEL = { green: '🟢 Disponível', yellow: '🟡 Carga média', red: '🔴 Sobrecarregado' };
 
+let allOverview = [];
+
 export async function renderVisaoGeral() {
   const el = $('#view-visao-geral');
-  el.innerHTML = `<div class="panel"><div id="overviewList"><p class="muted">A carregar...</p></div></div>`;
+  el.innerHTML = `
+    <div class="panel">
+      <div class="toolbar">
+        <select id="overviewBranchFilter"><option value="">Todas as agências</option></select>
+      </div>
+      <div id="overviewList"><p class="muted">A carregar...</p></div>
+    </div>`;
+  $('#overviewBranchFilter').addEventListener('change', () => renderTable(allOverview));
   try {
-    const data = await api('/api/admin/team/overview');
-    renderTable(data.overview);
+    const [data, branchesData] = await Promise.all([api('/api/admin/team/overview'), api('/api/admin/branches')]);
+    allOverview = data.overview;
+    const branchesInUse = new Set(allOverview.map(row => row.staff.branchId).filter(Boolean));
+    const branches = (branchesData.branches || []).filter(b => branchesInUse.has(b.id));
+    // So mostra agencias que ja tem colaboradores atribuidos (filtrar
+    // para uma agencia vazia nao serve de nada aqui).
+    $('#overviewBranchFilter').innerHTML = '<option value="">Todas as agências</option>' + branches.map(b => `<option value="${esc(b.id)}">${esc(b.name)}</option>`).join('');
+    renderTable(allOverview);
   } catch (err) {
     $('#overviewList').innerHTML = `<p class="error">${esc(err.message)}</p>`;
   }
 }
 
-function renderTable(overview) {
+function renderTable(overviewFull) {
+  const branchFilter = $('#overviewBranchFilter')?.value || '';
+  const overview = branchFilter ? overviewFull.filter(row => row.staff.branchId === branchFilter) : overviewFull;
   $('#overviewList').innerHTML = `
     <div class="bo-table-wrap">
       <table class="bo-table">

@@ -16,6 +16,7 @@ import { renderMeuDia } from './team/myDay.js';
 import { renderTarefasEquipa } from './team/tasks.js';
 import { renderAgenda } from './team/agenda.js';
 import { renderFornecedores } from './suppliers.js';
+import { renderAgencias } from './agencias.js';
 import { renderMargens, renderEmails, renderOperador } from './system.js';
 
 const VIEWS = {
@@ -32,6 +33,7 @@ const VIEWS = {
   'tarefas-equipa': { title: 'Tarefas', render: renderTarefasEquipa },
   agenda: { title: 'Agenda', render: renderAgenda },
   fornecedores: { title: 'Fornecedores', render: renderFornecedores },
+  agencias: { title: 'Agências', render: renderAgencias },
   margens: { title: 'Margens', render: renderMargens },
   emails: { title: 'Emails', render: renderEmails },
   operador: { title: 'Operador', render: renderOperador }

@@ -15,13 +15,19 @@ let allOpportunities = [];
 let meta = {};
 let staffList = [];
 let staffById = new Map();
+let branchList = [];
 let summary = {};
-const filters = { staffId: '', temperature: '', origin: '', destination: '' };
+const filters = { staffId: '', temperature: '', origin: '', destination: '', branchId: '' };
 
 // Chamado a partir da Visão Geral da equipa antes de navegar para aqui,
 // para o quadro abrir ja filtrado por esse colaborador.
 export function filterPipelineByStaff(staffId) {
   filters.staffId = staffId;
+}
+
+// Mesma ideia, para o filtro de Agência (ver auditoria/multiagência).
+export function filterPipelineByBranch(branchId) {
+  filters.branchId = branchId;
 }
 
 export async function renderPipeline() {
@@ -34,6 +40,7 @@ export async function renderPipeline() {
           <select id="filterStaff"><option value="">Todos os responsáveis</option></select>
           <select id="filterTemperature"><option value="">Todas as temperaturas</option></select>
           <select id="filterOrigin"><option value="">Todas as origens</option></select>
+          <select id="filterBranch"><option value="">Todas as agências</option></select>
           <input id="filterDestination" type="search" placeholder="Destino..." />
         </div>
         <button type="button" class="btn mini-action" id="newOpportunityBtn">+ Nova oportunidade</button>
@@ -42,9 +49,9 @@ export async function renderPipeline() {
     </div>`;
 
   $('#newOpportunityBtn').onclick = () => openOpportunityForm();
-  ['filterStaff', 'filterTemperature', 'filterOrigin'].forEach(fieldId => {
+  ['filterStaff', 'filterTemperature', 'filterOrigin', 'filterBranch'].forEach(fieldId => {
     $(`#${fieldId}`).addEventListener('change', e => {
-      const key = { filterStaff: 'staffId', filterTemperature: 'temperature', filterOrigin: 'origin' }[fieldId];
+      const key = { filterStaff: 'staffId', filterTemperature: 'temperature', filterOrigin: 'origin', filterBranch: 'branchId' }[fieldId];
       filters[key] = e.target.value;
       renderBoard();
     });
@@ -64,14 +71,17 @@ async function loadPipeline() {
     };
     staffList = data.staff;
     staffById = new Map(staffList.map(s => [s.id, s]));
+    branchList = data.branches || [];
     summary = data.summary;
 
     $('#filterStaff').innerHTML = '<option value="">Todos os responsáveis</option>' + staffList.map(s => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('');
     $('#filterTemperature').innerHTML = '<option value="">Todas as temperaturas</option>' + meta.temperatures.map(t => `<option value="${t.value}">${t.label}</option>`).join('');
     $('#filterOrigin').innerHTML = '<option value="">Todas as origens</option>' + meta.origins.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
+    $('#filterBranch').innerHTML = '<option value="">Todas as agências</option>' + branchList.map(b => `<option value="${esc(b.id)}">${esc(b.name)}</option>`).join('');
     $('#filterStaff').value = filters.staffId;
     $('#filterTemperature').value = filters.temperature;
     $('#filterOrigin').value = filters.origin;
+    $('#filterBranch').value = filters.branchId;
 
     renderSummary();
     renderBoard();
@@ -94,6 +104,7 @@ function applyFilters(list) {
     if (filters.staffId && o.commercialStaffId !== filters.staffId) return false;
     if (filters.temperature && o.temperature !== filters.temperature) return false;
     if (filters.origin && o.origin !== filters.origin) return false;
+    if (filters.branchId && o.branchId !== filters.branchId) return false;
     if (filters.destination && !(o.destination || '').toLowerCase().includes(filters.destination)) return false;
     return true;
   });
@@ -236,6 +247,7 @@ function openOpportunityForm() {
         <label>Origem <select name="origin"><option value="">Selecionar...</option>${meta.origins.map(o => `<option value="${o.value}">${o.label}</option>`).join('')}</select></label>
         <label>Temperatura <select name="temperature">${meta.temperatures.map(t => `<option value="${t.value}" ${t.value === 'MORNO' ? 'selected' : ''}>${t.label}</option>`).join('')}</select></label>
         <label>Responsável comercial <select name="commercialStaffId"><option value="">Por atribuir</option>${staffList.map(s => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('')}</select></label>
+        <label>Agência <select name="branchId">${branchList.map(b => `<option value="${esc(b.id)}">${esc(b.name)}</option>`).join('')}</select></label>
       </div>
       <label>Notas <textarea name="notes" rows="2"></textarea></label>
       <div class="service-line-form-actions">
@@ -257,6 +269,7 @@ function openOpportunityForm() {
           destination: f.destination.value, dateStart: f.dateStart.value, dateEnd: f.dateEnd.value,
           paxAdults: f.paxAdults.value, paxChildren: f.paxChildren.value, estimatedValue: f.estimatedValue.value || undefined,
           origin: f.origin.value, temperature: f.temperature.value, commercialStaffId: f.commercialStaffId.value || undefined,
+          branchId: f.branchId.value || undefined,
           notes: f.notes.value
         })
       });

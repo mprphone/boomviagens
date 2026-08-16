@@ -16,9 +16,11 @@ export async function openOpportunityQuickCreate(prefill = {}, onCreated) {
   body.innerHTML = '<p class="muted">A carregar...</p>';
 
   let staffList = [];
+  let branchList = [];
   try {
     const data = await api('/api/admin/opportunities');
     staffList = data.staff || [];
+    branchList = data.branches || [];
   } catch (err) {
     body.innerHTML = `<p class="error">${esc(err.message)}</p>`;
     return;
@@ -32,6 +34,7 @@ export async function openOpportunityQuickCreate(prefill = {}, onCreated) {
         <label>Telefone <input name="customerPhone" value="${esc(prefill.customerPhone || '')}" /></label>
         <label>Destino <input name="destination" placeholder="ex.: Punta Cana" /></label>
         <label>Responsável comercial <select name="commercialStaffId"><option value="">Por atribuir</option>${staffList.map(s => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('')}</select></label>
+        <label>Agência <select name="branchId">${branchList.map(b => `<option value="${esc(b.id)}">${esc(b.name)}</option>`).join('')}</select></label>
       </div>
       <label>Notas <textarea name="notes" rows="2" placeholder="ex.: Cliente teve dúvidas sobre o preço, ficou de pensar"></textarea></label>
       <div class="service-line-form-actions">
@@ -52,6 +55,7 @@ export async function openOpportunityQuickCreate(prefill = {}, onCreated) {
         body: JSON.stringify({
           customerName: f.customerName.value, customerEmail: f.customerEmail.value, customerPhone: f.customerPhone.value,
           destination: f.destination.value, commercialStaffId: f.commercialStaffId.value || undefined,
+          branchId: f.branchId.value || undefined,
           // Ligada a um cliente ja existente - "cliente antigo" e uma origem
           // mais util do que deixar em branco (ver secao "Origem dos interesses").
           origin: 'CLIENTE_ANTIGO', notes: f.notes.value

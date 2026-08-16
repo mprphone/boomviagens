@@ -61,6 +61,7 @@ module.exports = function registerOpportunitiesRoutes(router, ctx) {
       opportunities,
       summary,
       staff: db.staff.filter(s => s.active).map(sanitizeStaff),
+      branches: db.branches.filter(b => b.active),
       ...metaPayload()
     });
   }, { admin: true });
@@ -82,6 +83,7 @@ module.exports = function registerOpportunitiesRoutes(router, ctx) {
       proposals: db.proposals.filter(p => p.opportunityId === opportunityId).sort((a, b) => b.version - a.version),
       reservation: reservation ? { ...reservation, processNumber: processNumber(reservation) } : null,
       staff: db.staff.filter(s => s.active).map(sanitizeStaff),
+      branches: db.branches.filter(b => b.active),
       ...metaPayload()
     });
   }, { admin: true });
@@ -115,6 +117,7 @@ module.exports = function registerOpportunitiesRoutes(router, ctx) {
     if (body.temperature !== undefined) updates.temperature = OPPORTUNITY_TEMPERATURES.includes(body.temperature) ? body.temperature : 'MORNO';
     if (body.tags !== undefined) updates.tags = Array.isArray(body.tags) ? body.tags.filter(t => OPPORTUNITY_TAGS.includes(t)) : [];
     if (body.commercialStaffId !== undefined) updates.commercialStaffId = cleanText(body.commercialStaffId, 120) || undefined;
+    if (body.branchId !== undefined) updates.branchId = cleanText(body.branchId, 120) || 'branch-sede';
     if (body.nextActionType !== undefined) updates.nextActionType = NEXT_ACTION_TYPES.includes(body.nextActionType) ? body.nextActionType : '';
     if (body.nextActionDate !== undefined) updates.nextActionDate = cleanText(body.nextActionDate, 30);
     if (body.nextActionNotes !== undefined) updates.nextActionNotes = cleanText(body.nextActionNotes, 1000);
@@ -134,6 +137,7 @@ module.exports = function registerOpportunitiesRoutes(router, ctx) {
           customerEmail: '', customerPhone: '', destination: '', dateStart: '', dateEnd: '',
           paxAdults: 1, paxChildren: 0, origin: '', temperature: 'MORNO', tags: [],
           nextActionType: '', nextActionDate: '', nextActionNotes: '', notes: '',
+          branchId: 'branch-sede',
           ...updates
         };
         d.opportunities.unshift(opportunity);
@@ -234,7 +238,9 @@ module.exports = function registerOpportunitiesRoutes(router, ctx) {
       source: 'pipeline',
       notes: `Processo criado a partir da oportunidade comercial ${opportunityNumber(opportunity)}.`,
       commercialStaffId: opportunity.commercialStaffId || undefined,
-      operationalStaffId: operationalStaffId || undefined
+      operationalStaffId: operationalStaffId || undefined,
+      branchId: opportunity.branchId || 'branch-sede',
+      origin: opportunity.origin || undefined
     };
 
     await updateDb(d => {
