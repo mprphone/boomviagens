@@ -4,6 +4,7 @@
 
 import { $, esc, money, dateRange, statusLabel, api } from './utils.js';
 import { openTripDetail } from './tripDetail.js';
+import { renderResumePayment } from './resumePayment.js';
 
 function isPast(reservation) {
   if (reservation.status === 'CANCELLED') return true;
@@ -17,7 +18,7 @@ function tripCard(r) {
   const offer = r.offer || {};
   const needsPayment = r.payment && r.payment.status !== 'PAID';
   return `
-    <article class="trip-card" data-reservation="${esc(r.id)}">
+    <article class="trip-card" data-reservation="${esc(r.id)}" data-needs-payment="${needsPayment ? '1' : ''}">
       <div class="trip-card-media" aria-hidden="true">🏨</div>
       <div class="trip-card-body">
         <b>${esc(offer.hotel || 'Reserva')}</b>
@@ -61,7 +62,12 @@ async function renderList(elId, filterFn, emptyMessage) {
     };
   });
   el.querySelectorAll('.trip-card[data-reservation]').forEach(card => {
-    card.onclick = () => openTripDetail(card.dataset.reservation);
+    // Reserva ainda por pagar (ex.: "Guardar e continuar mais tarde" no
+    // checkout) - clicar retoma exatamente o ecra de pagamento, em vez do
+    // detalhe normal da viagem.
+    card.onclick = () => card.dataset.needsPayment
+      ? renderResumePayment(card.dataset.reservation)
+      : openTripDetail(card.dataset.reservation);
   });
 }
 

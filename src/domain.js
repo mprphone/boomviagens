@@ -561,7 +561,7 @@ function customerReservationDetailView(reservation, { serviceLines = [], payment
         locator: l.locator, dateStart: l.dateStart, dateEnd: l.dateEnd, status: l.status
       })),
     payments: payments.map(p => ({
-      id: p.id, method: p.method, reference: p.reference, amount: p.amount, status: p.status, paidAt: p.paidAt
+      id: p.id, method: p.method, reference: p.reference, amount: p.amount, status: p.status, paidAt: p.paidAt, expiresAt: p.expiresAt
     }))
   };
 }
