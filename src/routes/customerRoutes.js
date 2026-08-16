@@ -176,6 +176,7 @@ module.exports = function registerCustomerRoutes(router, ctx) {
       postalCode: cleanText(body.postalCode, 20),
       city: cleanText(body.city, 100),
       birthdate: cleanText(body.birthdate, 30),
+      nationality: cleanText(body.nationality, 60),
       travelScope: ['LAZER', 'NEGOCIOS', 'AMBOS'].includes(body.travelScope) ? body.travelScope : ''
     };
     const customer = await updateDb(db => {

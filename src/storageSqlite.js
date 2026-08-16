@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS margins (
 CREATE TABLE IF NOT EXISTS customers (
   id TEXT PRIMARY KEY, created_at TEXT, updated_at TEXT, name TEXT, email TEXT,
   phone TEXT, phone2 TEXT, nif TEXT, address TEXT, postal_code TEXT, city TEXT,
-  birthdate TEXT, travel_scope TEXT, passengers TEXT, notes TEXT, password_hash TEXT,
+  birthdate TEXT, nationality TEXT, travel_scope TEXT, passengers TEXT, notes TEXT, password_hash TEXT,
   preferences TEXT, alerts TEXT
 );
 CREATE TABLE IF NOT EXISTS leads (
@@ -230,7 +230,7 @@ function rowToCustomer(row) {
   return {
     id: row.id, createdAt: row.created_at, updatedAt: row.updated_at || undefined, name: row.name, email: row.email,
     phone: row.phone || '', phone2: row.phone2 || '', nif: row.nif || '', address: row.address || '',
-    postalCode: row.postal_code || '', city: row.city || '', birthdate: row.birthdate || '', travelScope: row.travel_scope || '',
+    postalCode: row.postal_code || '', city: row.city || '', birthdate: row.birthdate || '', nationality: row.nationality || '', travelScope: row.travel_scope || '',
     passengers: parseJ(row.passengers, []), notes: row.notes || undefined, passwordHash: row.password_hash || '',
     preferences: parseJ(row.preferences, {}), alerts: parseJ(row.alerts, [])
   };
@@ -440,8 +440,8 @@ function writeDbSqlite(dbState) {
     const insStaff = conn.prepare('INSERT INTO staff (id, created_at, updated_at, name, email, username, password_hash, role, color, active, branch_id, employment_type) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)');
     for (const s of dbState.staff || []) insStaff.run(s.id, s.createdAt, s.updatedAt || null, s.name, s.email || null, s.username, s.passwordHash, s.role || 'COMERCIAL', s.color || null, s.active !== false ? 1 : 0, s.branchId || null, s.employmentType || 'INTERNO');
 
-    const insCustomer = conn.prepare('INSERT INTO customers (id, created_at, updated_at, name, email, phone, phone2, nif, address, postal_code, city, birthdate, travel_scope, passengers, notes, password_hash, preferences, alerts) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
-    for (const c2 of dbState.customers || []) insCustomer.run(c2.id, c2.createdAt, c2.updatedAt || null, c2.name || 'Cliente', c2.email, c2.phone || null, c2.phone2 || null, c2.nif || null, c2.address || null, c2.postalCode || null, c2.city || null, c2.birthdate || null, c2.travelScope || null, j(c2.passengers || []), c2.notes || null, c2.passwordHash || null, j(c2.preferences || {}), j(c2.alerts || []));
+    const insCustomer = conn.prepare('INSERT INTO customers (id, created_at, updated_at, name, email, phone, phone2, nif, address, postal_code, city, birthdate, nationality, travel_scope, passengers, notes, password_hash, preferences, alerts) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+    for (const c2 of dbState.customers || []) insCustomer.run(c2.id, c2.createdAt, c2.updatedAt || null, c2.name || 'Cliente', c2.email, c2.phone || null, c2.phone2 || null, c2.nif || null, c2.address || null, c2.postalCode || null, c2.city || null, c2.birthdate || null, c2.nationality || null, c2.travelScope || null, j(c2.passengers || []), c2.notes || null, c2.passwordHash || null, j(c2.preferences || {}), j(c2.alerts || []));
 
     const insLead = conn.prepare('INSERT INTO leads (id, created_at, updated_at, source, status, search, top_result) VALUES (?,?,?,?,?,?,?)');
     for (const l of dbState.leads || []) insLead.run(l.id, l.createdAt, l.updatedAt || null, l.source || 'site', l.status, j(l.search || {}), j(l.topResult));

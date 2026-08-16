@@ -1,5 +1,6 @@
-// Vista "Os meus dados": nome/telefone/NIF editaveis; o email fica
-// so-de-leitura porque e a propria identidade da sessao (mudar de
+// Vista "Os meus dados": ficha completa do titular da conta (nome,
+// contactos, NIF, nascimento, nacionalidade, morada) editavel; o email
+// fica so-de-leitura porque e a propria identidade da sessao (mudar de
 // email aqui significaria mudar de conta).
 
 import { $, esc, api } from './utils.js';
@@ -22,8 +23,15 @@ export async function renderDados() {
         <label>Email <input value="${esc(c.email)}" disabled /></label>
         <label>Nome completo <input name="name" value="${esc(c.name || '')}" /></label>
         <label>Telefone <input name="phone" value="${esc(c.phone || '')}" /></label>
+        <label>Telefone alternativo <span class="muted">(opcional)</span> <input name="phone2" value="${esc(c.phone2 || '')}" /></label>
         <label>Contribuinte (NIF) <input name="nif" value="${esc(c.nif || '')}" pattern="[0-9]{9}" maxlength="9" /></label>
-        <label>Morada <span class="muted">(opcional)</span> <input name="address" value="${esc(c.address || '')}" placeholder="Rua, número, código postal, localidade" /></label>
+        <label>Data de nascimento <span class="muted">(opcional)</span> <input name="birthdate" type="date" value="${esc(c.birthdate || '')}" /></label>
+        <label>Nacionalidade <span class="muted">(opcional)</span> <input name="nationality" value="${esc(c.nationality || '')}" placeholder="ex.: Portuguesa" /></label>
+        <label>Morada <span class="muted">(opcional)</span> <input name="address" value="${esc(c.address || '')}" placeholder="Rua, número" /></label>
+        <div style="display:flex;gap:14px">
+          <label style="flex:1">Código postal <input name="postalCode" value="${esc(c.postalCode || '')}" placeholder="0000-000" /></label>
+          <label style="flex:2">Localidade <input name="city" value="${esc(c.city || '')}" /></label>
+        </div>
         <button class="btn" type="submit">Guardar alterações</button>
         <p id="profileMessage" class="muted" style="margin:0"></p>
       </form>
@@ -47,7 +55,11 @@ export async function renderDados() {
     try {
       await api('/api/customer/profile', {
         method: 'POST',
-        body: JSON.stringify({ name: e.target.name.value, phone: e.target.phone.value, nif: e.target.nif.value, address: e.target.address.value })
+        body: JSON.stringify({
+          name: e.target.name.value, phone: e.target.phone.value, phone2: e.target.phone2.value, nif: e.target.nif.value,
+          birthdate: e.target.birthdate.value, nationality: e.target.nationality.value,
+          address: e.target.address.value, postalCode: e.target.postalCode.value, city: e.target.city.value
+        })
       });
       msg.textContent = 'Dados guardados.';
     } catch (err) {
