@@ -47,6 +47,15 @@ function verifyPassword(password, stored) {
   return safeEqual(candidate, hash);
 }
 
+// Guarda so o hash do codigo de login dentro do challenge assinado - nunca
+// o codigo em si (ver auditoria). O challenge viaja de volta no browser
+// entre o pedido e a verificacao; sendo assinado nao pode ser alterado,
+// mas base64 nao e encriptacao, por isso o valor la dentro nao pode dar
+// para recuperar o codigo original.
+function hashLoginCode(code) {
+  return crypto.createHmac('sha256', SESSION_SECRET).update(String(code)).digest('hex');
+}
+
 function signToken(payload) {
   const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
   const sig = crypto.createHmac('sha256', SESSION_SECRET).update(body).digest('base64url');
@@ -144,6 +153,7 @@ module.exports = {
   safeEqual,
   hashPassword,
   verifyPassword,
+  hashLoginCode,
   signToken,
   verifyToken,
   sessionUser,

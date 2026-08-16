@@ -13,6 +13,7 @@ const { proposalEmail, reservationEmail, loginCodeEmail } = require('./src/email
 const { OperatorRegistry, TourDiezAdapter } = require('./src/operatorAdapters');
 const { cleanText, searchPayload, customerPayload, paymentMethod, numberInRange, email: validateEmail, password: validatePassword } = require('./src/validation');
 const fileStorage = require('./src/fileStorage');
+const mailer = require('./src/mailer');
 const { normalize } = require('./src/pricing');
 
 const registerPublicRoutes = require('./src/routes/publicRoutes');
@@ -42,6 +43,7 @@ const ctx = {
   auth,
   domain,
   fileStorage,
+  mailer,
   baseOffers,
   searchOffers,
   getOfferById,

@@ -9,21 +9,33 @@
 const crypto = require('crypto');
 
 module.exports = function registerCustomerRoutes(router, ctx) {
-  const { json, unauthorized, parseBody, readDb, updateDb, customerPayload, validateEmail, validatePassword, rateLimit, domain, cleanText, fileStorage } = ctx;
+  const { json, unauthorized, parseBody, readDb, updateDb, customerPayload, validateEmail, validatePassword, rateLimit, domain, cleanText, fileStorage, mailer } = ctx;
   const { ensureCollections, audit, id, now, missingDocumentsFor, DOCUMENT_TYPES, sanitizeCustomer } = domain;
-  const { signToken, verifyToken, customerSessionEmail, setCustomerSessionCookie, clearCustomerSessionCookie, safeEqual, hashPassword, verifyPassword, CUSTOMER_CODE_TTL_MS, SESSION_TTL_MS } = ctx.auth;
+  const { signToken, verifyToken, customerSessionEmail, setCustomerSessionCookie, clearCustomerSessionCookie, safeEqual, hashPassword, verifyPassword, hashLoginCode, CUSTOMER_CODE_TTL_MS, SESSION_TTL_MS } = ctx.auth;
 
+  // So cria clientes novos. Quem ja existe so pode ser alterado por quem
+  // tem sessao autenticada como esse email (ver auditoria) - antes disto,
+  // bastava conhecer o email de outra pessoa para reescrever o seu perfil
+  // (nome/telefone/NIF/morada/passageiros) atraves deste endpoint.
   router.post('/api/customer/register', async (req, res) => {
+    const limited = rateLimit(req, res, 'customer-register', 20, 15 * 60 * 1000);
+    if (limited) return limited;
     const body = customerPayload(await parseBody(req));
-    const customer = await updateDb(db => {
-      ensureCollections(db);
-      let found = db.customers.find(c => c.email === body.email);
+    const sessionEmail = customerSessionEmail(req);
+    const db = ensureCollections(await readDb());
+    const existing = db.customers.find(c => c.email === body.email);
+    if (existing && sessionEmail !== body.email) {
+      return json(res, 200, { ok: true, customer: sanitizeCustomer(existing) });
+    }
+    const customer = await updateDb(d => {
+      ensureCollections(d);
+      let found = d.customers.find(c => c.email === body.email);
       if (found) Object.assign(found, body, { updatedAt: now() });
       else {
         found = { id: id('cli'), createdAt: now(), ...body };
-        db.customers.unshift(found);
+        d.customers.unshift(found);
       }
-      audit(db, 'site', 'CUSTOMER_REGISTERED', { customerId: found.id });
+      audit(d, 'site', 'CUSTOMER_REGISTERED', { customerId: found.id });
       return found;
     });
     return json(res, 200, { ok: true, customer: sanitizeCustomer(customer) });
@@ -43,14 +55,27 @@ module.exports = function registerCustomerRoutes(router, ctx) {
     const body = await parseBody(req);
     const customerEmail = validateEmail(body.email);
     const code = crypto.randomInt(100000, 999999).toString();
-    const challenge = signToken({ scope: 'customer-code', email: customerEmail, code, exp: Date.now() + CUSTOMER_CODE_TTL_MS });
+    // O challenge guarda so o hash do codigo, nunca o codigo em si (ver
+    // auditoria) - de outro modo bastava descodificar o proprio challenge
+    // (base64, nao encriptado) para ficar com o codigo, mesmo sem aceder
+    // ao email.
+    const challenge = signToken({ scope: 'customer-code', email: customerEmail, codeHash: hashLoginCode(code), exp: Date.now() + CUSTOMER_CODE_TTL_MS });
     const mail = loginCodeEmail({ email: customerEmail, code });
+    const sent = await mailer.sendMail({ to: customerEmail, subject: mail.subject, body: mail.body });
     await updateDb(d => {
       ensureCollections(d);
-      d.emails.unshift({ id: id('email'), createdAt: now(), to: customerEmail, status: 'GERADO_DEMO', ...mail });
+      d.emails.unshift({ id: id('email'), createdAt: now(), to: customerEmail, status: sent.mode === 'smtp' ? 'ENVIADO' : 'GERADO_DEMO', ...mail });
       audit(d, customerEmail, 'CUSTOMER_LOGIN_CODE_REQUESTED', {});
     });
-    return json(res, 200, { ok: true, message: 'Codigo gerado. Em produção seria enviado por email.', demoCode: code, challenge });
+    // demoCode so sai na resposta quando nao ha envio real (EMAIL_MODE!=smtp) -
+    // sem isso o login de teste/dev deixaria de ser possivel sem caixa de
+    // correio real. Em modo smtp o cliente tem mesmo de ir ver o email.
+    return json(res, 200, {
+      ok: true,
+      message: sent.mode === 'smtp' ? 'Codigo enviado por email.' : 'Codigo gerado. Em produção seria enviado por email.',
+      challenge,
+      ...(sent.mode === 'mock' ? { demoCode: code } : {})
+    });
   });
 
   router.post('/api/customer/login/verify', async (req, res) => {
@@ -59,7 +84,7 @@ module.exports = function registerCustomerRoutes(router, ctx) {
     const body = await parseBody(req);
     const customerEmail = validateEmail(body.email);
     const pending = verifyToken(body.challenge);
-    if (!pending || pending.scope !== 'customer-code' || pending.email !== customerEmail || !safeEqual(String(body.code || ''), String(pending.code || ''))) {
+    if (!pending || pending.scope !== 'customer-code' || pending.email !== customerEmail || !safeEqual(hashLoginCode(body.code || ''), String(pending.codeHash || ''))) {
       return json(res, 401, { ok: false, error: 'Codigo invalido ou expirado' });
     }
     const token = signToken({ scope: 'customer', email: customerEmail, exp: Date.now() + SESSION_TTL_MS });
