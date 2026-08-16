@@ -44,6 +44,29 @@ export async function renderPassageiros() {
   }
   passengers = data.customer.passengers || [];
 
+  // O proprio titular da conta deve aparecer aqui logo por defeito, sem ter
+  // de se adicionar a si proprio manualmente - so quando a lista ainda esta
+  // vazia (nao volta a insistir depois de ele proprio remover a entrada) e
+  // so se ja houver nome na ficha para nao criar um passageiro sem nome.
+  if (!passengers.length && data.customer.name) {
+    const titular = {
+      name: data.customer.name,
+      relationship: 'TITULAR',
+      birthdate: data.customer.birthdate || '',
+      nationality: data.customer.nationality || '',
+      documentType: 'PASSPORT',
+      documentNumber: '',
+      documentExpiry: '',
+      notes: ''
+    };
+    try {
+      const saved = await api('/api/customer/passengers', { method: 'POST', body: JSON.stringify({ passengers: [titular] }) });
+      passengers = saved.customer.passengers || [titular];
+    } catch {
+      // Sem sorte - a pagina segue so sem o titular pre-preenchido.
+    }
+  }
+
   el.innerHTML = `
     <div class="panel">
       <div class="panel-head">

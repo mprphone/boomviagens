@@ -17,33 +17,35 @@ export async function renderDados() {
   }
   const c = data.customer;
   el.innerHTML = `
-    <div class="panel" style="max-width:520px">
-      <div class="panel-head"><h2>Os meus dados</h2></div>
-      <form id="profileForm" style="display:flex;flex-direction:column;gap:14px">
-        <label>Email <input value="${esc(c.email)}" disabled /></label>
-        <label>Nome completo <input name="name" value="${esc(c.name || '')}" /></label>
-        <label>Telefone <input name="phone" value="${esc(c.phone || '')}" /></label>
-        <label>Telefone alternativo <span class="muted">(opcional)</span> <input name="phone2" value="${esc(c.phone2 || '')}" /></label>
-        <label>Contribuinte (NIF) <input name="nif" value="${esc(c.nif || '')}" pattern="[0-9]{9}" maxlength="9" /></label>
-        <label>Data de nascimento <span class="muted">(opcional)</span> <input name="birthdate" type="date" value="${esc(c.birthdate || '')}" /></label>
-        <label>Nacionalidade <span class="muted">(opcional)</span> <input name="nationality" value="${esc(c.nationality || '')}" placeholder="ex.: Portuguesa" /></label>
-        <label>Morada <span class="muted">(opcional)</span> <input name="address" value="${esc(c.address || '')}" placeholder="Rua, número" /></label>
-        <div style="display:flex;gap:14px">
-          <label style="flex:1">Código postal <input name="postalCode" value="${esc(c.postalCode || '')}" placeholder="0000-000" /></label>
-          <label style="flex:2">Localidade <input name="city" value="${esc(c.city || '')}" /></label>
-        </div>
-        <button class="btn" type="submit">Guardar alterações</button>
-        <p id="profileMessage" class="muted" style="margin:0"></p>
-      </form>
-    </div>
-    <div class="panel" style="max-width:520px;margin-top:16px">
-      <div class="panel-head"><h2>Password</h2></div>
-      <p class="muted">${data.hasPassword ? 'Já tem password definida. Pode alterá-la aqui.' : 'Ainda entra sempre com código por email. Defina uma password para entrar mais depressa da próxima vez.'}</p>
-      <form id="passwordForm" style="display:flex;flex-direction:column;gap:14px">
-        <label>${data.hasPassword ? 'Nova password' : 'Password'} <input name="password" type="password" minlength="8" placeholder="mínimo 8 caracteres" required /></label>
-        <button class="btn" type="submit">${data.hasPassword ? 'Alterar password' : 'Definir password'}</button>
-        <p id="passwordMessage" class="muted" style="margin:0"></p>
-      </form>
+    <div class="profile-grid">
+      <div class="panel">
+        <div class="panel-head"><h2>Os meus dados</h2></div>
+        <form id="profileForm">
+          <div class="profile-form-grid">
+            <label>Email <input value="${esc(c.email)}" disabled /></label>
+            <label>Nome completo <input name="name" value="${esc(c.name || '')}" /></label>
+            <label>Telefone <input name="phone" value="${esc(c.phone || '')}" /></label>
+            <label>Telefone alternativo <span class="muted">(opcional)</span> <input name="phone2" value="${esc(c.phone2 || '')}" /></label>
+            <label>Contribuinte (NIF) <input name="nif" value="${esc(c.nif || '')}" pattern="[0-9]{9}" maxlength="9" /></label>
+            <label>Data de nascimento <span class="muted">(opcional)</span> <input name="birthdate" type="date" value="${esc(c.birthdate || '')}" /></label>
+            <label>Nacionalidade <span class="muted">(opcional)</span> <input name="nationality" value="${esc(c.nationality || '')}" placeholder="ex.: Portuguesa" /></label>
+            <label class="span-2">Morada <span class="muted">(opcional)</span> <input name="address" value="${esc(c.address || '')}" placeholder="Rua, número" /></label>
+            <label>Código postal <input name="postalCode" value="${esc(c.postalCode || '')}" placeholder="0000-000" /></label>
+            <label>Localidade <input name="city" value="${esc(c.city || '')}" /></label>
+          </div>
+          <button class="btn" type="submit">Guardar alterações</button>
+          <p id="profileMessage" class="muted profile-message"></p>
+        </form>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>Password</h2></div>
+        <p class="muted">${data.hasPassword ? 'Já tem password definida. Pode alterá-la aqui.' : 'Ainda entra sempre com código por email. Defina uma password para entrar mais depressa da próxima vez.'}</p>
+        <form id="passwordForm">
+          <label>${data.hasPassword ? 'Nova password' : 'Password'} <input name="password" type="password" minlength="8" placeholder="mínimo 8 caracteres" required /></label>
+          <button class="btn" type="submit">${data.hasPassword ? 'Alterar password' : 'Definir password'}</button>
+          <p id="passwordMessage" class="muted profile-message"></p>
+        </form>
+      </div>
     </div>`;
 
   $('#profileForm').addEventListener('submit', async e => {

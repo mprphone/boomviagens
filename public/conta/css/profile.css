@@ -1,0 +1,29 @@
+/* Vista "Os meus dados": campos em grelha de 2 colunas para caber sem
+   scroll, e layout principal + lateral (dados + password) em ecras largos -
+   mesma ideia do .checkout-grid do site publico, reconstruida aqui porque
+   as apps nao partilham CSS entre si. */
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 20px;
+  align-items: start;
+}
+
+.profile-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 18px;
+  margin-bottom: 18px;
+}
+
+.profile-form-grid .span-2 { grid-column: 1 / -1; }
+
+#passwordForm label { margin-bottom: 14px; }
+
+.profile-message { margin: 10px 0 0; }
+
+@media (max-width: 860px) {
+  .profile-grid { grid-template-columns: 1fr; }
+  .profile-form-grid { grid-template-columns: 1fr; }
+}
