@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="/conta/css/reservations.css" />
   <link rel="stylesheet" href="/conta/css/documents.css" />
   <link rel="stylesheet" href="/conta/css/tripDetail.css" />
+  <link rel="stylesheet" href="/conta/css/passengers.css" />
 </head>
 <body>
   <div id="loginGate" class="login-gate">
@@ -67,14 +68,17 @@
         <button type="button" class="nav-item" data-view="dados">
           <span class="nav-item-icon">👤</span>Os meus dados
         </button>
-        <button type="button" class="nav-item is-disabled" disabled>
-          <span class="nav-item-icon">⚙️</span>Preferências<span class="soon-badge">em breve</span>
+        <button type="button" class="nav-item" data-view="passageiros">
+          <span class="nav-item-icon">🧑‍🤝‍🧑</span>Passageiros
+        </button>
+        <button type="button" class="nav-item" data-view="preferencias">
+          <span class="nav-item-icon">⚙️</span>Preferências
         </button>
         <button type="button" class="nav-item is-disabled" disabled>
           <span class="nav-item-icon">💬</span>Mensagens<span class="soon-badge">em breve</span>
         </button>
-        <button type="button" class="nav-item is-disabled" disabled>
-          <span class="nav-item-icon">🆘</span>Contactos de emergência<span class="soon-badge">em breve</span>
+        <button type="button" class="nav-item" data-view="emergencia">
+          <span class="nav-item-icon">🆘</span>Contactos de emergência
         </button>
       </nav>
 
@@ -104,6 +108,9 @@
         <section id="view-documentos" class="view" hidden></section>
         <section id="view-pagamentos" class="view" hidden></section>
         <section id="view-dados" class="view" hidden></section>
+        <section id="view-passageiros" class="view" hidden></section>
+        <section id="view-preferencias" class="view" hidden></section>
+        <section id="view-emergencia" class="view" hidden></section>
       </main>
     </div>
   </div>

@@ -8,6 +8,9 @@ import { renderViagens, renderAnteriores } from './reservations.js';
 import { renderDocumentos } from './documents.js';
 import { renderPagamentos } from './payments.js';
 import { renderDados } from './profile.js';
+import { renderPassageiros } from './passengers.js';
+import { renderPreferencias } from './preferences.js';
+import { renderEmergencia } from './emergencyContacts.js';
 
 const VIEWS = {
   dashboard: { title: 'Dashboard', render: renderDashboard },
@@ -15,7 +18,10 @@ const VIEWS = {
   anteriores: { title: 'Reservas anteriores', render: renderAnteriores },
   documentos: { title: 'Documentos', render: renderDocumentos },
   pagamentos: { title: 'Pagamentos', render: renderPagamentos },
-  dados: { title: 'Os meus dados', render: renderDados }
+  dados: { title: 'Os meus dados', render: renderDados },
+  passageiros: { title: 'Passageiros', render: renderPassageiros },
+  preferencias: { title: 'Preferências', render: renderPreferencias },
+  emergencia: { title: 'Contactos de emergência', render: renderEmergencia }
 };
 
 function switchView(name) {

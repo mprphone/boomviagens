@@ -213,6 +213,72 @@ module.exports = function registerCustomerRoutes(router, ctx) {
     return json(res, 200, { ok: true, customer: sanitizeCustomer(customer) });
   });
 
+  // Carteira de passageiros do proprio cliente - mesma forma/validacao da
+  // rota equivalente do backoffice (POST /api/admin/customers/passengers),
+  // mas a identidade vem sempre da sessao. Grava a lista completa de cada
+  // vez (poucos registos por cliente, nao justifica CRUD por linha).
+  router.post('/api/customer/passengers', async (req, res) => {
+    const customerEmail = customerSessionEmail(req);
+    if (!customerEmail) return unauthorized(res);
+    const body = await parseBody(req);
+    if (!Array.isArray(body.passengers)) return json(res, 400, { ok: false, error: 'Lista de passageiros inválida' });
+    const passengers = body.passengers.map(p => ({
+      id: cleanText(p.id, 60) || id('pax'),
+      name: cleanText(p.name, 120),
+      birthdate: cleanText(p.birthdate, 30),
+      nationality: cleanText(p.nationality, 80),
+      documentType: cleanText(p.documentType, 30),
+      documentNumber: cleanText(p.documentNumber, 60),
+      documentExpiry: cleanText(p.documentExpiry, 30),
+      relationship: cleanText(p.relationship, 60),
+      notes: cleanText(p.notes, 500)
+    })).filter(p => p.name);
+    const customer = await updateDb(db => {
+      ensureCollections(db);
+      let found = db.customers.find(c => c.email === customerEmail);
+      if (found) { found.passengers = passengers; found.updatedAt = now(); }
+      else { found = { id: id('cli'), createdAt: now(), email: customerEmail, passengers }; db.customers.unshift(found); }
+      audit(db, customerEmail, 'CUSTOMER_PASSENGERS_UPDATED', { customerId: found.id, count: passengers.length });
+      return found;
+    });
+    return json(res, 200, { ok: true, customer: sanitizeCustomer(customer) });
+  });
+
+  // Preferencias comerciais do proprio cliente - mesmos campos da rota
+  // admin equivalente, exceto commercialNotes (notas internas da equipa,
+  // nunca editaveis nem visiveis ao cliente) - o valor existente e sempre
+  // preservado tal como estava, nunca apagado por o formulario do cliente
+  // nao o incluir.
+  router.post('/api/customer/preferences', async (req, res) => {
+    const customerEmail = customerSessionEmail(req);
+    if (!customerEmail) return unauthorized(res);
+    const body = await parseBody(req);
+    const p = body.preferences || {};
+    const customer = await updateDb(db => {
+      ensureCollections(db);
+      let found = db.customers.find(c => c.email === customerEmail);
+      if (!found) { found = { id: id('cli'), createdAt: now(), email: customerEmail }; db.customers.unshift(found); }
+      found.preferences = {
+        preferredDestinations: cleanText(p.preferredDestinations, 300),
+        tripType: cleanText(p.tripType, 200),
+        hotelCategory: cleanText(p.hotelCategory, 100),
+        boardPreference: cleanText(p.boardPreference, 100),
+        preferredAirline: cleanText(p.preferredAirline, 100),
+        seatPreference: cleanText(p.seatPreference, 100),
+        roomType: cleanText(p.roomType, 100),
+        usualBudget: cleanText(p.usualBudget, 100),
+        preferredPeriods: cleanText(p.preferredPeriods, 200),
+        departureAirport: cleanText(p.departureAirport, 100),
+        specialNeeds: cleanText(p.specialNeeds, 500),
+        commercialNotes: found.preferences?.commercialNotes || ''
+      };
+      found.updatedAt = now();
+      audit(db, customerEmail, 'CUSTOMER_PREFERENCES_UPDATED', { customerId: found.id });
+      return found;
+    });
+    return json(res, 200, { ok: true, customer: sanitizeCustomer(customer) });
+  });
+
   function ownReservationOrNull(db, reservationId, customerEmail) {
     const reservation = db.reservations.find(r => r.id === reservationId);
     if (!reservation || reservation.customer?.email !== customerEmail) return null;

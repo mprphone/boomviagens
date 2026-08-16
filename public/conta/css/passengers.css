@@ -1,0 +1,26 @@
+/* Vista "Passageiros": grelha de cartoes, um por pessoa guardada. */
+
+.passenger-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.passenger-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  background: var(--bg);
+}
+
+.passenger-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.passenger-card-head b { font-size: 14px; }
+.passenger-card .muted.small { font-size: 12px; display: block; margin-top: 2px; }
+.passenger-card .passenger-edit { margin-top: 10px; }
