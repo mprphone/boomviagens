@@ -1,0 +1,6 @@
+Boomviagens V5 Global
+Data: 2026-08-17
+Base: V4 Operacional / Apresentação
+Foco: pesquisa aérea mundial, multi-cidade, UI mobile/desktop e destinos globais.
+
+IMPORTANTE: o ZIP não inclui .env nem credenciais.

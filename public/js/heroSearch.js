@@ -32,7 +32,11 @@ export function setSearchType(type = 'PACKAGE') {
   if ($('#checkinLabel')) $('#checkinLabel').textContent = cfg.checkin;
   if ($('#checkoutLabel')) $('#checkoutLabel').textContent = cfg.checkout;
   if ($('#originField')) $('#originField').hidden = !cfg.origin;
-  const submit = form.querySelector('.search-submit'); if (submit) submit.textContent = `🔍 ${cfg.submit}`;
+  const flightMode = type === 'FLIGHT';
+  const flightPanel = $('#flightSearchPanel'); if (flightPanel) flightPanel.hidden = !flightMode;
+  const genericPills = form.querySelector('.search-pills'); if (genericPills) genericPills.hidden = flightMode;
+  form.classList.toggle('flight-mode', flightMode);
+  const submit = form.querySelector('.search-submit'); if (submit) submit.textContent = cfg.submit;
   const trust = form.querySelector('.search-trust-line');
   if (trust) trust.innerHTML = type === 'FLIGHT' ? '<span>✓ Comparamos horários e preços</span><span>✓ Tarifas revalidadas antes de reservar</span><span>✓ Apoio humano sempre que precisar</span>' : type === 'EXPERIENCE' ? '<span>✓ Atividades HBX</span><span>✓ Eventos Ticketmaster</span><span>✓ Sem inventar disponibilidade</span>' : type === 'CRUISE' ? '<span>✓ Pedido tratado por especialista</span><span>✓ Guardamos o seu interesse</span><span>✓ Sem compromisso</span>' : '<span>✓ Comparamos preço e condições</span><span>✓ Pagamento seguro</span><span>✓ Apoio humano sempre que precisar</span>';
 }
@@ -83,7 +87,7 @@ function paintDestinationSuggestions(items) {
   if (!items?.length) { panel.hidden = true; return; }
   positionPanelBelow(panel, $('#destinationInput'), false);
   panel.innerHTML = items.map(d => `
-    <button type="button" class="suggest-item" data-value="${esc(d.name)}">
+    <button type="button" class="suggest-item" data-value="${esc(d.name)}" data-iata="${esc(d.iata || '')}">
       <span class="suggest-icon">${esc(d.icon || '📍')}</span>
       <span><b>${esc(d.name)}</b>${d.country ? `<small>${esc(d.country)}${d.iata ? ` · ${esc(d.iata)}` : ''}</small>` : ''}</span>
     </button>`).join('');
@@ -107,12 +111,13 @@ function queueDestinationSuggestions(query) {
   destinationTimer = setTimeout(() => renderDestinationSuggestions(query), 160);
 }
 
-$('#destinationInput')?.addEventListener('input', e => queueDestinationSuggestions(e.target.value));
+$('#destinationInput')?.addEventListener('input', e => { if ($('#destinationIataInput')) $('#destinationIataInput').value=''; queueDestinationSuggestions(e.target.value); });
 $('#destinationInput')?.addEventListener('focus', e => renderDestinationSuggestions(e.target.value));
 $('#destinationSuggest')?.addEventListener('click', e => {
   const btn = e.target.closest('.suggest-item');
   if (!btn) return;
   $('#destinationInput').value = btn.dataset.value;
+  if ($('#destinationIataInput')) $('#destinationIataInput').value = btn.dataset.iata || '';
   $('#destinationSuggest').hidden = true;
   calendarCache = null;
 });
@@ -298,7 +303,202 @@ document.addEventListener('click', e => {
   if (panel && trigger && !panel.hidden && !panel.contains(e.target) && !trigger.contains(e.target)) panel.hidden = true;
 });
 
+
+// --- Pesquisa aérea mundial -------------------------------------------------
+// A Duffel expõe Places (cidades e aeroportos). Usamos esse endpoint para
+// nunca limitar o cliente a Lisboa/Porto/Faro e para aceitar áreas
+// metropolitanas (LON, NYC, PAR...) além de aeroportos concretos.
+let airportRequestSeq = 0;
+const airportTimers = new WeakMap();
+
+function airportLabel(place = {}) {
+  const code = place.iataCode || '';
+  const city = place.cityName || '';
+  const name = place.name || city;
+  if (place.type === 'city') return `${city || name} (${code}) · todos os aeroportos`;
+  return `${city ? `${city} · ` : ''}${name} (${code})`;
+}
+
+function closeAirportSuggests(except = null) {
+  document.querySelectorAll('.airport-suggest').forEach(el => { if (el !== except) el.hidden = true; });
+}
+
+async function loadAirportSuggestions(input, panel, hidden) {
+  const q = String(input.value || '').trim();
+  hidden.value = '';
+  if (q.length < 2) { panel.hidden = true; return; }
+  const seq = ++airportRequestSeq;
+  panel.hidden = false;
+  panel.innerHTML = '<div class="airport-suggest-loading">A procurar no mundo inteiro…</div>';
+  try {
+    const data = await api(`/api/airports/suggest?q=${encodeURIComponent(q)}`);
+    if (seq !== airportRequestSeq) return;
+    const places = data.places || [];
+    if (!places.length) {
+      panel.innerHTML = '<div class="airport-suggest-empty">Nenhum aeroporto ou cidade encontrado.</div>';
+      return;
+    }
+    panel.innerHTML = places.map(p => `<button type="button" class="airport-option" data-iata="${esc(p.iataCode)}" data-label="${esc(airportLabel(p))}">
+      <span class="airport-code">${esc(p.iataCode)}</span>
+      <span class="airport-copy"><b>${esc(p.cityName || p.name)}</b><small>${esc(p.type === 'city' ? `Cidade · ${p.countryCode || ''}` : `${p.name || ''} · ${p.countryCode || ''}`)}</small></span>
+      <span class="airport-type">${p.type === 'city' ? 'Cidade' : 'Aeroporto'}</span>
+    </button>`).join('');
+  } catch (err) {
+    panel.innerHTML = `<div class="airport-suggest-empty">${esc(err.message || 'Pesquisa temporariamente indisponível.')}</div>`;
+  }
+}
+
+function wireAirportField(input, hidden, panel) {
+  if (!input || !hidden || !panel || input.dataset.airportWired) return;
+  input.dataset.airportWired = '1';
+  input.addEventListener('input', () => {
+    hidden.value = '';
+    clearTimeout(airportTimers.get(input));
+    airportTimers.set(input, setTimeout(() => loadAirportSuggestions(input, panel, hidden), 180));
+  });
+  input.addEventListener('focus', () => { closeAirportSuggests(panel); if (input.value.trim().length >= 2) loadAirportSuggestions(input, panel, hidden); });
+  panel.addEventListener('click', e => {
+    const btn = e.target.closest('.airport-option'); if (!btn) return;
+    input.value = btn.dataset.label || btn.dataset.iata;
+    hidden.value = btn.dataset.iata || '';
+    panel.hidden = true;
+  });
+}
+
+function wireAllAirportFields(root = document) {
+  root.querySelectorAll('[data-airport-field]').forEach(field => {
+    const input = field.querySelector('input:not([type="hidden"])');
+    const hidden = field.querySelector('input[type="hidden"]');
+    const panel = field.querySelector('.airport-suggest');
+    wireAirportField(input, hidden, panel);
+  });
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('[data-airport-field]')) closeAirportSuggests();
+});
+
+let flightTripType = 'ROUND_TRIP';
+function setFlightTripType(type) {
+  flightTripType = ['ROUND_TRIP','ONE_WAY','MULTI_CITY'].includes(type) ? type : 'ROUND_TRIP';
+  if ($('#flightTripType')) $('#flightTripType').value = flightTripType;
+  document.querySelectorAll('#tripTypeSwitch [data-trip-type]').forEach(b => b.classList.toggle('is-active', b.dataset.tripType === flightTripType));
+  if ($('#flightSimpleRow')) $('#flightSimpleRow').hidden = flightTripType === 'MULTI_CITY';
+  if ($('#multiCityPanel')) $('#multiCityPanel').hidden = flightTripType !== 'MULTI_CITY';
+  if ($('#flightReturnField')) $('#flightReturnField').hidden = flightTripType === 'ONE_WAY';
+  if (flightTripType === 'MULTI_CITY' && !$('#multiCityRows')?.children.length) renderMultiCityRows([
+    { originLabel: '', origin: '', destinationLabel: '', destination: '', departureDate: $('#flightDepartureDate')?.value || isoDateOffset(30) },
+    { originLabel: '', origin: '', destinationLabel: '', destination: '', departureDate: $('#flightReturnDate')?.value || isoDateOffset(37) }
+  ]);
+}
+
+document.querySelectorAll('#tripTypeSwitch [data-trip-type]').forEach(btn => btn.addEventListener('click', () => setFlightTripType(btn.dataset.tripType)));
+
+function multiCityRowHtml(leg = {}, index = 0) {
+  return `<div class="multicity-row" data-leg-index="${index}">
+    <span class="multicity-number">${index + 1}</span>
+    <label class="flight-place-field" data-airport-field><small>De</small><input placeholder="Cidade ou aeroporto" value="${esc(leg.originLabel || '')}" autocomplete="off"><input type="hidden" value="${esc(leg.origin || '')}"><div class="airport-suggest" hidden></div></label>
+    <label class="flight-place-field" data-airport-field><small>Para</small><input placeholder="Cidade ou aeroporto" value="${esc(leg.destinationLabel || '')}" autocomplete="off"><input type="hidden" value="${esc(leg.destination || '')}"><div class="airport-suggest" hidden></div></label>
+    <label class="flight-date-field"><small>Data</small><input type="date" value="${esc(leg.departureDate || isoDateOffset(30 + index * 3))}" min="${isoDateOffset(1)}"></label>
+    ${index >= 2 ? '<button type="button" class="remove-leg" aria-label="Remover trajeto">×</button>' : '<span class="remove-leg-placeholder"></span>'}
+  </div>`;
+}
+
+function readMultiCityRows() {
+  return [...document.querySelectorAll('#multiCityRows .multicity-row')].map(row => {
+    const fields = row.querySelectorAll('[data-airport-field]');
+    return {
+      originLabel: fields[0]?.querySelector('input:not([type="hidden"])')?.value || '',
+      origin: fields[0]?.querySelector('input[type="hidden"]')?.value || '',
+      destinationLabel: fields[1]?.querySelector('input:not([type="hidden"])')?.value || '',
+      destination: fields[1]?.querySelector('input[type="hidden"]')?.value || '',
+      departureDate: row.querySelector('input[type="date"]')?.value || ''
+    };
+  });
+}
+
+function renderMultiCityRows(legs) {
+  const host = $('#multiCityRows'); if (!host) return;
+  host.innerHTML = legs.slice(0,6).map(multiCityRowHtml).join('');
+  wireAllAirportFields(host);
+  host.querySelectorAll('.remove-leg').forEach(btn => btn.addEventListener('click', () => {
+    const current = readMultiCityRows(); const idx = Number(btn.closest('.multicity-row')?.dataset.legIndex || -1);
+    if (idx >= 2) { current.splice(idx,1); renderMultiCityRows(current); }
+  }));
+}
+
+$('#addMultiCityLeg')?.addEventListener('click', () => {
+  const current = readMultiCityRows(); if (current.length >= 6) return;
+  const previous = current[current.length - 1] || {};
+  current.push({ originLabel: previous.destinationLabel || '', origin: previous.destination || '', destinationLabel: '', destination: '', departureDate: isoDateOffset(30 + current.length * 3) });
+  renderMultiCityRows(current);
+});
+
+function syncFlightDatesToForm() {
+  if ($('#checkinInput')) $('#checkinInput').value = $('#flightDepartureDate')?.value || '';
+  if ($('#checkoutInput')) $('#checkoutInput').value = flightTripType === 'ONE_WAY' ? '' : ($('#flightReturnDate')?.value || '');
+  if ($('#destinationInput')) $('#destinationInput').value = $('#flightDestinationText')?.value || $('#flightDestinationIata')?.value || 'Voo';
+  const originSelect = document.querySelector('#originField select[name="origin"]');
+  if (originSelect && $('#flightOriginIata')?.value) {
+    let opt = [...originSelect.options].find(x => x.value === $('#flightOriginIata').value);
+    if (!opt) { opt = new Option($('#flightOriginIata').value, $('#flightOriginIata').value); originSelect.add(opt); }
+    originSelect.value = $('#flightOriginIata').value;
+  }
+  if ($('#flightPaxSummary')) $('#flightPaxSummary').textContent = paxSummaryText();
+  if ($('#multiPaxSummary')) $('#multiPaxSummary').textContent = paxSummaryText();
+}
+
+function validateAirportSelection(textId, iataId, label) {
+  const text = $(textId)?.value.trim(); let iata = $(iataId)?.value.trim().toUpperCase();
+  if (!iata && /^[A-Za-z]{3}$/.test(text || '')) { iata = text.toUpperCase(); $(iataId).value = iata; }
+  if (!text || !/^[A-Z]{3}$/.test(iata)) {
+    $(textId)?.focus();
+    throw new Error(`Escolha ${label} a partir da lista de cidades/aeroportos (ou escreva o código IATA).`);
+  }
+}
+
+function submitFlightSearch() {
+  try {
+    syncFlightDatesToForm();
+    if (flightTripType === 'MULTI_CITY') {
+      const legs = readMultiCityRows();
+      if (legs.length < 2) throw new Error('Adicione pelo menos dois trajetos.');
+      legs.forEach((leg, i) => {
+        if (!/^[A-Z]{3}$/.test(leg.origin) || !/^[A-Z]{3}$/.test(leg.destination)) throw new Error(`Escolha origem e destino do trajeto ${i+1} a partir das sugestões.`);
+        if (!leg.departureDate) throw new Error(`Indique a data do trajeto ${i+1}.`);
+      });
+      $('#multiCitySlicesInput').value = JSON.stringify(legs.map(x => ({ origin:x.origin, destination:x.destination, departureDate:x.departureDate })));
+      $('#destinationInput').value = legs.map(x => `${x.origin}-${x.destination}`).join(' · ');
+      $('#checkinInput').value = legs[0].departureDate; $('#checkoutInput').value = legs[legs.length-1].departureDate;
+    } else {
+      validateAirportSelection('#flightOriginText','#flightOriginIata','a origem');
+      validateAirportSelection('#flightDestinationText','#flightDestinationIata','o destino');
+      if (!$('#flightDepartureDate').value) throw new Error('Escolha a data de ida.');
+      if (flightTripType === 'ROUND_TRIP' && !$('#flightReturnDate').value) throw new Error('Escolha a data de volta.');
+      $('#multiCitySlicesInput').value = '';
+    }
+    $('#searchForm').requestSubmit();
+  } catch (err) {
+    const note = $('#flightWorldNoteError');
+    if (note) note.textContent = err.message;
+    else alert(err.message);
+  }
+}
+
+$('#flightSearchSubmit')?.addEventListener('click', submitFlightSearch);
+$('#multiCitySearchSubmit')?.addEventListener('click', submitFlightSearch);
+$('#flightPaxTrigger')?.addEventListener('click', openPaxPanel);
+$('#multiPaxTrigger')?.addEventListener('click', openPaxPanel);
+$('#swapAirportsBtn')?.addEventListener('click', () => {
+  const aText=$('#flightOriginText'), bText=$('#flightDestinationText'), aCode=$('#flightOriginIata'), bCode=$('#flightDestinationIata');
+  [aText.value,bText.value]=[bText.value,aText.value]; [aCode.value,bCode.value]=[bCode.value,aCode.value];
+});
+wireAllAirportFields();
+setFlightTripType('ROUND_TRIP');
+
 const today = isoDateOffset(1);
+if ($('#flightDepartureDate')) { $('#flightDepartureDate').min=today; if(!$('#flightDepartureDate').value) $('#flightDepartureDate').value=isoDateOffset(30); }
+if ($('#flightReturnDate')) { $('#flightReturnDate').min=today; if(!$('#flightReturnDate').value) $('#flightReturnDate').value=isoDateOffset(37); }
 const checkin = $('#checkinInput'); const checkout = $('#checkoutInput');
 if (checkin) { checkin.min = today; if (!checkin.value) checkin.value = isoDateOffset(30); }
 if (checkout) { checkout.min = checkin?.value || today; if (!checkout.value) checkout.value = isoDateOffset(37); }

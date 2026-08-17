@@ -104,7 +104,7 @@ module.exports = function registerPublicRoutes(router, ctx) {
     if (!flight || typeof flight !== 'object') return null;
     return {
       carriers: Array.isArray(flight.carriers) ? flight.carriers.slice(0, 4) : [],
-      slices: Array.isArray(flight.slices) ? flight.slices.slice(0, 2).map(slice => ({
+      slices: Array.isArray(flight.slices) ? flight.slices.slice(0, 6).map(slice => ({
         origin: slice.origin || '', destination: slice.destination || '',
         departureAt: slice.departureAt || '', arrivalAt: slice.arrivalAt || '',
         durationMinutes: Number(slice.durationMinutes || 0), stops: Number(slice.stops || 0),
@@ -438,11 +438,37 @@ module.exports = function registerPublicRoutes(router, ctx) {
   // Sugestões de destino vêm do servidor para o frontend não ficar preso a
   // uma lista hardcoded. Incluem o aeroporto de referência usado pelo motor
   // de voos, mas nunca credenciais de fornecedores.
+  router.get('/api/airports/suggest', async (req, res, url) => {
+    const limited = rateLimit(req, res, 'airports-suggest', 120, 60 * 1000);
+    if (limited) return limited;
+    const q = String(url.searchParams.get('q') || '').trim().slice(0, 80);
+    if (q.length < 2) return json(res, 200, { ok: true, places: [] });
+    if (!duffel?.isConfigured()) return json(res, 503, { ok: false, error: 'Pesquisa mundial de aeroportos temporariamente indisponível.' });
+    try {
+      const places = await cachedProviderCall('duffel-places', q.toLowerCase(), 24 * 60 * 60 * 1000, () => duffel.suggestPlaces(q, 10));
+      return json(res, 200, { ok: true, places });
+    } catch (err) {
+      return json(res, 502, { ok: false, error: err.message || 'Não foi possível procurar aeroportos.' });
+    }
+  });
+
   router.get('/api/destinations/suggest', async (req, res, url) => {
     const limited = rateLimit(req, res, 'destinations-suggest', 120, 60 * 1000);
     if (limited) return limited;
     const q = String(url.searchParams.get('q') || '').slice(0, 80);
-    return json(res, 200, { ok: true, destinations: travelIntelligence.suggest(q, 10) });
+    const local = travelIntelligence.suggest(q, 10);
+    if (!duffel?.isConfigured() || q.trim().length < 2) return json(res, 200, { ok: true, destinations: local });
+    try {
+      const places = await cachedProviderCall('duffel-destination-places', q.toLowerCase(), 24 * 60 * 60 * 1000, () => duffel.suggestPlaces(q, 10));
+      const dynamic = places.filter(p => p.type === 'city' || p.iataCityCode).map(p => ({
+        name: p.cityName || p.name, country: p.countryCode || '', iata: p.iataCityCode || p.iataCode, hbxCode: p.iataCityCode || p.iataCode, icon: '•'
+      }));
+      const seen = new Set();
+      const merged = [...local, ...dynamic].filter(d => { const k = `${String(d.name).toLowerCase()}|${d.iata || ''}`; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 10);
+      return json(res, 200, { ok: true, destinations: merged });
+    } catch {
+      return json(res, 200, { ok: true, destinations: local });
+    }
   });
 
   function flightOnlyOffer(flight, parsed, destination, origin, margins, index = 0) {
@@ -466,19 +492,58 @@ module.exports = function registerPublicRoutes(router, ctx) {
   router.post('/api/flights/search', async (req, res) => {
     const limited = rateLimit(req, res, 'flight-search', 20, 60 * 1000);
     if (limited) return limited;
-    const body = searchPayload(await ctx.parseBody(req));
+    const raw = await ctx.parseBody(req);
     const db = await readDb();
-    const parsed = searchOffers(body, db.margins).parsed;
-    const destination = resolveDestination(parsed.destination);
-    const origin = resolveOrigin(parsed.origin);
-    if (!destination || !origin) return json(res, 400, { ok: false, error: 'Escolha uma origem e um destino válidos.' });
     if (!duffel?.isConfigured()) return json(res, 503, { ok: false, error: 'A pesquisa de voos ainda não está configurada neste ambiente.' });
-    const result = await cachedProviderCall('duffel-standalone', providerQueryKey(destination, origin, parsed), 60 * 1000, () => duffel.searchFlights({
-      origin: origin.iata, destination: destination.iata, departureDate: parsed.checkin, returnDate: parsed.checkout,
-      adults: parsed.adults, children: parsed.children, infants: parsed.infants, childAges: parsed.childAges, infantAges: parsed.infantAges, limit: 10
-    }));
-    const offers = (result.offers || []).map((f, i) => flightOnlyOffer(f, parsed, destination, origin, db.margins, i)).filter(Boolean);
-    return json(res, 200, { ok: true, parsed: { ...parsed, destination: destination.name }, results: attachOfferTokens(offers), count: offers.length, mode: result.mode || duffel.mode?.() || 'test' });
+
+    const tripType = String(raw.tripType || 'ROUND_TRIP').toUpperCase();
+    const adults = Math.max(1, Math.min(8, Number(raw.adults || 1)));
+    const children = Math.max(0, Math.min(8, Number(raw.children || 0)));
+    const infants = Math.max(0, Math.min(8, Number(raw.infants || 0)));
+    const childAges = String(raw.childAges || '').split(',').filter(Boolean).map(Number);
+    const infantAges = String(raw.infantAges || '').split(',').filter(Boolean).map(Number);
+    let result; let parsed; let displayDestination;
+
+    if (tripType === 'MULTI_CITY') {
+      let suppliedSlices = raw.slices;
+      if (!Array.isArray(suppliedSlices) && raw.multiCitySlices) { try { suppliedSlices = JSON.parse(String(raw.multiCitySlices)); } catch {} }
+      const slices = Array.isArray(suppliedSlices) ? suppliedSlices.slice(0, 6).map(x => ({
+        origin: String(x.origin || '').toUpperCase().trim(), destination: String(x.destination || '').toUpperCase().trim(), departureDate: String(x.departureDate || '')
+      })) : [];
+      if (slices.length < 2) return json(res, 400, { ok: false, error: 'Adicione pelo menos dois trajetos para uma viagem multi-cidade.' });
+      const key = JSON.stringify({ slices, adults, children, infants, childAges, infantAges, cabinClass: raw.cabinClass || 'economy' });
+      result = await cachedProviderCall('duffel-multicity', key, 60 * 1000, () => duffel.searchFlightsMulti({ slices, adults, children, infants, childAges, infantAges, cabinClass: raw.cabinClass || 'economy', limit: 12 }));
+      displayDestination = slices.map(x => `${x.origin}–${x.destination}`).join(' · ');
+      parsed = { searchType: 'FLIGHT', tripType, slices, destination: displayDestination, origin: slices[0]?.origin || '', checkin: slices[0]?.departureDate || '', checkout: slices[slices.length-1]?.departureDate || '', adults, children, infants, childAges, infantAges };
+    } else {
+      const body = searchPayload(raw);
+      const baseParsed = searchOffers(body, db.margins).parsed;
+      const originCode = String(raw.originIata || raw.origin || baseParsed.origin || '').toUpperCase().trim();
+      const destinationCode = String(raw.destinationIata || raw.destination || '').toUpperCase().trim();
+      if (!/^[A-Z]{3}$/.test(originCode) || !/^[A-Z]{3}$/.test(destinationCode)) return json(res, 400, { ok: false, error: 'Escolha a origem e o destino a partir das sugestões de aeroportos/cidades.' });
+      const returnDate = tripType === 'ONE_WAY' ? '' : baseParsed.checkout;
+      const key = JSON.stringify({ originCode, destinationCode, departureDate: baseParsed.checkin, returnDate, adults, children, infants, childAges, infantAges, cabinClass: raw.cabinClass || 'economy' });
+      result = await cachedProviderCall('duffel-standalone', key, 60 * 1000, () => duffel.searchFlights({
+        origin: originCode, destination: destinationCode, departureDate: baseParsed.checkin, returnDate, adults, children, infants, childAges, infantAges, cabinClass: raw.cabinClass || 'economy', limit: 12
+      }));
+      displayDestination = String(raw.destinationLabel || raw.destination || destinationCode);
+      parsed = { ...baseParsed, searchType: 'FLIGHT', tripType, checkout: tripType === 'ONE_WAY' ? '' : baseParsed.checkout, destination: displayDestination, destinationIata: destinationCode, origin: String(raw.originLabel || raw.origin || originCode), originIata: originCode, adults, children, infants, childAges, infantAges };
+    }
+
+    const pricingDestination = displayDestination || 'Voo';
+    const offers = (result.offers || []).map((flight, i) => {
+      const price = applyMargin(Number(flight.totalAmount || 0), pricingDestination, db.margins, { operator: 'Duffel', channel: 'ONLINE', productType: 'VOO' });
+      return {
+        id: `flight-${flight.id || i}`, operator: 'Duffel', provider: 'Duffel', productType: 'FLIGHT', live: true, available: true,
+        destination: displayDestination, country: '', hotel: tripType === 'MULTI_CITY' ? `Voo multi-cidade · ${displayDestination}` : `Voo ${parsed.originIata || parsed.origin} → ${parsed.destinationIata || displayDestination}`,
+        board: 'Voo', nights: 0, rating: 0, freeCancellation: false, nonRefundable: false, adults, children, infants, childAges, infantAges,
+        origin: parsed.originIata || parsed.origin, checkin: parsed.checkin, checkout: parsed.checkout, image: '',
+        costPrice: price.costPrice, finalPrice: price.finalPrice, marginValue: price.marginValue, flight,
+        components: { flight: { componentId: 'flight-selected', provider: 'Duffel', offerId: flight.id, costPrice: price.costPrice, finalPrice: price.finalPrice, offer: flight } },
+        operatorReliability: 9, label: tripType === 'MULTI_CITY' ? 'Itinerário multi-cidade' : 'Voo disponível', score: Math.max(1, 100 - i)
+      };
+    });
+    return json(res, 200, { ok: true, parsed, results: attachOfferTokens(offers), count: offers.length, mode: result.mode || duffel.mode?.() || 'test' });
   });
 
   router.post('/api/experiences/search', async (req, res) => {
@@ -708,7 +773,9 @@ module.exports = function registerPublicRoutes(router, ctx) {
   router.post('/api/search', async (req, res) => {
     const limited = rateLimit(req, res, 'search', 30, 60 * 1000);
     if (limited) return limited;
-    const body = searchPayload(await ctx.parseBody(req));
+    const rawSearchBody = await ctx.parseBody(req);
+    const body = searchPayload(rawSearchBody);
+    if (rawSearchBody.destinationIata) body.destinationIata = String(rawSearchBody.destinationIata).toUpperCase().trim();
     const db = await readDb();
 
     // smartParse continua a ser o normalizador comum (datas/pax/origem), mas
@@ -718,7 +785,11 @@ module.exports = function registerPublicRoutes(router, ctx) {
     const parsed = demoSearch.parsed;
     const requestedSearchType = String(body.searchType || parsed.searchType || 'PACKAGE').toUpperCase();
     const searchType = ['PACKAGE', 'HOTEL'].includes(requestedSearchType) ? requestedSearchType : 'PACKAGE';
-    const destination = resolveDestination(parsed.destination);
+    const rawDestinationIata = String(body.destinationIata || '').toUpperCase().trim();
+    let destination = resolveDestination(parsed.destination);
+    if (!destination && /^[A-Z]{3}$/.test(rawDestinationIata)) {
+      destination = { name: parsed.destination || rawDestinationIata, country: '', countryCode: '', iata: rawDestinationIata, hbxCode: rawDestinationIata, eventCity: parsed.destination || '', icon: '•' };
+    }
     const origin = resolveOrigin(parsed.origin);
     if (!destination) {
       return json(res, 200, {

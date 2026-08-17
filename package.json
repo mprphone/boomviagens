@@ -1,17 +1,18 @@
 {
   "name": "boomviagens-operacional",
-  "version": "1.0.0",
-  "description": "Boomviagens: pesquisa, reservas, backoffice e Travel Intelligence com integrações externas controladas.",
+  "version": "1.1.0",
+  "description": "Boomviagens V5 Global: pesquisa mundial, multi-cidade, reservas, backoffice e Travel Intelligence.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
     "check": "node scripts/check-js.js",
     "test:integrations": "node scripts/test-integrations.js",
-    "test": "npm run check && npm run test:integrations && npm run test:operational",
+    "test": "npm run check && npm run test:integrations && npm run test:operational && npm run test:global",
     "test:api": "node scripts/test-api.js",
     "supabase:import": "node scripts/supabase-import-json.js",
-    "test:operational": "node scripts/test-operational-v4.js"
+    "test:operational": "node scripts/test-operational-v4.js",
+    "test:global": "node scripts/test-operational-v5.js"
   },
   "keywords": [
     "viagens",

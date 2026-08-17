@@ -161,6 +161,74 @@ class DuffelClient {
     return offer;
   }
 
+
+  async suggestPlaces(query = '', limit = 8) {
+    if (!this.isConfigured()) throw new Error('Duffel não configurada.');
+    const q = String(query || '').trim().slice(0, 80);
+    if (q.length < 2) return [];
+    const cacheKey = `places:${q.toLowerCase()}`;
+    const cached = this.cache.get(cacheKey);
+    if (cached) return cached;
+    const { data } = await fetchJson(`${this.baseUrl}/places/suggestions?query=${encodeURIComponent(q)}`, {
+      method: 'GET', timeoutMs: 9000,
+      headers: { Accept: 'application/json', 'Accept-Encoding': 'gzip', 'Duffel-Version': 'v2', Authorization: `Bearer ${this.token}` }
+    });
+    const places = (Array.isArray(data?.data) ? data.data : []).map(place => ({
+      id: place.id || '', type: place.type || 'airport', name: place.name || place.city_name || '',
+      cityName: place.city_name || place.name || '', countryCode: place.iata_country_code || '',
+      iataCode: place.iata_code || place.iata_city_code || '', iataCityCode: place.iata_city_code || '',
+      airports: Array.isArray(place.airports) ? place.airports.slice(0, 8).map(a => ({ name: a.name || '', iataCode: a.iata_code || '', cityName: a.city_name || place.city_name || '', countryCode: a.iata_country_code || place.iata_country_code || '' })) : []
+    })).filter(x => /^[A-Z]{3}$/.test(x.iataCode)).slice(0, Math.max(1, Math.min(15, Number(limit) || 8)));
+    this.cache.set(cacheKey, places, 24 * 60 * 60 * 1000);
+    return places;
+  }
+
+  async searchFlightsMulti(input = {}) {
+    if (!this.isConfigured()) throw new Error('Duffel não configurada.');
+    const rawSlices = Array.isArray(input.slices) ? input.slices : [];
+    if (rawSlices.length < 1 || rawSlices.length > 6) throw new Error('Indique entre 1 e 6 trajetos.');
+    const slices = rawSlices.map((slice, index) => {
+      const origin = String(slice.origin || '').toUpperCase().trim();
+      const destination = String(slice.destination || '').toUpperCase().trim();
+      const departureDate = String(slice.departureDate || slice.departure_date || '').trim();
+      if (!/^[A-Z]{3}$/.test(origin) || !/^[A-Z]{3}$/.test(destination)) throw new Error(`Origem/destino inválidos no trajeto ${index + 1}.`);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(departureDate)) throw new Error(`Data inválida no trajeto ${index + 1}.`);
+      return { origin, destination, departure_date: departureDate };
+    });
+    for (let i = 1; i < slices.length; i++) {
+      if (slices[i].departure_date < slices[i - 1].departure_date) throw new Error('As datas dos trajetos devem estar por ordem cronológica.');
+    }
+    const adults = Math.max(1, Math.min(8, Number(input.adults || 1)));
+    const children = Math.max(0, Math.min(8, Number(input.children || 0)));
+    const infants = Math.max(0, Math.min(8, Number(input.infants || 0)));
+    const childAges = Array.from({ length: children }, (_, i) => Math.max(2, Math.min(11, Number(input.childAges?.[i] ?? 8))));
+    const infantAges = Array.from({ length: infants }, (_, i) => Math.max(0, Math.min(1, Number(input.infantAges?.[i] ?? 1))));
+    const passengers = [
+      ...Array.from({ length: adults }, () => ({ type: 'adult' })),
+      ...childAges.map(age => ({ age })), ...infantAges.map(age => ({ age }))
+    ];
+    const payload = { data: { slices, passengers, cabin_class: input.cabinClass || 'economy', max_connections: Number.isInteger(input.maxConnections) ? input.maxConnections : 1 } };
+    const cacheKey = `multi:${JSON.stringify(payload)}`;
+    const cached = this.cache.get(cacheKey);
+    if (cached) return { ...cached, cached: true };
+    const { data } = await fetchJson(`${this.baseUrl}/air/offer_requests?return_offers=true&supplier_timeout=12000`, {
+      method: 'POST', timeoutMs: 18000,
+      headers: { Accept: 'application/json', 'Accept-Encoding': 'gzip', 'Duffel-Version': 'v2', Authorization: `Bearer ${this.token}` },
+      json: payload
+    });
+    const request = data?.data || {};
+    const nowMs = Date.now();
+    const offers = (request.offers || []).map(normalizeOffer).filter(o => {
+      if (!o.id || !(o.totalAmount > 0)) return false;
+      if (!o.expiresAt) return true;
+      const expiresMs = new Date(o.expiresAt).getTime();
+      return !Number.isFinite(expiresMs) || expiresMs > nowMs;
+    }).sort((a,b) => a.totalAmount - b.totalAmount).slice(0, Math.max(1, Math.min(15, Number(input.limit || 10))));
+    const result = { requestId: request.id || null, offers, mode: this.mode(), searchedAt: new Date().toISOString(), cached: false };
+    this.cache.set(cacheKey, result, 3 * 60 * 1000);
+    return result;
+  }
+
   async testConnection() {
     const now = new Date();
     const dep = new Date(now.getTime() + 21 * 86400000).toISOString().slice(0, 10);

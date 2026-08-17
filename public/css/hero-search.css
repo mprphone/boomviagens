@@ -370,3 +370,85 @@ main { width: 100%; }
 .pill-date-stack small{font-size:10px;color:#64748b;font-weight:700;margin-bottom:3px}
 .pill-date-stack input[type=date]{border:0;background:transparent;min-width:122px;padding:0;font:inherit;font-size:12px;color:#0f172a;outline:0}
 @media(max-width:760px){.product-switch{width:100%;display:grid;grid-template-columns:repeat(2,1fr)}.product-switch button:first-child{grid-column:span 2}.pill-date-stack,.pill-date-stack input[type=date]{min-width:0;width:100%}}
+
+/* ================================================================
+   V5 — pesquisa aérea mundial / multi-cidade
+   ================================================================ */
+.product-switch {
+  display:flex;
+  gap:4px;
+  padding:8px 10px 0;
+  overflow-x:auto;
+  scrollbar-width:none;
+  border-bottom:1px solid var(--line-soft);
+  background:#fff;
+}
+.product-switch::-webkit-scrollbar{display:none}
+.product-switch button{
+  flex:0 0 auto;
+  border:0;
+  border-bottom:3px solid transparent;
+  background:transparent;
+  padding:10px 12px 9px;
+  color:var(--muted);
+  font:inherit;
+  font-size:12.5px;
+  font-weight:800;
+  cursor:pointer;
+  white-space:nowrap;
+}
+.product-switch button.is-active{color:var(--blue-dark);border-bottom-color:var(--blue)}
+
+.flight-search-panel{padding:0 20px 20px}
+.flight-search-panel[hidden]{display:none!important}
+.flight-search-topline{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:12px}
+.trip-type-switch{display:inline-flex;align-items:center;padding:3px;border:1px solid var(--line);border-radius:999px;background:#f5f8fb}
+.trip-type-switch button{border:0;border-radius:999px;padding:8px 13px;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap}
+.trip-type-switch button.is-active{background:#fff;color:var(--blue-dark);box-shadow:0 1px 5px rgba(15,39,64,.12)}
+.cabin-inline{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:11px;font-weight:750}
+.cabin-inline select{border:0;background:transparent;color:var(--ink);font:inherit;font-size:12px;font-weight:750;padding:4px}
+.flight-simple-row{display:grid;grid-template-columns:minmax(160px,1.25fr) 34px minmax(160px,1.25fr) 130px 130px minmax(120px,.8fr) auto;align-items:stretch;gap:7px}
+.flight-place-field,.flight-date-field,.flight-pax-field{position:relative;display:flex;flex-direction:column;justify-content:center;min-width:0;min-height:58px;border:1px solid var(--line);border-radius:12px;padding:8px 11px;background:#fff;text-align:left}
+.flight-place-field:focus-within,.flight-date-field:focus-within{border-color:var(--blue);box-shadow:0 0 0 3px rgba(0,119,182,.1)}
+.flight-place-field small,.flight-date-field small,.flight-pax-field small{display:block;margin-bottom:2px;color:var(--muted);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.03em}
+.flight-place-field input,.flight-date-field input{width:100%;min-width:0;border:0!important;outline:0!important;box-shadow:none!important;padding:0;background:transparent;color:var(--ink);font:inherit;font-size:14px;font-weight:800}
+.flight-pax-field{border:1px solid var(--line);font:inherit;cursor:pointer}
+.flight-pax-field strong{font-size:13px;color:var(--ink)}
+.swap-airports{align-self:center;width:34px;height:34px;border:1px solid var(--line);border-radius:50%;background:#fff;color:var(--blue-dark);font-size:18px;font-weight:800;cursor:pointer;z-index:3}
+.swap-airports:hover{background:#edf8fc;border-color:#9cd2e4}
+.flight-search-submit{min-height:58px;border-radius:12px;padding-inline:18px;white-space:nowrap}
+.flight-world-note{margin:10px 2px 0;color:var(--muted);font-size:11px;font-weight:650}
+.airport-suggest{position:absolute;z-index:100;top:calc(100% + 6px);left:0;width:min(430px,calc(100vw - 32px));max-height:330px;overflow:auto;border:1px solid var(--line);border-radius:14px;background:#fff;box-shadow:0 18px 48px rgba(15,39,64,.18)}
+.airport-suggest[hidden]{display:none!important}
+.airport-option{display:grid;grid-template-columns:52px 1fr auto;align-items:center;gap:10px;width:100%;border:0;border-bottom:1px solid var(--line-soft);padding:10px 12px;background:#fff;text-align:left;cursor:pointer}
+.airport-option:last-child{border-bottom:0}.airport-option:hover{background:#f4f9fc}
+.airport-code{display:flex;align-items:center;justify-content:center;border-radius:8px;padding:6px;background:#eaf5fa;color:var(--blue-dark);font-size:12px;font-weight:900;letter-spacing:.04em}
+.airport-copy{display:flex;flex-direction:column;gap:2px;min-width:0}.airport-copy b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.airport-copy small{color:var(--muted);font-size:10.5px;text-transform:none;letter-spacing:0}
+.airport-type{color:var(--muted);font-size:10px;font-weight:700}
+.airport-suggest-loading,.airport-suggest-empty{padding:14px;color:var(--muted);font-size:12px}
+.multicity-panel{display:flex;flex-direction:column;gap:10px}.multicity-panel[hidden]{display:none!important}
+#multiCityRows{display:flex;flex-direction:column;gap:8px}
+.multicity-row{display:grid;grid-template-columns:28px minmax(180px,1fr) minmax(180px,1fr) 140px 32px;gap:7px;align-items:center}
+.multicity-number{display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:#eaf5fa;color:var(--blue-dark);font-size:11px;font-weight:900}
+.remove-leg{width:30px;height:30px;border:0;border-radius:50%;background:#fff0f0;color:#a92323;font-size:20px;cursor:pointer}.remove-leg-placeholder{width:30px}
+.multicity-actions{display:flex;align-items:center;gap:9px;justify-content:flex-end}.multicity-actions .ghost{margin-right:auto}.multicity-actions .flight-pax-field{min-width:130px;min-height:48px}.multicity-actions .flight-search-submit{min-height:48px}
+
+@media(max-width:1100px){
+ .flight-simple-row{grid-template-columns:1fr 34px 1fr 1fr 1fr}.flight-pax-field{grid-column:1/3}.flight-search-submit{grid-column:3/6}
+ .multicity-row{grid-template-columns:28px 1fr 1fr 130px 32px}
+}
+@media(max-width:760px){
+ .hero{padding:22px 12px 28px;gap:16px}.hero-heading{display:none}.search-card{border-radius:18px;width:100%;overflow:visible}
+ .search-tabs{border-radius:18px 18px 0 0}.search-tab{font-size:12px;padding:12px 8px}
+ .product-switch{padding:4px 8px 0}.product-switch button{font-size:11.5px;padding:9px 10px 8px}
+ .search-card form{padding:12px!important}.flight-search-panel{padding:0}
+ .flight-search-topline{align-items:stretch;flex-direction:column;margin-bottom:9px}.trip-type-switch{width:100%}.trip-type-switch button{flex:1;padding:8px 6px;font-size:11px}.cabin-inline{justify-content:flex-end}
+ .flight-simple-row{display:grid;grid-template-columns:1fr 36px 1fr;gap:7px}
+ .flight-simple-row .flight-place-field{grid-column:auto}.swap-airports{grid-column:2;grid-row:1}.flight-simple-row>label:nth-of-type(2){grid-column:3;grid-row:1}
+ .flight-date-field{grid-column:auto!important}.flight-simple-row #flightReturnField{grid-column:2/4!important}.flight-pax-field{grid-column:1/3!important;min-height:52px}.flight-search-submit{grid-column:3!important;min-height:52px;padding:10px;font-size:12px}
+ .flight-place-field,.flight-date-field{min-height:56px;padding:8px 10px}.flight-place-field input,.flight-date-field input{font-size:13px}.flight-world-note{font-size:10.5px;line-height:1.4}
+ .multicity-row{grid-template-columns:24px 1fr 1fr 28px;gap:6px}.multicity-row .flight-date-field{grid-column:2/4!important}.multicity-row .remove-leg,.multicity-row .remove-leg-placeholder{grid-column:4;grid-row:1/3}.multicity-actions{display:grid;grid-template-columns:1fr 1fr}.multicity-actions .ghost{grid-column:1/3}.multicity-actions .flight-pax-field{grid-column:1!important}.multicity-actions .flight-search-submit{grid-column:2!important}
+ .airport-suggest{position:fixed;left:12px!important;right:12px;width:auto;top:150px;max-height:58vh}
+ .search-trust-line{display:none}
+}
+.flight-search-error{min-height:0;margin:7px 2px 0;color:#b42318;font-size:11px;font-weight:750}.flight-search-error:empty{display:none}

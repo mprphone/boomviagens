@@ -342,22 +342,28 @@ function renderCatalogTeasers(items = []) {
 
 function flightLegSummary(flight = {}) {
   const slices = flight.slices || []; const out = slices[0] || {}; const ret = slices[1] || {};
-  return { out, ret, carriers: (flight.carriers || []).join(' / ') || out.segments?.[0]?.operatingCarrier || 'Companhia aérea' };
+  return { slices, out, ret, carriers: (flight.carriers || []).join(' / ') || out.segments?.[0]?.operatingCarrier || 'Companhia aérea' };
+}
+function flightSliceRow(slice = {}, index = 0, total = 1) {
+  const dep = slice.departureAt ? new Date(slice.departureAt) : null;
+  const date = dep && !Number.isNaN(dep.getTime()) ? dep.toLocaleDateString('pt-PT',{day:'2-digit',month:'short'}) : '';
+  const duration = Number(slice.durationMinutes||0); const durationLabel = duration ? `${Math.floor(duration/60)}h${String(duration%60).padStart(2,'0')}` : '';
+  return `<div class="flight-slice-row"><div class="flight-slice-seq">${total>2?`Trajeto ${index+1}`:(index===0?'Ida':'Volta')}<small>${esc(date)}</small></div><div class="flight-point"><strong>${esc(slice.origin||'')}</strong><span>${timeOnly(slice.departureAt)}</span></div><div class="flight-line"><small>${esc(durationLabel)}</small><i></i><span>${slice.stops?`${slice.stops} escala${slice.stops===1?'':'s'}`:'Direto'}</span></div><div class="flight-point"><strong>${esc(slice.destination||'')}</strong><span>${timeOnly(slice.arrivalAt)}</span></div></div>`;
 }
 function timeOnly(value) { try { return value ? new Date(value).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'}) : ''; } catch { return ''; } }
 
 function renderFlightResults(data) {
   currentSearchResults = data.results || []; currentParsed = data.parsed || {}; currentCatalogTeasers = [];
-  const tripDates = dateRange(currentParsed.checkin, currentParsed.checkout);
-  $('#resultsRecapTitle').textContent = `Voos para ${currentParsed.destination || ''}`;
+  const multi = currentParsed.tripType === 'MULTI_CITY';
+  const tripDates = multi ? `${currentParsed.slices?.length || 0} trajetos` : dateRange(currentParsed.checkin, currentParsed.checkout);
+  $('#resultsRecapTitle').textContent = multi ? 'Voos multi-cidade' : `Voos para ${currentParsed.destination || ''}`;
   $('#resultsRecapDetails').textContent = `${tripDates}${currentParsed.origin ? ` · ${currentParsed.origin}` : ''} · ${currentParsed.adults || 1} adulto(s)`;
-  $('#parsedBox').innerHTML = `<div class="search-confidence"><span class="search-confidence-icon">✓</span><div><b>${currentSearchResults.length} opções de voo</b><span>Preços e horários vindos da Duffel. A tarifa escolhida volta a ser validada antes da reserva.</span></div></div>`;
+  $('#parsedBox').innerHTML = `<div class="search-confidence"><span class="search-confidence-icon">✓</span><div><b>${currentSearchResults.length} opções encontradas</b><span>Pesquisa mundial Duffel. Comparamos companhias, escalas e preço total; a oferta é revalidada antes da reserva.</span></div></div>`;
   $('#resultsFilters').hidden = true; $('#resultsHighlights').innerHTML=''; $('#resultCount').textContent=`${currentSearchResults.length} voos`;
   $('#resultsToolbar').innerHTML = '';
-  $('#results').innerHTML = currentSearchResults.length ? `<div class="standalone-flight-list">${currentSearchResults.map((o,i)=>{const f=flightLegSummary(o.flight);return `<article class="standalone-flight-card"><div class="flight-brand"><span>${i===0?'Melhor preço':'Opção'}</span><b>${esc(f.carriers)}</b></div><div class="standalone-flight-legs"><div><b>${esc(f.out.origin||'')}</b><strong>${timeOnly(f.out.departureAt)}</strong><span>→</span><b>${esc(f.out.destination||'')}</b><small>${f.out.stops?`${f.out.stops} escala(s)`:'Direto'}</small></div>${f.ret.origin?`<div><b>${esc(f.ret.origin)}</b><strong>${timeOnly(f.ret.departureAt)}</strong><span>→</span><b>${esc(f.ret.destination)}</b><small>${f.ret.stops?`${f.ret.stops} escala(s)`:'Direto'}</small></div>`:''}</div><div class="standalone-flight-price"><span>Total</span><strong>${money(o.finalPrice)}</strong><button type="button" class="btn" data-flight-select="${i}">Escolher voo</button></div></article>`}).join('')}</div>` : `<div class="empty-search"><b>Não encontrámos voos para estas condições.</b><span>Experimente outras datas ou outro aeroporto de partida.</span></div>`;
+  $('#results').innerHTML = currentSearchResults.length ? `<div class="standalone-flight-list flight-results-v5">${currentSearchResults.map((o,i)=>{const f=flightLegSummary(o.flight);return `<article class="standalone-flight-card"><div class="flight-brand"><span>${i===0?'Melhor preço':i===1?'Boa alternativa':'Opção'}</span><b>${esc(f.carriers)}</b><small>${f.slices.length>2?'Multi-cidade':f.slices.length===1?'Só ida':'Ida e volta'}</small></div><div class="standalone-flight-legs">${f.slices.map((slice,idx)=>flightSliceRow(slice,idx,f.slices.length)).join('')}</div><div class="standalone-flight-price"><span>Total da viagem</span><strong>${money(o.finalPrice)}</strong><small>${currentParsed.adults>1?`${money(o.finalPrice/Math.max(1,currentParsed.adults))} / adulto`:''}</small><button type="button" class="btn" data-flight-select="${i}">Escolher</button></div></article>`}).join('')}</div>` : `<div class="empty-search"><b>Não encontrámos voos para estas condições.</b><span>Experimente outras datas, aeroportos próximos ou permita mais escalas.</span></div>`;
   document.querySelectorAll('[data-flight-select]').forEach(btn => btn.onclick=()=>showReview(currentSearchResults[Number(btn.dataset.flightSelect)]));
 }
-
 function renderExperienceResults(data) {
   currentSearchResults=[]; currentParsed=data.parsed||{}; currentCatalogTeasers=[];
   const activities=data.activities||[]; const events=data.events||[];
