@@ -1,0 +1,13 @@
+Boomviagens — versão revista 17/08/2026
+
+Base: 1782026.zip
+
+Validado nesta entrega:
+- sintaxe JavaScript (server/src/public/scripts)
+- smoke test API em PAYMENTS_MODE=mock / TOURDIEZ_MODE=mock
+- checkout com validação completa de 2 passageiros
+- pagamento mock -> revisão humana
+- confirmação demo sem localizador inventado
+- confirmação manual exige localizador + motivo
+
+Ler MELHORIAS_2026-08-17.md antes de colocar em produção.

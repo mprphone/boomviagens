@@ -1,180 +1,135 @@
-# Boomviagens — Site operacional de reservas inteligentes
+# Boomviagens — plataforma comercial, operacional e de venda online
 
-Este ZIP inclui uma primeira versão **funcional para testes reais em ambiente local** do `boomviagens.pt`:
+Projeto de desenvolvimento da Boomviagens para gerir o ciclo completo:
 
-- site público com pesquisa inteligente;
-- motor de comparação de operadores;
-- cálculo de preço com margem configurável;
-- propostas automáticas;
-- criação de leads e clientes;
-- checkout com MB WAY / Multibanco / Cartão em modo simulado;
-- reserva semi/automática;
-- adapter preparado para TourDiez/Sirio;
-- backoffice com leads, reservas, margens, emails e logs;
-- chat local com handoff para humano;
-- base de dados em JSON para arranque rápido.
+**Pesquisa → Viagem guardada/partilhada → Checkout → Pagamento → Processo → Reservas → Financeiro → Documentos → Pós-viagem**
 
-> Importante: funciona já em modo `mock`, sem credenciais externas. Para produção é necessário ligar pagamentos reais, credenciais dos operadores, emails reais, autenticação do backoffice e validações legais finais.
+A versão deste pacote inclui site público, Área de Cliente, backoffice contextual, CRM/pipelines, processo de viagem, integração TourDiez em adapter, webhooks Stripe/Easypay e integração inicial Facturalusa.
 
----
+> Para perceber exatamente o que foi alterado nesta entrega e o que ainda é bloqueador antes de produção, ler primeiro `MELHORIAS_2026-08-17.md`.
 
-## Como correr
+## Executar localmente
 
-1. Instalar Node.js 18 ou superior.
-2. Abrir terminal na pasta do projeto.
-3. Executar:
+Requisitos: Node.js 18+.
 
 ```bash
+cp .env.example .env
+npm install
 npm start
 ```
 
-4. Abrir:
+Abrir `http://localhost:3000`.
 
-```text
-http://localhost:3000
-```
+O ficheiro `.env` nunca deve ser enviado para Git, ZIPs ou chats. Em Vercel/produção, configurar as variáveis diretamente no ambiente.
 
----
+## Teste de API
 
-## Teste rápido API
-
-Com o servidor ligado:
+Com o servidor em `PAYMENTS_MODE=mock`, `TOURDIEZ_MODE=mock` e `DB_MODE=local`:
 
 ```bash
 npm run test:api
 ```
 
-O teste faz:
+O smoke test confirma, entre outros:
 
-1. pesquisa inteligente;
-2. cria reserva;
-3. cria pagamento simulado;
-4. confirma pagamento;
-5. chama validação/confirm mock do operador;
-6. gera email interno.
+- backoffice protegido;
+- pesquisa;
+- login de cliente;
+- checkout com passageiros completos;
+- pagamento mock;
+- reserva demo fica em revisão humana;
+- não é inventado localizador do operador;
+- confirmação manual exige localizador e motivo auditável.
 
----
+## Ambientes / segurança
 
-## Configuração
+Em produção:
 
-Copiar `.env.example` para `.env` se quiser usar variáveis de ambiente.
+- `SESSION_SECRET` é obrigatório;
+- `ADMIN_USERNAME` e `ADMIN_PASSWORD` são obrigatórios se for necessário bootstrap de administrador;
+- não existe fallback `admin/admin123` em produção;
+- cookies de sessão usam `Secure` em produção;
+- `/api/payment/confirm` fica bloqueado fora de `PAYMENTS_MODE=mock`.
 
-Campos principais:
+Ver `.env.example` para todas as variáveis sem segredos reais.
 
-```env
-PORT=3000
-COMPANY_RNAVT=INSERIR_NUMERO_RNAVT
-TOURDIEZ_MODE=mock
-TOURDIEZ_BASE_URL=https://endpoint-do-operador.example/api
-TOURDIEZ_USER=
-TOURDIEZ_PASSWORD=
-PAYMENTS_MODE=mock
-```
+## Operadores
 
-Nota: o `server.js` carrega `.env` automaticamente via `dotenv` (so localmente; ficheiro `.env` nunca e enviado para o git). Em produção (Vercel, Docker, Render, Railway...), definir as variáveis diretamente nas settings da plataforma - o `dotenv` não tem efeito se não houver ficheiro `.env`.
+A abstração principal vive em:
 
----
+- `src/operatorAdapters.js`
+- `src/tourdiezClient.js`
 
-## Adapter TourDiez/Sirio
+TourDiez suporta pesquisa/availability, value, confirm e cancel, mas uma reserva só pode ficar automaticamente `CONFIRMED` quando existe confirmação real e localizador válido do operador. Ofertas demo ou sem referências ficam em `HUMAN_REVIEW`.
 
-Ficheiro principal:
+## Pagamentos
 
-```text
-src/tourdiezClient.js
-```
+Receção de webhooks:
 
-Inclui métodos:
+- Stripe: assinatura do webhook validada;
+- Easypay: a notificação não é considerada fonte de verdade; o servidor volta a consultar a API Easypay autenticada.
 
-- `login()`;
-- `getAccomodationAvail()`;
-- `value()`;
-- `confirm()`;
-- `cancel()`.
+Em ambos os casos são validados montante/moeda antes de marcar pagamento como recebido.
 
-O adapter envia `POST` com:
+**Ainda pendente para live:** criação outgoing da sessão/pagamento Stripe/Easypay + idempotência persistente/locks transacionais em PostgreSQL. Ver `MELHORIAS_2026-08-17.md`.
 
-- `pOperacion`;
-- `pRequest` em XML.
+## Faturação
 
-Isto segue a estrutura da documentação TourDiez/Sirio enviada. Como os endpoints/credenciais definitivos não foram enviados, o modo predefinido é `mock`.
+- `src/facturalusaClient.js`
+- `src/invoicing.js`
 
-Para ligar outro fornecedor (Hotelbeds, Travelgate, Duffel, ...), ver `docs/OPERATOR_ADAPTERS.md` - explica o contrato de `OperatorAdapter`, a forma exata de "offer" que o resto da aplicação espera e o passo a passo.
+A faturação é desacoplada do pagamento: uma falha na Facturalusa não apaga nem reverte o pagamento; fica registada e pode ser repetida no backoffice.
 
----
+Antes de produção validar o modelo fiscal definitivo da agência (adiantamentos, FR/fatura/recibos, NC e M12).
 
-## Onde configurar margens
+## Base de dados
 
-No ficheiro:
+Modos existentes:
 
-```text
-data/db.json
-```
+- `DB_MODE=local` — JSON, apenas desenvolvimento;
+- `DB_MODE=sqlite` — SQLite local, desenvolvimento;
+- `DB_MODE=supabase` — PostgreSQL/Supabase, recomendado para Vercel/produção.
 
-Bloco:
+A arquitetura atual ainda precisa de migrar operações críticas (pagamento, booking, webhook e faturação) para transações/locks atómicos PostgreSQL antes de venda automática real em volume.
 
-```json
-"margins": [
-  { "name": "Caraíbas", "percent": 8, "min": 80, "roundTo": 5 }
-]
-```
+## Organização funcional
 
-Também existe endpoint:
+### Site público
 
-```http
-POST /api/admin/margins
-```
+- pesquisa;
+- resultados visuais;
+- guardar viagem;
+- partilhar viagem;
+- construtor/revisão da viagem;
+- checkout por etapas;
+- validação inteligente de passageiros.
 
----
+### Área de Cliente
 
-## Fluxo operacional incluído
+- próximas viagens;
+- viagens anteriores;
+- documentos;
+- pagamentos;
+- carteira de passageiros;
+- dados pessoais;
+- preferências;
+- apoio/reclamações/emergência (conforme módulos ativos).
 
-### 1. Site e captação
+### Backoffice
 
-Cliente pesquisa destino/datas/orçamento. O sistema cria lead e proposta.
+Áreas contextuais:
 
-### 2. Operadores
+**Comercial | Operação | Online | Equipa | Financeiro | Gestão**
 
-O motor está preparado para multi-operador. Neste MVP há operadores demo e adapter TourDiez.
+O menu lateral adapta-se à área escolhida em vez de apresentar toda a aplicação ao mesmo tempo.
 
-### 3. Margem e proposta
+## Documentação desta entrega
 
-O sistema aplica regra por destino/campanha e arredonda o preço comercial.
+`MELHORIAS_2026-08-17.md` contém:
 
-### 4. Reserva e pagamento
-
-Cria reserva, pagamento simulado e, após confirmação, valida/confirm no operador.
-
-### 5. CRM, chat e automação
-
-Backoffice mostra leads, reservas, emails e logs. Chat responde e indica quando deve passar para humano.
-
----
-
-## Pontos obrigatórios antes de produção
-
-- Inserir RNAVT real.
-- Ligar Livro de Reclamações.
-- Rever Termos e Condições com regras de viagens organizadas.
-- Ativar política de privacidade e cookies.
-- Colocar autenticação no backoffice.
-- Ligar pagamentos reais: SIBS / Easypay / Stripe.
-- Ligar email real: Brevo / Sendgrid / Mailgun.
-- Confirmar contrato e limites de API com operadores.
-- Garantir que nunca se confirma uma reserva externa sem preço validado e pagamento confirmado.
-
----
-
-## Próximo desenvolvimento recomendado
-
-1. ~~Migrar `data/db.json` para Supabase/PostgreSQL.~~ Feito: `src/storage.js` liga a Supabase quando `DB_MODE=supabase` (ver `docs/SUPABASE_SETUP.md`). Falta criar o projeto real e definir as variáveis em produção. Entretanto, `DB_MODE=sqlite` (`src/storageSqlite.js`) dá SQL real num ficheiro local (`data/boomviagens.sqlite`), sem depender de nada externo - cria e semeia as tabelas sozinho no primeiro arranque. Não substitui o Supabase em produção serverless (sistema de ficheiros efémero no Vercel), mas é a opção recomendada para desenvolvimento local agora.
-2. Criar autenticação de clientes e backoffice.
-3. Colocar jobs de sincronização de hotéis/destinos TourDiez.
-4. Adicionar mais operadores.
-5. Implementar ranking real com avaliações externas e políticas de cancelamento.
-6. Integrar WhatsApp Business.
-7. Gerar PDF de proposta e voucher.
-8. Enviar emails reais.
-9. Integrar pagamentos SIBS/Stripe/Easypay.
-10. Preparar deploy em VPS/Vercel/Render.
-Nota atual: o backoffice esta protegido por login. Por defeito local, use `ADMIN_USERNAME=admin` e `ADMIN_PASSWORD=admin123`; altere estes valores antes de expor o site. O teste `npm run test:api` tambem valida que `/api/admin/dashboard` bloqueia pedidos sem sessao.
-# boomviagens
+- melhorias implementadas;
+- decisões de UX;
+- validações novas;
+- correções de segurança;
+- melhorias do backoffice;
+- lista explícita de P0 ainda pendentes antes de live.

@@ -100,6 +100,39 @@ function passengerPayload(body = {}) {
   };
 }
 
+
+function ageOnDate(birthdate, isoDate) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(birthdate || '')) || !/^\d{4}-\d{2}-\d{2}$/.test(String(isoDate || ''))) return null;
+  const b = new Date(`${birthdate}T00:00:00Z`);
+  const d = new Date(`${isoDate}T00:00:00Z`);
+  if (Number.isNaN(b.getTime()) || Number.isNaN(d.getTime()) || b > d) return null;
+  let age = d.getUTCFullYear() - b.getUTCFullYear();
+  if (d.getUTCMonth() < b.getUTCMonth() || (d.getUTCMonth() === b.getUTCMonth() && d.getUTCDate() < b.getUTCDate())) age--;
+  return age;
+}
+
+function validatePassengerForTrip(body = {}, expectedType = 'ADT', returnDate = '') {
+  const p = passengerPayload(body);
+  p.surname = requiredText(body.surname, 'Apelido do passageiro', 120);
+  p.birthdate = requiredText(body.birthdate, 'Data de nascimento', 30);
+  p.nationality = requiredText(body.nationality, 'Nacionalidade', 60);
+  p.documentType = ['CC', 'PASSPORT'].includes(body.documentType) ? body.documentType : (() => { throw new Error('Tipo de documento obrigatorio'); })();
+  p.documentNumber = requiredText(body.documentNumber, 'Numero do documento', 80);
+  p.documentCountry = requiredText(body.documentCountry, 'Pais emissor do documento', 60);
+  p.documentExpiry = requiredText(body.documentExpiry, 'Validade do documento', 30);
+  p.type = expectedType;
+  const age = ageOnDate(p.birthdate, returnDate);
+  if (age === null || age > 110) throw new Error('Data de nascimento do passageiro invalida');
+  if (expectedType === 'ADT' && age < 12) throw new Error('Passageiro adulto com idade inferior a 12 anos na data da viagem');
+  if (expectedType === 'CHD' && age >= 12) throw new Error('Passageiro crianca tera 12 ou mais anos na data da viagem');
+  if (expectedType === 'CHD' && age < 2) throw new Error('Passageiro com menos de 2 anos deve ser pesquisado como bebe');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(p.documentExpiry)) throw new Error('Validade do documento invalida');
+  const expiry = new Date(`${p.documentExpiry}T00:00:00Z`);
+  const ret = new Date(`${returnDate}T00:00:00Z`);
+  if (Number.isNaN(expiry.getTime()) || expiry < ret) throw new Error('Documento caduca antes do regresso da viagem');
+  return p;
+}
+
 function password(value) {
   const cleaned = String(value || '');
   if (cleaned.length < 8) throw new Error('Password deve ter pelo menos 8 caracteres');
@@ -124,5 +157,7 @@ module.exports = {
   searchPayload,
   customerPayload,
   passengerPayload,
+  validatePassengerForTrip,
+  ageOnDate,
   paymentMethod
 };

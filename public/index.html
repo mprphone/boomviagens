@@ -74,12 +74,13 @@
               <span class="pill-icon">📅</span>
               <input name="checkin" id="checkinInput" type="text" readonly placeholder="Datas flexíveis" autocomplete="off" />
             </label>
-            <label class="pill-field pill-pax">
-              <span class="pill-icon">👤</span>
-              <input name="adults" id="adultsInput" type="number" value="2" min="1" title="Adultos" />
-              <span class="pill-sep">·</span>
-              <input name="children" id="childrenInput" type="number" value="0" min="0" title="Crianças" />
-            </label>
+            <div class="pill-field pill-pax" id="paxTrigger" role="button" tabindex="0" aria-haspopup="dialog">
+              <span class="pill-icon">👥</span>
+              <span class="pax-summary" id="paxSummary">2 adultos</span>
+              <span class="pax-chevron">⌄</span>
+              <input name="adults" id="adultsInput" type="hidden" value="2" />
+              <input name="children" id="childrenInput" type="hidden" value="0" />
+            </div>
             <input type="hidden" name="nights" id="nightsInput" value="7" />
             <button class="btn search-submit" type="submit">🔍 Pesquisar</button>
           </div>
@@ -232,26 +233,26 @@
     <section id="reviewPage" class="panel" hidden>
       <div class="section-head">
         <div>
-          <p class="eyebrow">Confirme a sua viagem</p>
-          <h2>Resumo da reserva</h2>
+          <p class="eyebrow">Construa a sua viagem</p>
+          <h2>Reveja, personalize, guarde ou partilhe</h2>
         </div>
-        <button type="button" class="ghost" id="backToResultsBtn">Alterar quarto</button>
+        <button type="button" class="ghost" id="backToResultsBtn">Voltar aos resultados</button>
       </div>
       <div id="reviewContent"></div>
     </section>
 
     <div id="passportModal" class="modal-overlay" hidden>
       <div class="modal-box panel passport-modal">
-        <p class="eyebrow">Informacao importante</p>
-        <h2>Antes de continuar</h2>
+        <p class="eyebrow">Reserva segura</p>
+        <h2>Vamos confirmar os dados consigo</h2>
         <ul>
-          <li>Os nomes dos passageiros tem de ser inseridos exatamente como constam no documento de identificacao (Cartao de Cidadao ou Passaporte).</li>
-          <li>Se ainda nao tiver os documentos disponiveis, pode inserir os nomes conforme constam no Cartao de Cidadao.</li>
-          <li>Nomes incorretos podem implicar custos adicionais cobrados pelo operador para correcao posterior.</li>
+          <li>Os nomes devem corresponder exatamente ao documento que cada passageiro vai usar.</li>
+          <li>Vamos validar idade, tipo de passageiro, documentos duplicados e validade até ao regresso.</li>
+          <li>Antes do pagamento, o sistema volta a confirmar os dados essenciais e a disponibilidade.</li>
         </ul>
         <div class="passport-modal-actions">
           <button type="button" class="ghost" id="passportModalClose">Fechar</button>
-          <button type="button" class="btn" id="passportModalAccept">Li e aceito, continuar</button>
+          <button type="button" class="btn" id="passportModalAccept">Continuar com assistência</button>
         </div>
       </div>
     </div>
@@ -288,6 +289,13 @@
   </main>
 
   <div class="suggest-panel" id="destinationSuggest" hidden></div>
+  <div class="pax-panel" id="paxPanel" hidden>
+    <div class="pax-panel-head"><b>Viajantes</b><button type="button" id="paxPanelClose" aria-label="Fechar">×</button></div>
+    <div class="pax-row"><div><b>Adultos</b><small>12 anos ou mais na data da viagem</small></div><div class="counter"><button type="button" data-pax="adults" data-delta="-1">−</button><strong id="adultsCount">2</strong><button type="button" data-pax="adults" data-delta="1">+</button></div></div>
+    <div class="pax-row"><div><b>Crianças</b><small>2–11 anos na data da viagem</small></div><div class="counter"><button type="button" data-pax="children" data-delta="-1">−</button><strong id="childrenCount">0</strong><button type="button" data-pax="children" data-delta="1">+</button></div></div>
+    <p class="pax-help">No checkout validamos a data de nascimento de cada passageiro. Bebés com menos de 2 anos exigem tarifa própria e não serão classificados como crianças.</p>
+    <button type="button" class="btn wide" id="paxApplyBtn">Aplicar</button>
+  </div>
   <div class="calendar-panel" id="calendarPanel" hidden></div>
 
   <div class="chat-widget">

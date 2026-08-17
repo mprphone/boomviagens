@@ -9,7 +9,9 @@ export async function renderResumo() {
   el.innerHTML = '<p class="muted">A carregar...</p>';
   let data;
   try {
-    data = await api('/api/admin/crm/overview');
+    const [overview, reservationsData] = await Promise.all([api('/api/admin/crm/overview'), api('/api/admin/reservations')]);
+    data = overview;
+    data.onlineReservations = (reservationsData.reservations || []).filter(r => r.origin === 'WEBSITE' || r.source === 'site');
   } catch (err) {
     el.innerHTML = `<p class="error">${esc(err.message)}</p>`;
     return;
@@ -19,7 +21,9 @@ export async function renderResumo() {
 
   const maxFunnelCount = Math.max(1, ...funil.map(f => f.count));
 
+  const latestOnline = data.onlineReservations?.[0];
   el.innerHTML = `
+    ${latestOnline ? `<div class="new-online-sale-banner"><div><span class="new-sale-pulse"></span><div><b>Entrada online recente</b><span>${esc(latestOnline.processNumber || latestOnline.id)} · ${esc(latestOnline.customer?.name || 'Cliente')} · ${esc(latestOnline.offer?.destination || '')}</span></div></div><div><strong>${money(latestOnline.offer?.finalPrice || 0)}</strong><span class="badge">${esc(latestOnline.status)}</span></div></div>` : ''}
     <div class="kpi-row">
       <div class="kpi-card">
         <div class="kpi-icon indigo">🔥</div>

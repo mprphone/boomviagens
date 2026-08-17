@@ -38,8 +38,10 @@ module.exports = function registerStaffRoutes(router, ctx) {
     // ambiente historicas -> cria o primeiro colaborador (ADMIN) nesse
     // login, para nao perder o acesso ja existente.
     if (!staffMember && db.staff.length === 0) {
-      const envUser = process.env.ADMIN_USERNAME || 'admin';
-      const envPassword = process.env.ADMIN_PASSWORD || 'admin123';
+      const isProd = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL);
+      const envUser = process.env.ADMIN_USERNAME || (isProd ? '' : 'admin');
+      const envPassword = process.env.ADMIN_PASSWORD || (isProd ? '' : 'admin123');
+      if (!envUser || !envPassword) return json(res, 503, { ok: false, error: 'Credenciais de bootstrap ADMIN nao configuradas no ambiente de producao.' });
       if (safeEqual(username, envUser) && safeEqual(password, envPassword)) {
         staffMember = {
           id: id('staff'), createdAt: now(), name: 'Administrador', email: '',

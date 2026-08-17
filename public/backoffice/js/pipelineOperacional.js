@@ -21,6 +21,14 @@ export function filterOperacionalByStaff(staffId) {
   filters.staffId = staffId;
 }
 
+function manualConfirmationDetails() {
+  const manualLocator = prompt('Localizador real do operador (obrigatório para confirmação manual):')?.trim() || '';
+  if (!manualLocator) throw new Error('Confirmação cancelada: falta o localizador real do operador.');
+  const manualConfirmationReason = prompt('Como foi confirmada? Ex.: portal do operador, telefone, email:')?.trim() || '';
+  if (!manualConfirmationReason) throw new Error('Confirmação cancelada: indique como verificou a reserva.');
+  return { manualLocator, manualConfirmationReason };
+}
+
 export async function renderPipelineOperacional() {
   const el = $('#view-pipeline-operacional');
   el.innerHTML = `
@@ -99,7 +107,7 @@ function renderBoard() {
     const reservation = allReservations.find(r => r.id === reservationId);
     if (!reservation || reservation.status === newStatus) return;
     try {
-      await api('/api/admin/reservations/update', { method: 'POST', body: JSON.stringify({ reservationId, status: newStatus }) });
+      await api('/api/admin/reservations/update', { method: 'POST', body: JSON.stringify({ reservationId, status: newStatus, ...(newStatus === 'CONFIRMED' ? manualConfirmationDetails() : {}) }) });
       await loadBoard();
     } catch (err) {
       alert(err.message);

@@ -1,6 +1,9 @@
-// Estado do fluxo de checkout (Faturacao -> Passageiros), vivo enquanto o
-// modal esta aberto. Modulo dedicado, sem DOM nem logica - so para as
-// etapas nao terem de se passar estes valores umas as outras a mao.
+// Estado do fluxo de checkout. Os dados sensiveis do passageiro ficam apenas
+// em sessionStorage (mesma janela/separador) para sobreviver a refreshs sem
+// ficarem persistidos indefinidamente no dispositivo. A viagem/oferta pode
+// ser guardada separadamente sem documentos pessoais (ver review.js).
+
+const STORAGE_KEY = 'boom_checkout_draft_v2';
 
 let billing = { name: '', email: '', phone: '', nif: '', address: '' };
 let emailVerified = false;
@@ -11,20 +14,53 @@ let reservationCreated = false;
 let hasPassword = false;
 let existingProfile = null;
 let savedPassengers = null;
+let bookerTravels = true;
+let lastSavedAt = null;
+let draftOfferId = null;
+
+function snapshot() {
+  return { billing, passengers, currentPassengerIndex, bookerTravels, draftOfferId, lastSavedAt: new Date().toISOString() };
+}
+
+function persist() {
+  try {
+    const value = snapshot();
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+    lastSavedAt = value.lastSavedAt;
+  } catch {
+    // Nao bloqueia o checkout se o browser nao permitir storage.
+  }
+}
+
+export function restoreCheckoutDraft(expectedOfferId = null) {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    if (expectedOfferId && data.draftOfferId && data.draftOfferId !== expectedOfferId) return false;
+    if (data.billing) billing = { ...billing, ...data.billing };
+    if (Array.isArray(data.passengers)) passengers = data.passengers;
+    if (Number.isInteger(data.currentPassengerIndex)) currentPassengerIndex = data.currentPassengerIndex;
+    if (typeof data.bookerTravels === 'boolean') bookerTravels = data.bookerTravels;
+    draftOfferId = data.draftOfferId || expectedOfferId || null;
+    lastSavedAt = data.lastSavedAt || null;
+    return Boolean(billing.name || billing.email || passengers.length);
+  } catch {
+    return false;
+  }
+}
+
+export function clearCheckoutDraft() {
+  try { sessionStorage.removeItem(STORAGE_KEY); } catch {}
+  lastSavedAt = null;
+}
 
 export const getBilling = () => billing;
-export const setBilling = value => { billing = value; };
+export const setBilling = value => { billing = value; persist(); };
 
-// Perfil do cliente tal como estava gravado antes desta reserva (ou null se
-// nao houver conta) - guardado no momento do pre-preenchimento, para saber
-// que campos ja estavam la (e por isso nao devem ser reescritos "por cima"
-// nem, no caso do NIF, deixados editar sem mais).
 export const getExistingProfile = () => existingProfile;
 export const setExistingProfile = value => { existingProfile = value; };
 
-// Carteira de passageiros do cliente (null = ainda nao carregada nesta
-// sessao de checkout). Carregada uma vez, atualizada depois de cada
-// "guardar para o futuro" na etapa de passageiros.
 export const getSavedPassengers = () => savedPassengers;
 export const setSavedPassengers = value => { savedPassengers = value; };
 
@@ -35,26 +71,29 @@ export const getVerifyChallenge = () => verifyChallenge;
 export const setVerifyChallenge = value => { verifyChallenge = value; };
 
 export const getPassengers = () => passengers;
-export const setPassenger = (index, data) => { passengers[index] = data; };
+export const setPassenger = (index, data) => { passengers[index] = data; persist(); };
 
 export const getPassengerIndex = () => currentPassengerIndex;
-export const setPassengerIndex = value => { currentPassengerIndex = value; };
+export const setPassengerIndex = value => { currentPassengerIndex = value; persist(); };
 
-export const setReservationCreated = value => { reservationCreated = value; };
+export const getBookerTravels = () => bookerTravels;
+export const setBookerTravels = value => { bookerTravels = Boolean(value); persist(); };
+
+export const getLastSavedAt = () => lastSavedAt;
+export const setDraftOfferId = value => { draftOfferId = value || null; persist(); };
+export const getDraftOfferId = () => draftOfferId;
+
+export const setReservationCreated = value => { reservationCreated = value; if (value) clearCheckoutDraft(); };
 
 export const hasExistingPassword = () => hasPassword;
 export const setHasExistingPassword = value => { hasPassword = value; };
 
-// Ha dados que se perdem ao fechar? So enquanto a reserva ainda nao foi
-// criada no servidor (etapas 1-2) e ja se escreveu ou verificou alguma
-// coisa - depois de criada, ja esta guardada (ver "Guardar e continuar
-// mais tarde" na etapa de Pagamento), fechar nao perde nada.
 export function hasCheckoutProgress() {
   if (reservationCreated) return false;
-  return emailVerified || Boolean(billing.name || billing.phone) || passengers.length > 0;
+  return emailVerified || Boolean(billing.name || billing.phone || billing.email) || passengers.length > 0;
 }
 
-export function resetCheckoutState() {
+export function resetCheckoutState({ keepDraft = false } = {}) {
   billing = { name: '', email: '', phone: '', nif: '', address: '' };
   emailVerified = false;
   verifyChallenge = null;
@@ -64,4 +103,7 @@ export function resetCheckoutState() {
   hasPassword = false;
   existingProfile = null;
   savedPassengers = null;
+  bookerTravels = true;
+  draftOfferId = null;
+  if (!keepDraft) clearCheckoutDraft();
 }

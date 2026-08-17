@@ -5,7 +5,7 @@
 
 import { $, esc, api, formToJson, isValidNif } from '../utils.js';
 import { setCheckoutStep } from './checkoutShell.js';
-import { getBilling, setBilling, isEmailVerified, setEmailVerified, getVerifyChallenge, setVerifyChallenge, setPassengerIndex, hasExistingPassword, setHasExistingPassword, getExistingProfile, setExistingProfile } from './checkoutState.js';
+import { getBilling, setBilling, isEmailVerified, setEmailVerified, getVerifyChallenge, setVerifyChallenge, setPassengerIndex, hasExistingPassword, setHasExistingPassword, getExistingProfile, setExistingProfile, getBookerTravels, setBookerTravels } from './checkoutState.js';
 import { renderPassengerStep } from './passengerStep.js';
 
 export function renderCheckoutStep1() {
@@ -44,16 +44,20 @@ export function renderCheckoutStep1() {
         </div>` : ''}
       ${verified && hasExistingPassword() ? '<p class="muted small">Já tem uma password definida para esta conta. Pode alterá-la em Os meus dados depois de entrar.</p>' : ''}
       <div class="form-row">
-        <label>Telefone <input name="phone" value="${esc(billing.phone)}" required /></label>
+        <label>Telefone <input name="phone" value="${esc(billing.phone)}" inputmode="tel" autocomplete="tel" required /></label>
         <label>Contribuinte (NIF) <input name="nif" id="billingNif" value="${esc(billing.nif)}" maxlength="9" placeholder="opcional" ${nifLocked ? 'readonly' : ''} />
           <span class="field-error-text" id="nifError" hidden>NIF inválido.</span>
         </label>
       </div>
       ${nifLocked ? '<p class="muted small">NIF definido na sua conta. Para alterar, faça-o em "Os meus dados".</p>' : ''}
       <label>Morada <span class="muted">(opcional)</span> <input name="address" value="${esc(billing.address)}" placeholder="Rua, número, código postal, localidade" /></label>
+      <div class="booking-preferences">
+        <label class="consent strong"><input type="checkbox" name="bookerTravels" ${getBookerTravels() ? 'checked' : ''} /><span><b>Eu também vou viajar</b><small>Se estiver assinalado, usamos estes dados para pré-preencher o primeiro passageiro.</small></span></label>
+        ${verified ? '<label class="consent"><input type="checkbox" name="saveProfile" checked /><span>Guardar/atualizar estes dados na minha conta para a próxima reserva</span></label>' : ''}
+      </div>
       <div id="checkoutFormError"></div>
       <button class="btn wide" type="submit" id="step1Continue" ${verified ? '' : 'disabled'}>Continuar para passageiros</button>
-      <p class="trust-note">Ligação encriptada. Os seus dados servem apenas para tratar esta reserva.</p>
+      <p class="autosave-line" id="checkoutAutosaveStatus">✓ Guardado automaticamente neste checkout</p><p class="trust-note">Ligação encriptada. Os seus dados servem apenas para tratar esta reserva.</p>
     </form>`;
 
   wireStep1Form();
@@ -64,6 +68,12 @@ function wireStep1Form() {
   const emailInput = $('#billingEmail');
   const nifInput = $('#billingNif');
   const continueBtn = $('#step1Continue');
+  const persistCurrentForm = () => {
+    const values = formToJson(form);
+    setBilling({ name: values.name || '', email: values.email || '', phone: values.phone || '', nif: values.nif || '', address: values.address || '' });
+    setBookerTravels(Boolean(form.elements.bookerTravels?.checked));
+  };
+  form.querySelectorAll('input').forEach(input => input.addEventListener('change', persistCurrentForm));
 
   emailInput.addEventListener('input', () => {
     if (!isEmailVerified()) return;
@@ -101,7 +111,8 @@ function wireStep1Form() {
       return;
     }
     setBilling({ name: f.name, email: f.email, phone: f.phone, nif: f.nif || '', address: f.address || '' });
-    syncBlankProfileFields(f);
+    setBookerTravels(Boolean(form.elements.bookerTravels?.checked));
+    if (form.elements.saveProfile?.checked) syncProfileFields(f);
     setCheckoutStep(2);
     setPassengerIndex(0);
     renderPassengerStep();
@@ -112,14 +123,14 @@ function wireStep1Form() {
 // nunca sobrepoe um valor ja existente (o NIF, alias, nem chega a ficar
 // editavel nesse caso - ver renderCheckoutStep1). Sessao ja garantida: so se
 // chega aqui com isEmailVerified() true, que so acontece com sessao valida.
-function syncBlankProfileFields(f) {
+function syncProfileFields(f) {
   const c = getExistingProfile() || {};
-  const updates = {};
-  if (!c.name) updates.name = f.name;
-  if (!c.phone) updates.phone = f.phone;
-  if (!c.nif) updates.nif = f.nif || '';
-  if (!c.address) updates.address = f.address || '';
-  if (!Object.keys(updates).length) return;
+  const updates = {
+    name: (!c.name || c.name === 'Cliente') ? f.name : c.name,
+    phone: f.phone || c.phone || '',
+    nif: c.nif || f.nif || '',
+    address: f.address || c.address || ''
+  };
   api('/api/customer/profile', { method: 'POST', body: JSON.stringify({ ...c, ...updates }) })
     .then(data => setExistingProfile(data.customer))
     .catch(() => {

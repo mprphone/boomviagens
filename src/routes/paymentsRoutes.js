@@ -25,11 +25,27 @@ async function handleGatewayWebhook(ctx, adapter, req, res) {
   if (result.paymentId) {
     const db = ensureCollections(await readDb());
     const payment = db.payments.find(p => p.id === result.paymentId);
-    // Idempotente por natureza (mesmo principio de invoicing.js): se ja
-    // estiver PAID, confirmPayment() nao volta a processar nada demais e
-    // issueInvoiceForPayment() ja tem a sua propria idempotencia por
-    // documento existente - notificacoes repetidas nunca duplicam nada.
-    if (payment) await paymentConfirmation.confirmPayment(result.paymentId);
+    if (!payment) return json(res, 400, { ok: false, error: `${adapter.name}: paymentId interno desconhecido` });
+
+    // Nunca confiar apenas no metadata.paymentId. O gateway tem de ter
+    // cobrado exatamente o valor/moeda que o nosso ledger esperava.
+    const expectedAmount = Number(payment.amount || 0);
+    if (result.amountMinor != null && Math.round(expectedAmount * 100) !== Math.round(Number(result.amountMinor))) {
+      return json(res, 400, { ok: false, error: `${adapter.name}: montante recebido nao coincide com o pagamento interno` });
+    }
+    if (result.amount != null && Math.abs(expectedAmount - Number(result.amount)) > 0.005) {
+      return json(res, 400, { ok: false, error: `${adapter.name}: montante recebido nao coincide com o pagamento interno` });
+    }
+    if (result.currency && result.currency !== 'EUR') {
+      return json(res, 400, { ok: false, error: `${adapter.name}: moeda inesperada (${result.currency})` });
+    }
+    if (adapter.name === 'Stripe' && process.env.STRIPE_MODE) {
+      const expectLive = String(process.env.STRIPE_MODE).toLowerCase() === 'live';
+      if (typeof result.livemode === 'boolean' && result.livemode !== expectLive) {
+        return json(res, 400, { ok: false, error: 'Stripe: evento de ambiente diferente do configurado' });
+      }
+    }
+    await paymentConfirmation.confirmPayment(result.paymentId);
   }
   // Gateways desativam o endpoint depois de demasiadas respostas nao-2xx,
   // mesmo para notificacoes que nao reconhecemos - responde sempre 200 uma

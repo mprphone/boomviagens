@@ -70,8 +70,11 @@ class StripeGatewayAdapter extends PaymentGatewayAdapter {
     } catch {
       throw new Error('Corpo do evento não é JSON válido');
     }
-    if (!STRIPE_PAID_EVENT_TYPES.has(event.type)) return { paymentId: null };
-    return { paymentId: event.data?.object?.metadata?.paymentId || null };
+    if (!STRIPE_PAID_EVENT_TYPES.has(event.type)) return { paymentId: null, eventId: event.id || null };
+    const obj = event.data?.object || {};
+    const amount = obj.amount_total ?? obj.amount_received ?? obj.amount ?? null;
+    const currency = obj.currency || null;
+    return { paymentId: obj.metadata?.paymentId || null, eventId: event.id || null, amountMinor: amount != null ? Number(amount) : null, currency: currency ? String(currency).toUpperCase() : null, livemode: Boolean(event.livemode) };
   }
 }
 
@@ -118,7 +121,7 @@ class EasyPayGatewayAdapter extends PaymentGatewayAdapter {
     // o pagamento na Easypay - mesmo conceito do metadata.paymentId da
     // Stripe, nome de campo diferente. So existe de verdade depois de a
     // criacao de pagamentos Easypay ser construida (fora do ambito atual).
-    return { paymentId: payment.key || null };
+    return { paymentId: payment.key || null, eventId: notification?.id || easypayId, amount: Number(payment.value ?? payment.amount ?? 0) || null, currency: String(payment.currency || 'EUR').toUpperCase(), livemode: !this.baseUrl.includes('api.test.') };
   }
 }
 

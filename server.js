@@ -11,7 +11,7 @@ const { readDb, updateDb } = require('./src/storage');
 const { baseOffers, searchOffers, getOfferById } = require('./src/mockOperators');
 const { proposalEmail, reservationEmail, loginCodeEmail } = require('./src/emailTemplates');
 const { OperatorRegistry, TourDiezAdapter } = require('./src/operatorAdapters');
-const { cleanText, searchPayload, customerPayload, paymentMethod, numberInRange, email: validateEmail, password: validatePassword } = require('./src/validation');
+const { cleanText, searchPayload, customerPayload, passengerPayload, validatePassengerForTrip, paymentMethod, numberInRange, email: validateEmail, password: validatePassword } = require('./src/validation');
 const fileStorage = require('./src/fileStorage');
 const mailer = require('./src/mailer');
 const { normalize } = require('./src/pricing');
@@ -62,6 +62,8 @@ const ctx = {
   cleanText,
   searchPayload,
   customerPayload,
+  passengerPayload,
+  validatePassengerForTrip,
   paymentMethod,
   numberInRange,
   validateEmail,
@@ -98,7 +100,8 @@ async function handleApi(req, res) {
     // e o perfil "faz tudo" (ver domain.js#STAFF_ROLES).
     if (route.admin && route.roles) {
       const staff = auth.sessionStaff(req);
-      if (staff && staff.role !== 'ADMIN' && !route.roles.includes(staff.role)) {
+      if (!staff) return json(res, 403, { ok: false, error: 'Sessão sem perfil de colaborador válido' });
+      if (staff.role !== 'ADMIN' && !route.roles.includes(staff.role)) {
         return json(res, 403, { ok: false, error: 'Sem permissão para esta ação' });
       }
     }

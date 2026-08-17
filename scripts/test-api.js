@@ -87,7 +87,11 @@ async function post(path, body, cookie = adminCookie) {
 
   const checkout = await post('/api/checkout', {
     offer: search.results[0],
-    customer: { name: 'Teste', email: customerEmail },
+    customer: { name: 'Teste Cliente', email: customerEmail, phone: '910000000' },
+    passengers: [
+      { name: 'Teste', surname: 'Um', birthdate: '1980-01-01', gender: 'M', nationality: 'Portuguesa', documentType: 'CC', documentNumber: '11111111A', documentCountry: 'Portugal', documentExpiry: '2035-01-01' },
+      { name: 'Teste', surname: 'Dois', birthdate: '1985-01-01', gender: 'F', nationality: 'Portuguesa', documentType: 'CC', documentNumber: '22222222B', documentCountry: 'Portugal', documentExpiry: '2035-01-01' }
+    ],
     paymentMethod: 'MB WAY',
     idempotencyKey: `test-${Date.now()}`
   }, customerCookie);
@@ -110,7 +114,7 @@ async function post(path, body, cookie = adminCookie) {
   // A partir daqui e um humano a confirmar manualmente (ex.: verificou a
   // reserva por telefone/email com o operador) - o mesmo caminho que o
   // botao "Guardar estado" da ficha da reserva ja usa.
-  const manualConfirm = await post('/api/admin/reservations/update', { reservationId: checkout.reservation.id, status: 'CONFIRMED' });
+  const manualConfirm = await post('/api/admin/reservations/update', { reservationId: checkout.reservation.id, status: 'CONFIRMED', manualLocator: 'TEST-MANUAL-001', manualConfirmationReason: 'Teste automatizado - confirmado manualmente' });
   if (manualConfirm.reservation.status !== 'CONFIRMED') throw new Error('Confirmacao manual deveria funcionar');
   console.log('Confirmada manualmente:', manualConfirm.reservation.status);
 })().catch(err => {

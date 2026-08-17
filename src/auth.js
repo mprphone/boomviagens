@@ -7,10 +7,13 @@
 const crypto = require('crypto');
 const { json, parseCookies } = require('./httpUtils');
 
-const SESSION_SECRET = process.env.SESSION_SECRET || crypto.createHash('sha256').update(`${process.env.ADMIN_PASSWORD || 'admin123'}::boomviagens-session-fallback`).digest('hex');
-if (!process.env.SESSION_SECRET) {
-  console.warn('[server] SESSION_SECRET nao definido no .env - a usar um valor derivado de ADMIN_PASSWORD. Defina SESSION_SECRET (valor aleatorio) para maior seguranca em producao.');
+const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL);
+if (IS_PRODUCTION && !process.env.SESSION_SECRET) {
+  throw new Error('SESSION_SECRET e obrigatorio em producao. O servidor recusou arrancar com um segredo previsivel.');
 }
+const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
+if (!process.env.SESSION_SECRET) console.warn('[server] SESSION_SECRET temporario gerado para desenvolvimento local. As sessoes deixam de ser validas ao reiniciar.');
+const COOKIE_SECURE = IS_PRODUCTION ? '; Secure' : '';
 
 const SESSION_COOKIE = 'bdv_admin_session';
 const CUSTOMER_SESSION_COOKIE = 'bdv_customer_session';
@@ -95,11 +98,11 @@ function sessionStaff(req) {
 }
 
 function setSessionCookie(res, token) {
-  res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}`);
+  res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}${COOKIE_SECURE}`);
 }
 
 function clearSessionCookie(res) {
-  res.setHeader('Set-Cookie', `${SESSION_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`);
+  res.setHeader('Set-Cookie', `${SESSION_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${COOKIE_SECURE}`);
 }
 
 function customerSessionEmail(req) {
@@ -108,11 +111,11 @@ function customerSessionEmail(req) {
 }
 
 function setCustomerSessionCookie(res, token) {
-  res.setHeader('Set-Cookie', `${CUSTOMER_SESSION_COOKIE}=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}`);
+  res.setHeader('Set-Cookie', `${CUSTOMER_SESSION_COOKIE}=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}${COOKIE_SECURE}`);
 }
 
 function clearCustomerSessionCookie(res) {
-  res.setHeader('Set-Cookie', `${CUSTOMER_SESSION_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`);
+  res.setHeader('Set-Cookie', `${CUSTOMER_SESSION_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${COOKIE_SECURE}`);
 }
 
 function clientIp(req) {

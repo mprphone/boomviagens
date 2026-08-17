@@ -36,75 +36,51 @@
       </div>
 
       <nav class="sidebar-nav">
-        <button type="button" class="nav-item is-active" data-view="resumo">
-          <span class="nav-item-icon">🏠</span>Resumo
-        </button>
+        <div class="nav-area" data-area="comercial">
+          <p class="nav-section-title">Comercial</p>
+          <button type="button" class="nav-item" data-view="pipeline"><span class="nav-item-icon">◇</span>Pipeline</button>
+          <button type="button" class="nav-item" data-view="propostas"><span class="nav-item-icon">▤</span>Propostas</button>
+          <button type="button" class="nav-item" data-view="followups"><span class="nav-item-icon">↗</span>Follow-ups</button>
+          <button type="button" class="nav-item" data-view="clientes"><span class="nav-item-icon">◎</span>Clientes</button>
+        </div>
 
-        <p class="nav-section-title">Comercial</p>
-        <button type="button" class="nav-item" data-view="pipeline">
-          <span class="nav-item-icon">🔥</span>Pipeline
-        </button>
-        <button type="button" class="nav-item" data-view="propostas">
-          <span class="nav-item-icon">📑</span>Propostas
-        </button>
-        <button type="button" class="nav-item" data-view="followups">
-          <span class="nav-item-icon">📅</span>Follow-ups
-        </button>
-        <button type="button" class="nav-item" data-view="reservas">
-          <span class="nav-item-icon">✈️</span>Reservas
-        </button>
-        <button type="button" class="nav-item" data-view="clientes">
-          <span class="nav-item-icon">👥</span>Clientes
-        </button>
+        <div class="nav-area" data-area="operacao" hidden>
+          <p class="nav-section-title">Operação</p>
+          <button type="button" class="nav-item" data-view="resumo"><span class="nav-item-icon">⌂</span>Resumo operacional</button>
+          <button type="button" class="nav-item" data-view="reservas"><span class="nav-item-icon">✈</span>Processos / Reservas</button>
+          <button type="button" class="nav-item" data-view="pipeline-operacional"><span class="nav-item-icon">◫</span>Pipeline Operacional</button>
+          <button type="button" class="nav-item" data-view="clientes"><span class="nav-item-icon">◎</span>Clientes</button>
+        </div>
 
-        <p class="nav-section-title">Operação</p>
-        <button type="button" class="nav-item" data-view="pipeline-operacional">
-          <span class="nav-item-icon">🧭</span>Pipeline Operacional
-        </button>
+        <div class="nav-area" data-area="online" hidden>
+          <p class="nav-section-title">Online</p>
+          <button type="button" class="nav-item" data-view="online"><span class="nav-item-icon">◉</span>Resumo Online</button>
+          <button type="button" class="nav-item" data-view="reservas"><span class="nav-item-icon">✓</span>Vendas / Processos</button>
+          <button type="button" class="nav-item" data-view="pipeline"><span class="nav-item-icon">◇</span>Oportunidades</button>
+        </div>
 
-        <p class="nav-section-title">Equipa</p>
-        <button type="button" class="nav-item" data-view="meu-dia">
-          <span class="nav-item-icon">☀️</span>O Meu Dia
-        </button>
-        <button type="button" class="nav-item" data-view="visao-geral">
-          <span class="nav-item-icon">📊</span>Visão Geral
-        </button>
-        <button type="button" class="nav-item" data-view="equipa">
-          <span class="nav-item-icon">🧑‍💼</span>Equipa
-        </button>
-        <button type="button" class="nav-item" data-view="tarefas-equipa">
-          <span class="nav-item-icon">✅</span>Tarefas
-        </button>
-        <button type="button" class="nav-item" data-view="agenda">
-          <span class="nav-item-icon">📅</span>Agenda
-        </button>
+        <div class="nav-area" data-area="equipa" hidden>
+          <p class="nav-section-title">Equipa</p>
+          <button type="button" class="nav-item" data-view="meu-dia"><span class="nav-item-icon">☀</span>O Meu Dia</button>
+          <button type="button" class="nav-item" data-view="visao-geral"><span class="nav-item-icon">▥</span>Visão Geral</button>
+          <button type="button" class="nav-item" data-view="equipa"><span class="nav-item-icon">◎</span>Equipa</button>
+          <button type="button" class="nav-item" data-view="tarefas-equipa"><span class="nav-item-icon">✓</span>Tarefas</button>
+          <button type="button" class="nav-item" data-view="agenda"><span class="nav-item-icon">▦</span>Agenda</button>
+        </div>
 
-        <p class="nav-section-title">Financeiro</p>
-        <button type="button" class="nav-item is-disabled" disabled>
-          <span class="nav-item-icon">💳</span>Pagamentos<span class="soon-badge">em breve</span>
-        </button>
-        <button type="button" class="nav-item" data-view="fornecedores">
-          <span class="nav-item-icon">🏢</span>Fornecedores
-        </button>
-        <button type="button" class="nav-item" data-view="margens">
-          <span class="nav-item-icon">📐</span>Margens
-        </button>
+        <div class="nav-area" data-area="financeiro" hidden>
+          <p class="nav-section-title">Financeiro</p>
+          <button type="button" class="nav-item is-disabled" disabled><span class="nav-item-icon">€</span>Recebimentos / Pagamentos<span class="soon-badge">em breve</span></button>
+          <button type="button" class="nav-item" data-view="fornecedores"><span class="nav-item-icon">▦</span>Fornecedores</button>
+          <button type="button" class="nav-item" data-view="margens"><span class="nav-item-icon">△</span>Margens</button>
+        </div>
 
-        <p class="nav-section-title">Sistema</p>
-        <button type="button" class="nav-item" data-view="agencias">
-          <span class="nav-item-icon">🏬</span>Agências
-        </button>
-        <button type="button" class="nav-item" data-view="emails">
-          <span class="nav-item-icon">✉️</span>Emails
-        </button>
-        <button type="button" class="nav-item" data-view="operador">
-          <span class="nav-item-icon">🔌</span>Operador
-        </button>
-
-        <p class="nav-section-title">Análises</p>
-        <button type="button" class="nav-item is-disabled" disabled>
-          <span class="nav-item-icon">📊</span>Comercial<span class="soon-badge">em breve</span>
-        </button>
+        <div class="nav-area" data-area="gestao" hidden>
+          <p class="nav-section-title">Gestão e Sistema</p>
+          <button type="button" class="nav-item" data-view="agencias"><span class="nav-item-icon">▥</span>Agências</button>
+          <button type="button" class="nav-item" data-view="emails"><span class="nav-item-icon">✉</span>Emails</button>
+          <button type="button" class="nav-item" data-view="operador"><span class="nav-item-icon">⌁</span>Operadores / APIs</button>
+        </div>
       </nav>
 
       <div class="sidebar-footer">
@@ -114,6 +90,14 @@
     </aside>
 
     <div class="main">
+      <div class="workspace-switcher" role="tablist" aria-label="Área de trabalho">
+        <button type="button" class="workspace-tab is-active" data-area="comercial">Comercial</button>
+        <button type="button" class="workspace-tab" data-area="operacao">Operação</button>
+        <button type="button" class="workspace-tab" data-area="online">Online <span class="workspace-alert-dot" id="onlineSalesDot" hidden></span></button>
+        <button type="button" class="workspace-tab" data-area="equipa">Equipa</button>
+        <button type="button" class="workspace-tab" data-area="financeiro">Financeiro</button>
+        <button type="button" class="workspace-tab" data-area="gestao">Gestão</button>
+      </div>
       <header class="topbar">
         <h1 id="pageTitle">Resumo Geral</h1>
         <span id="companyBadge" class="badge"></span>
@@ -121,6 +105,7 @@
 
       <main class="content">
         <section id="view-resumo" class="view"></section>
+        <section id="view-online" class="view" hidden></section>
         <section id="view-pipeline" class="view" hidden></section>
         <section id="view-propostas" class="view" hidden></section>
         <section id="view-followups" class="view" hidden></section>

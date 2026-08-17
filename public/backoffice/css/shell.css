@@ -324,3 +324,25 @@ button:focus-visible,
   .content { padding: 20px 16px 32px; }
   .topbar { padding: 16px; }
 }
+
+/* Navegação por área de trabalho: evita uma sidebar gigante e separa
+   Comercial, Operação, Online, Equipa, Financeiro e Gestão. */
+.workspace-switcher {
+  display:flex; align-items:center; gap:6px; padding:10px 28px 0; background:#fff;
+  border-bottom:1px solid var(--line);
+}
+.workspace-tab {
+  position:relative; border:0; border-bottom:3px solid transparent; padding:11px 14px 12px;
+  background:none; color:var(--muted); font:inherit; font-size:12.5px; font-weight:800; cursor:pointer;
+}
+.workspace-tab:hover { color:var(--ink); }
+.workspace-tab.is-active { color:var(--accent); border-bottom-color:var(--accent); }
+.workspace-alert-dot { display:inline-block; width:7px; height:7px; margin-left:5px; border-radius:50%; background:var(--red); }
+.nav-area[hidden] { display:none; }
+.sidebar-nav { padding-top:6px; }
+.topbar { padding-top:18px; padding-bottom:18px; }
+
+@media (max-width:900px) {
+  .workspace-switcher { overflow-x:auto; padding:6px 12px 0; }
+  .workspace-tab { white-space:nowrap; }
+}

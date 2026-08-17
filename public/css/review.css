@@ -1,65 +1,82 @@
-/* Pagina de confirmacao da viagem (resumo antes do checkout): cartao de
-   voo honesto, resumo do quarto/preco e o aviso sobre nomes de passageiros. */
+/* Página de construção da viagem antes do checkout. A prioridade é contexto:
+   o cliente vê sempre o que escolheu, pode guardar/partilhar e percebe o que
+   será validado antes do pagamento. */
 
-.review-grid {
-  display: grid;
-  grid-template-columns: 1fr 300px;
-  gap: 24px;
-  align-items: start;
+#reviewPage { max-width: 1240px; }
+
+.trip-builder-head { display:flex; flex-direction:column; gap:12px; margin-bottom:18px; }
+.trip-builder-hero {
+  position:relative; min-height:300px; border-radius:22px; overflow:hidden;
+  background-size:cover; background-position:center; box-shadow:0 18px 42px rgba(15,23,42,.14);
 }
+.trip-builder-hero::after { content:""; position:absolute; inset:0; background:linear-gradient(90deg,rgba(6,24,44,.72),rgba(6,24,44,.12) 70%,rgba(6,24,44,.08)); }
+.trip-builder-overlay { position:absolute; z-index:1; left:32px; bottom:28px; max-width:700px; color:#fff; }
+.trip-builder-overlay h2 { margin:10px 0 4px; font-size:38px; line-height:1.05; }
+.trip-builder-overlay p { margin:0; font-size:15px; font-weight:600; opacity:.96; }
+.trip-builder-actions { display:flex; justify-content:flex-end; gap:10px; }
 
-.review-card {
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 20px;
-  background: #f9fbfd;
+.trip-builder-layout { display:grid; grid-template-columns:minmax(0,1fr) 330px; gap:22px; align-items:start; }
+.trip-builder-main { display:flex; flex-direction:column; gap:14px; }
+.trip-intro-card, .trip-component-card, .prebook-checks, .trip-price-card {
+  border:1px solid var(--line); border-radius:18px; background:#fff; box-shadow:0 6px 20px rgba(15,23,42,.05);
 }
+.trip-intro-card { padding:22px; }
+.trip-intro-card h3 { margin:4px 0 7px; font-size:22px; }
+.trip-intro-card p { margin:0; line-height:1.55; }
+.trip-facts-inline { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+.trip-facts-inline span { padding:8px 11px; border-radius:999px; background:#f4f7fb; color:var(--ink-soft); font-size:12.5px; font-weight:700; }
 
-.review-price {
-  position: sticky;
-  top: 132px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 20px;
-  background: #fff;
+.trip-component-card { display:grid; grid-template-columns:48px minmax(0,1fr) auto; gap:14px; align-items:start; padding:18px; transition:border-color .15s ease, transform .15s ease, box-shadow .15s ease; }
+.trip-component-card:hover { border-color:#cfd9e7; transform:translateY(-1px); box-shadow:0 10px 26px rgba(15,23,42,.07); }
+.trip-component-card.is-highlighted { border-color:#b9ddcf; background:linear-gradient(180deg,#fff,#fbfffd); }
+.trip-component-card.addable { border-style:dashed; background:#fafcff; }
+.trip-component-icon { display:flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:14px; background:#eef5ff; color:var(--blue-dark); font-size:21px; font-weight:800; }
+.trip-component-body h3 { margin:2px 0 6px; font-size:17px; }
+.trip-component-body p { margin:0; color:var(--ink-soft); font-size:13px; line-height:1.5; }
+.trip-component-title { display:flex; align-items:start; justify-content:space-between; gap:10px; }
+.status-chip { display:inline-flex; padding:5px 9px; border-radius:999px; font-size:11px; font-weight:800; white-space:nowrap; }
+.status-chip.success { background:#e8f7ef; color:#087a4c; }
+.status-chip.neutral { background:#f1f4f8; color:#64748b; }
+
+.smart-suggestion { display:grid; grid-template-columns:auto 1fr auto; gap:8px; align-items:center; margin-top:12px; padding:10px 12px; border-radius:12px; background:#fff8e8; border:1px solid #f2dfab; font-size:12.5px; }
+.smart-suggestion b { color:#8a5b00; }
+.smart-suggestion span { color:var(--ink-soft); }
+
+.prebook-checks { padding:20px; background:linear-gradient(135deg,#f8fbff,#fff); }
+.prebook-checks-head { display:flex; justify-content:space-between; gap:12px; align-items:start; }
+.prebook-checks-head h3 { margin:3px 0 0; font-size:18px; }
+.smart-badge { display:inline-flex; border-radius:999px; padding:6px 10px; background:#eaf4fb; color:var(--blue-dark); font-size:11px; font-weight:800; }
+.prebook-check-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:15px; }
+.prebook-check-grid div { padding:10px 12px; border-radius:12px; background:#fff; border:1px solid var(--line-soft); color:#365169; font-size:12.5px; font-weight:650; }
+
+.trip-price-card { position:sticky; top:98px; padding:22px; }
+.trip-price-route { display:flex; flex-direction:column; gap:4px; margin:8px 0 18px; padding-bottom:16px; border-bottom:1px solid var(--line-soft); }
+.trip-price-route b { font-size:17px; }
+.trip-price-route span { color:var(--muted); font-size:12.5px; }
+.trip-price-main { display:flex; flex-direction:column; align-items:flex-start; margin-bottom:12px; }
+.trip-price-main span, .trip-price-main small { color:var(--muted); font-size:12px; }
+.trip-price-main strong { margin:1px 0; font-family:var(--font-display); font-size:31px; color:var(--green); }
+.trip-price-note { margin-bottom:14px; padding:10px 12px; border-radius:12px; background:#f7fafc; color:var(--ink-soft); font-size:12px; line-height:1.4; }
+.trip-price-card .btn, .trip-price-card .ghost { margin-top:8px; }
+
+.modal-box.passport-modal { width:min(610px,100%); }
+.passport-modal h2 { margin:4px 0 14px; }
+.passport-modal ul { margin:0 0 18px; padding-left:20px; color:var(--ink-soft); font-size:13.5px; line-height:1.55; }
+.passport-modal ul li { margin-bottom:8px; }
+.passport-modal-actions { display:flex; justify-content:flex-end; gap:10px; }
+
+@media (max-width:900px) {
+  .trip-builder-layout { grid-template-columns:1fr; }
+  .trip-price-card { position:static; }
 }
-
-.review-price span { color: var(--muted); font-size: 13px; }
-.review-price strong { font-family: var(--font-display); font-size: 30px; font-weight: 800; color: var(--green); }
-.review-price .btn { margin-top: 14px; }
-
-.flight-card {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  margin-bottom: 18px;
-  padding: 16px;
-  border: 1px dashed #c7d3e0;
-  border-radius: var(--radius);
-  background: #f8fafc;
-}
-
-.flight-card-icon { font-size: 22px; line-height: 1.3; }
-.flight-card-body { flex: 1 1 auto; min-width: 0; }
-.flight-card-body b { display: block; margin-bottom: 4px; font-size: 13.5px; color: var(--ink); }
-.flight-card-body p { margin: 0; color: var(--muted); font-size: 12.5px; line-height: 1.5; }
-.flight-card .pill { flex: 0 0 auto; background: #fdecea; color: #b3261e; }
-
-.modal-box.passport-modal { width: min(560px, 100%); }
-.passport-modal h2 { margin: 4px 0 14px; }
-.passport-modal ul { margin: 0 0 18px; padding-left: 20px; color: var(--ink-soft); font-size: 13.5px; line-height: 1.55; }
-.passport-modal ul li { margin-bottom: 8px; }
-
-.passport-modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-}
-
-@media (max-width: 760px) {
-  .review-grid { grid-template-columns: 1fr; }
-  .review-price { position: static; }
+@media (max-width:650px) {
+  .trip-builder-hero { min-height:240px; border-radius:16px; }
+  .trip-builder-overlay { left:20px; right:20px; bottom:20px; }
+  .trip-builder-overlay h2 { font-size:30px; }
+  .trip-builder-actions { justify-content:stretch; }
+  .trip-builder-actions button { flex:1; }
+  .trip-component-card { grid-template-columns:42px 1fr; }
+  .trip-component-card > button { grid-column:1/-1; width:100%; }
+  .prebook-check-grid { grid-template-columns:1fr; }
+  .smart-suggestion { grid-template-columns:1fr; }
 }

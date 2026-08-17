@@ -13,7 +13,7 @@ module.exports = function registerAdminRoutes(router, ctx) {
     sanitizeCustomer, computeServiceTotals, enrichServiceLinesWithPayments, serviceTypeLabel, serviceStatusLabel, serviceStatusesForType, eventTypeLabel,
     taskStatusLabel, taskPriorityLabel, complaintStatusLabel, documentTypeLabel, processNumber, computeAlerts
   } = domain;
-  const { sessionUser } = ctx.auth;
+  const { sessionUser, sessionStaff } = ctx.auth;
 
   // Impede que um duplo clique em "Aprovar no operador" chame
   // adapter.confirm() duas vezes para a mesma reserva - isso enviaria um
@@ -209,6 +209,17 @@ module.exports = function registerAdminRoutes(router, ctx) {
     const db = ensureCollections(await readDb());
     const reservation = db.reservations.find(r => r.id === reservationId);
     if (!reservation) return json(res, 404, { ok: false, error: 'Reserva nao encontrada' });
+    // CONFIRMED e um facto operacional, nao apenas uma etiqueta visual.
+    // Quando nao veio do endpoint de confirmacao automatica do operador,
+    // uma confirmacao manual tem de deixar localizador + motivo/auditoria.
+    // Isto impede um simples drag/drop ou dropdown de transformar uma
+    // reserva ainda nao confirmada numa reserva aparentemente concluida.
+    const manualConfirm = status === 'CONFIRMED' && reservation.status !== 'CONFIRMED';
+    const manualLocator = manualConfirm ? cleanText(body.manualLocator, 120) : '';
+    const manualConfirmationReason = manualConfirm ? cleanText(body.manualConfirmationReason, 500) : '';
+    if (manualConfirm && (!manualLocator || !manualConfirmationReason)) {
+      return json(res, 400, { ok: false, error: 'Para confirmar manualmente indique o localizador real do operador e o motivo/forma de confirmacao.' });
+    }
     let resultPayload = null;
 
     await updateDb(d => {
@@ -219,6 +230,14 @@ module.exports = function registerAdminRoutes(router, ctx) {
       r.updatedAt = now();
       if (body.notes !== undefined) r.notes = cleanText(body.notes, 1000);
       if (status === 'CONFIRMED' && !r.confirmedAt) r.confirmedAt = now();
+      if (manualConfirm) {
+        r.operatorLocator = manualLocator;
+        r.operatorConfirmation = 'MANUAL_CONFIRMATION';
+        r.manualConfirmationReason = manualConfirmationReason;
+        r.manualConfirmedBy = sessionUser(req);
+        r.manualConfirmedAt = now();
+        d.reservationEvents.unshift({ id: id('evt'), createdAt: now(), reservationId: r.id, actor: sessionUser(req), type: 'MANUAL_CONFIRMATION', description: `Confirmacao manual · localizador ${manualLocator} · ${manualConfirmationReason}` });
+      }
       const p = d.payments.find(x => x.reservationId === r.id);
       const email = reservationEmail({ reservation: r, payment: p });
       d.emails.unshift({ id: id('email'), createdAt: now(), to: r.customer?.email || 'cliente@exemplo.pt', status: 'GERADO_DEMO', ...email });
@@ -323,12 +342,30 @@ module.exports = function registerAdminRoutes(router, ctx) {
     const documentsWithUrls = await Promise.all(documents.map(async d => ({ ...d, signedUrl: await fileStorage.signedUrl(d.storagePath) })));
     const communications = db.contactLog.filter(c => c.reservationId === reservationId);
 
+    const staff = sessionStaff(req);
+    const canSeeInternalFinance = staff && ['FINANCEIRO', 'SUPERVISOR', 'ADMIN'].includes(staff.role);
+    const reservationView = { ...reservation, processNumber: processNumber(reservation), missingDocuments: missingDocumentsFor(reservation, db.documents) };
+    if (!canSeeInternalFinance && reservationView.offer) {
+      reservationView.offer = { ...reservationView.offer };
+      delete reservationView.offer.costPrice;
+      delete reservationView.offer.marginValue;
+      delete reservationView.offer.marginPercent;
+      delete reservationView.offer.trace;
+    }
+    const serviceLinesView = canSeeInternalFinance ? serviceLines : serviceLines.map(line => {
+      const copy = { ...line };
+      delete copy.netValue; delete copy.paidAmount; delete copy.payments; delete copy.paidAt;
+      return copy;
+    });
+    const totals = computeServiceTotals(serviceLines);
+    const serviceTotalsView = canSeeInternalFinance ? totals : { pvpTotal: totals.pvpTotal };
+
     return json(res, 200, {
       ok: true,
-      reservation: { ...reservation, processNumber: processNumber(reservation), missingDocuments: missingDocumentsFor(reservation, db.documents) },
+      reservation: reservationView,
       statuses: RESERVATION_STATUSES.map(value => ({ value, label: statusLabel(value) })),
-      serviceLines,
-      serviceTotals: computeServiceTotals(serviceLines),
+      serviceLines: serviceLinesView,
+      serviceTotals: serviceTotalsView,
       serviceTypes: SERVICE_TYPES.map(value => ({ value, label: serviceTypeLabel(value) })),
       serviceStatuses: SERVICE_STATUSES.map(value => ({ value, label: serviceStatusLabel(value) })),
       // Cada tipo de servico tem o seu proprio percurso (um voo emite
@@ -348,7 +385,7 @@ module.exports = function registerAdminRoutes(router, ctx) {
       documents: documentsWithUrls,
       communications,
       suppliers: db.suppliers.map(s => ({ id: s.id, name: s.name })),
-      refunds,
+      refunds: canSeeInternalFinance ? refunds : [],
       refundDirections: REFUND_DIRECTIONS,
       alerts: computeAlerts(reservation, { serviceLines, documents, payments, tasks })
     });

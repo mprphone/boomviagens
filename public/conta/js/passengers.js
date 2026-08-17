@@ -44,11 +44,11 @@ export async function renderPassageiros() {
   }
   passengers = data.customer.passengers || [];
 
-  // O proprio titular da conta deve aparecer aqui logo por defeito, sem ter
-  // de se adicionar a si proprio manualmente - so quando a lista ainda esta
-  // vazia (nao volta a insistir depois de ele proprio remover a entrada) e
-  // so se ja houver nome na ficha para nao criar um passageiro sem nome.
-  if (!passengers.length && data.customer.name) {
+  // O titular deve estar sempre representado na carteira, mesmo que ja
+  // existam conjuge/filhos. Na versao anterior so era criado se a lista
+  // inteira estivesse vazia, por isso uma conta que ja tivesse a esposa
+  // guardada podia mostrar apenas essa pessoa e esconder o proprio titular.
+  if (!passengers.some(p => p.relationship === 'TITULAR') && data.customer.name) {
     const titular = {
       name: data.customer.name,
       relationship: 'TITULAR',
@@ -60,8 +60,8 @@ export async function renderPassageiros() {
       notes: ''
     };
     try {
-      const saved = await api('/api/customer/passengers', { method: 'POST', body: JSON.stringify({ passengers: [titular] }) });
-      passengers = saved.customer.passengers || [titular];
+      const saved = await api('/api/customer/passengers', { method: 'POST', body: JSON.stringify({ passengers: [titular, ...passengers] }) });
+      passengers = saved.customer.passengers || [titular, ...passengers];
     } catch {
       // Sem sorte - a pagina segue so sem o titular pre-preenchido.
     }

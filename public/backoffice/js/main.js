@@ -4,6 +4,7 @@
 import { $, api } from './utils.js';
 import { wireLogin } from './auth.js';
 import { renderResumo } from './dashboard.js';
+import { renderOnline } from './online.js';
 import { renderPipeline } from './pipeline.js';
 import { renderPropostas } from './propostas.js';
 import { renderFollowups } from './followups.js';
@@ -20,7 +21,8 @@ import { renderAgencias } from './agencias.js';
 import { renderMargens, renderEmails, renderOperador } from './system.js';
 
 const VIEWS = {
-  resumo: { title: 'Resumo Geral', render: renderResumo },
+  resumo: { title: 'Resumo Operacional', render: renderResumo },
+  online: { title: 'Online', render: renderOnline },
   pipeline: { title: 'Pipeline', render: renderPipeline },
   propostas: { title: 'Propostas', render: renderPropostas },
   followups: { title: 'Follow-ups', render: renderFollowups },
@@ -39,6 +41,25 @@ const VIEWS = {
   operador: { title: 'Operador', render: renderOperador }
 };
 
+const WORKSPACES = {
+  comercial: { defaultView: 'pipeline' },
+  operacao: { defaultView: 'resumo' },
+  online: { defaultView: 'online' },
+  equipa: { defaultView: 'meu-dia' },
+  financeiro: { defaultView: 'fornecedores' },
+  gestao: { defaultView: 'agencias' }
+};
+let currentWorkspace = 'comercial';
+
+function switchWorkspace(area, preferredView = null) {
+  if (!WORKSPACES[area]) return;
+  currentWorkspace = area;
+  document.querySelectorAll('.workspace-tab').forEach(btn => btn.classList.toggle('is-active', btn.dataset.area === area));
+  document.querySelectorAll('.nav-area').forEach(group => { group.hidden = group.dataset.area !== area; });
+  const view = preferredView || WORKSPACES[area].defaultView;
+  switchView(view);
+}
+
 function switchView(name) {
   const view = VIEWS[name];
   if (!view) return;
@@ -50,10 +71,21 @@ function switchView(name) {
   view.render();
 }
 
+async function refreshOnlineIndicator() {
+  try {
+    const data = await api('/api/admin/reservations');
+    const online = (data.reservations || []).filter(r => r.origin === 'WEBSITE' || r.source === 'site');
+    const requiresAttention = online.filter(r => ['PENDING_PAYMENT','IN_VALIDATION','HUMAN_REVIEW'].includes(r.status));
+    const dot = document.getElementById('onlineSalesDot');
+    if (dot) { dot.hidden = requiresAttention.length === 0; dot.title = `${requiresAttention.length} entrada(s) online por tratar`; }
+  } catch {}
+}
+
 function showApp() {
   $('#loginGate').hidden = true;
   $('#appShell').hidden = false;
-  switchView('resumo');
+  switchWorkspace('comercial');
+  refreshOnlineIndicator();
 }
 
 function showLogin() {
@@ -63,6 +95,10 @@ function showLogin() {
 
 document.querySelectorAll('.nav-item[data-view]').forEach(btn => {
   btn.addEventListener('click', () => switchView(btn.dataset.view));
+});
+
+document.querySelectorAll('.workspace-tab').forEach(btn => {
+  btn.addEventListener('click', () => switchWorkspace(btn.dataset.area));
 });
 
 wireLogin(showApp);

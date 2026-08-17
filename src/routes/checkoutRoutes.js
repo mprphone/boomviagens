@@ -10,7 +10,7 @@
 const crypto = require('crypto');
 
 module.exports = function registerCheckoutRoutes(router, ctx) {
-  const { json, unauthorized, parseBody, readDb, updateDb, operators, customerPayload, paymentMethod, cleanText, domain, paymentConfirmation } = ctx;
+  const { json, unauthorized, parseBody, readDb, updateDb, operators, customerPayload, validatePassengerForTrip, paymentMethod, cleanText, domain, paymentConfirmation } = ctx;
   const { ensureCollections, audit, id, now } = domain;
   const { rateLimit } = ctx;
   const { customerSessionEmail, verifyToken } = ctx.auth;
@@ -51,7 +51,19 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
     }
 
     const customer = customerPayload(body.customer || { name: body.name || 'Cliente Teste', email: body.email || 'cliente@exemplo.pt', phone: body.phone || '' });
-    const passengers = Array.isArray(body.passengers) && body.passengers.length ? body.passengers : customer.passengers;
+    const rawPassengers = Array.isArray(body.passengers) && body.passengers.length ? body.passengers : customer.passengers;
+    const adults = Number(offer.adults || 1);
+    const expectedCount = adults + Number(offer.children || 0);
+    if (rawPassengers.length !== expectedCount) return json(res, 400, { ok: false, error: `Esperados ${expectedCount} passageiro(s); recebidos ${rawPassengers.length}.` });
+    let passengers;
+    try {
+      passengers = rawPassengers.map((p, i) => validatePassengerForTrip(p, i < adults ? 'ADT' : 'CHD', offer.checkout));
+      const docs = passengers.map(p => p.documentNumber.trim().toLowerCase());
+      if (new Set(docs).size !== docs.length) throw new Error('O mesmo documento nao pode ser usado por dois passageiros');
+    } catch (err) {
+      return json(res, 400, { ok: false, error: err.message });
+    }
+    customer.passengers = passengers;
     const reservation = {
       id: id('res'),
       createdAt: now(),
@@ -136,9 +148,37 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
     return json(res, 200, { ok: true, ...resultPayload, next: 'Chamar /api/payment/confirm para simular pagamento. A confirmacao no operador fica pendente de aprovacao no backoffice.' });
   });
 
+
+  router.post('/api/payment/method', async (req, res) => {
+    const body = await parseBody(req);
+    const db = ensureCollections(await readDb());
+    const payment = db.payments.find(p => p.id === body.paymentId);
+    if (!payment) return json(res, 404, { ok: false, error: 'Pagamento nao encontrado' });
+    const reservation = db.reservations.find(r => r.id === payment.reservationId);
+    if (!reservation) return json(res, 404, { ok: false, error: 'Reserva nao encontrada' });
+    const customerEmail = customerSessionEmail(req);
+    if (!customerEmail || customerEmail !== reservation.customer?.email) return unauthorized(res);
+    if (payment.status !== 'PENDING') return json(res, 409, { ok: false, error: 'O metodo ja nao pode ser alterado depois de o pagamento ser processado.' });
+    let method;
+    try { method = paymentMethod(body.method); } catch (err) { return json(res, 400, { ok: false, error: err.message }); }
+    let updated;
+    await updateDb(d => {
+      ensureCollections(d);
+      const p = d.payments.find(x => x.id === payment.id);
+      if (!p || p.status !== 'PENDING') return;
+      p.method = method;
+      updated = { ...p };
+      audit(d, customerEmail, 'PAYMENT_METHOD_SELECTED', { reservationId: reservation.id, paymentId: p.id, method });
+    });
+    return json(res, 200, { ok: true, payment: updated });
+  });
+
   router.post('/api/payment/confirm', async (req, res) => {
     const limited = rateLimit(req, res, 'payment-confirm', 40, 60 * 1000);
     if (limited) return limited;
+    if ((process.env.PAYMENTS_MODE || 'mock').toLowerCase() !== 'mock') {
+      return json(res, 405, { ok: false, error: 'Confirmacao manual de pagamento desativada. Em producao o estado pago so pode vir do gateway.' });
+    }
     const body = await parseBody(req);
     const db = ensureCollections(await readDb());
     const payment = db.payments.find(p => p.id === body.paymentId || p.reservationId === body.reservationId);

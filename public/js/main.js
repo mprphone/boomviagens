@@ -6,7 +6,7 @@ import './nav.js';
 import './heroSearch.js';
 import { loadDeals } from './home.js';
 import './results.js';
-import './review.js';
+import { showReview } from './review.js';
 import './checkout.js';
 import './chat.js';
 
@@ -18,3 +18,19 @@ api('/api/config').then(c => {
 });
 
 loadDeals();
+
+// Abrir uma viagem recebida por link partilhado sem obrigar a repetir a
+// pesquisa. O preco continua sujeito a revalidacao no checkout atraves do
+// offerToken assinado pelo servidor.
+const sharedToken = new URLSearchParams(location.search).get('trip');
+if (sharedToken) {
+  api(`/api/share-trip?token=${encodeURIComponent(sharedToken)}`).then(data => {
+    document.getElementById('pesquisa').hidden = true;
+    document.getElementById('homeShowcase').hidden = true;
+    document.getElementById('resultsPage').hidden = true;
+    showReview(data.offer);
+  }).catch(err => {
+    console.warn('Viagem partilhada indisponivel:', err.message);
+  });
+}
+

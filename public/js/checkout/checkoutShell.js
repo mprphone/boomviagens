@@ -1,5 +1,5 @@
-// Moldura do modal de checkout, partilhada por todas as etapas: indicador
-// de progresso, resumo da oferta na coluna lateral, e abrir/fechar o modal.
+// Moldura comum do checkout: progresso, resumo fixo e sinais de confianca.
+// O cliente deve perceber sempre onde esta, o que escolheu e quanto vai pagar.
 
 import { $, esc, money, dateRange } from '../utils.js';
 
@@ -13,19 +13,34 @@ export function setCheckoutStep(step) {
 
 export function renderCheckoutSummary(offer) {
   const trip = dateRange(offer.checkin, offer.checkout);
+  const pax = `${offer.adults || 1} adulto${(offer.adults || 1) > 1 ? 's' : ''}${offer.children ? ` + ${offer.children} criança${offer.children > 1 ? 's' : ''}` : ''}`;
   $('#checkoutSummary').innerHTML = `
-    <div class="meta">${offer.live ? '<span class="pill live">Preco real</span>' : '<span class="pill">Simulacao</span>'}</div>
-    <h3>${esc(offer.hotel)}</h3>
-    <p class="muted">${esc(offer.destination)}${offer.country ? `, ${esc(offer.country)}` : ''}</p>
+    <div class="checkout-summary-head">
+      <div>
+        <p class="eyebrow">A sua viagem</p>
+        <h3>${esc(offer.destination || offer.hotel)}</h3>
+        <p class="muted">${esc(offer.hotel || '')}</p>
+      </div>
+      <span class="pill ${offer.live ? 'live' : ''}">${offer.live ? 'Preço do operador' : 'Estimativa'}</span>
+    </div>
     ${trip ? `<div class="summary-dates">${trip}</div>` : ''}
     <ul class="summary-facts">
-      <li>${offer.board}</li>
-      <li>${offer.nights} noites</li>
-      <li>${offer.adults} adultos${offer.children ? ` + ${offer.children} criancas` : ''}</li>
-      <li>${offer.freeCancellation ? 'Cancelamento flexivel' : 'Tarifa nao reembolsavel'}</li>
+      <li><span>👥</span>${esc(pax)}</li>
+      <li><span>🌙</span>${offer.nights || '-'} noites</li>
+      <li><span>🍽️</span>${esc(offer.board || 'Regime a confirmar')}</li>
+      <li><span>${offer.freeCancellation ? '✓' : '!'}</span>${offer.freeCancellation ? 'Cancelamento flexível' : 'Tarifa com restrições de cancelamento'}</li>
     </ul>
-    <div class="summary-total"><span>Total</span><strong id="summaryTotalValue">${money(offer.finalPrice)}</strong></div>
-    <p class="muted small">${offer.live ? 'Preco obtido diretamente no operador.' : 'Preco demonstrativo - a equipa confirma disponibilidade real antes de emitir documentos.'}</p>`;
+    <div class="summary-total"><span>Total da viagem</span><strong id="summaryTotalValue">${money(offer.finalPrice)}</strong></div>
+    <div class="checkout-confidence-list">
+      <div>✓ Preço revisto antes do pagamento</div>
+      <div>✓ Dados validados antes de avançar</div>
+      <div>✓ Apoio humano se alguma etapa exigir confirmação</div>
+    </div>`;
+}
+
+export function setAutosaveStatus(text = 'Guardado automaticamente') {
+  const el = document.getElementById('checkoutAutosaveStatus');
+  if (el) el.textContent = `✓ ${text}`;
 }
 
 export function openCheckoutModal() {

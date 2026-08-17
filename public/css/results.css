@@ -276,3 +276,22 @@
   .hotel-row-rates { border-left: 0; padding-left: 0; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); }
   .rate-line { grid-template-columns: 1fr; gap: 2px; }
 }
+
+/* Resultados V2: mais visuais e comerciais, sem perder a tabela de tarifas. */
+.hotel-row { grid-template-columns: 210px 250px 1fr; padding: 14px; }
+.hotel-row-media, .highlight-media { background-size: cover; background-position: center; position: relative; overflow: hidden; }
+.hotel-row-media { height: 154px; border-radius: 12px; }
+.highlight-media { height: 128px; }
+.result-save { position:absolute; top:10px; right:10px; border:0; border-radius:999px; padding:7px 10px; background:rgba(255,255,255,.94); color:#334155; font:inherit; font-size:11px; font-weight:800; cursor:pointer; box-shadow:0 4px 14px rgba(15,23,42,.12); }
+.result-save:hover, .result-save.is-saved { background:#fff; color:#d33b57; }
+.hotel-row-info h3 { margin-top:8px; font-size:18px; }
+.rate-line { min-height:48px; }
+
+@media (max-width: 980px) {
+  .hotel-row { grid-template-columns: 180px 1fr; }
+  .hotel-row-rates { grid-column:1/-1; border-left:0; border-top:1px dashed var(--line); padding:12px 0 0; }
+}
+@media (max-width: 760px) {
+  .hotel-row { grid-template-columns:1fr; }
+  .hotel-row-media { height:210px; }
+}

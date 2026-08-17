@@ -121,6 +121,42 @@ module.exports = function registerPublicRoutes(router, ctx) {
     return json(res, 200, { ok: true, parsed, results: attachOfferTokens(results), operatorStatus });
   });
 
+
+  // Guardar/partilhar uma viagem sem criar ainda uma reserva. O link e
+  // assinado e contem apenas dados comerciais seguros (nunca custo NET,
+  // margem ou notas internas). Serve para casal/familia comparar a mesma
+  // proposta antes do checkout. O offerToken original continua a mandar na
+  // validade do preco; se expirar, o checkout pede nova pesquisa/revalidacao.
+  router.post('/api/share-trip', async (req, res) => {
+    const limited = rateLimit(req, res, 'share-trip', 30, 60 * 1000);
+    if (limited) return limited;
+    const body = await ctx.parseBody(req);
+    const offer = body.offer || {};
+    const signedOffer = ctx.auth.verifyToken(offer.offerToken);
+    if (!signedOffer || signedOffer.scope !== 'offer') {
+      return json(res, 400, { ok: false, error: 'A oferta ja nao e valida. Atualize a pesquisa antes de partilhar.' });
+    }
+    const safeOffer = {
+      id: offer.id || '', operator: offer.operator || '', destination: offer.destination || '', country: offer.country || '',
+      hotel: offer.hotel || '', board: offer.board || '', nights: Number(offer.nights || 0), rating: Number(offer.rating || 0),
+      freeCancellation: Boolean(offer.freeCancellation), adults: Number(offer.adults || 1), children: Number(offer.children || 0),
+      origin: offer.origin || '', checkin: offer.checkin || '', checkout: offer.checkout || '', finalPrice: Number(signedOffer.finalPrice || offer.finalPrice || 0),
+      live: Boolean(offer.live), offerToken: offer.offerToken,
+      tourdiez: offer.tourdiez ? { idDistributions: offer.tourdiez.idDistributions || '', hotelCode: offer.tourdiez.hotelCode || '' } : undefined
+    };
+    const token = signToken({ scope: 'shared-trip', offer: safeOffer, exp: Date.now() + 7 * 24 * 60 * 60 * 1000 });
+    const origin = `${req.headers['x-forwarded-proto'] || 'https'}://${req.headers.host}`;
+    return json(res, 200, { ok: true, token, url: `${origin}/?trip=${encodeURIComponent(token)}` });
+  });
+
+  router.get('/api/share-trip', async (req, res, url) => {
+    const payload = ctx.auth.verifyToken(url.searchParams.get('token'));
+    if (!payload || payload.scope !== 'shared-trip' || !payload.offer) {
+      return json(res, 404, { ok: false, error: 'Esta viagem partilhada expirou ou ja nao esta disponivel.' });
+    }
+    return json(res, 200, { ok: true, offer: payload.offer });
+  });
+
   router.post('/api/chat', async (req, res) => {
     const limited = rateLimit(req, res, 'chat', 60, 60 * 1000);
     if (limited) return limited;

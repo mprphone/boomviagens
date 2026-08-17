@@ -6,7 +6,7 @@
 import { $ } from './utils.js';
 import { getCurrentOffer } from './state.js';
 import { setCheckoutStep, renderCheckoutSummary, openCheckoutModal, closeCheckoutModal } from './checkout/checkoutShell.js';
-import { resetCheckoutState, hasCheckoutProgress } from './checkout/checkoutState.js';
+import { resetCheckoutState, hasCheckoutProgress, restoreCheckoutDraft, setDraftOfferId } from './checkout/checkoutState.js';
 import { renderCheckoutStep1, applyExistingSessionIfAny } from './checkout/billingStep.js';
 
 // O checkout tem dados reais a perder (faturacao, passageiros) antes de
@@ -16,7 +16,7 @@ import { renderCheckoutStep1, applyExistingSessionIfAny } from './checkout/billi
 // um clique no fundo passa a nao fazer nada, e o botao X pede confirmacao
 // enquanto houver progresso feito.
 function requestCloseCheckout() {
-  if (hasCheckoutProgress() && !confirm('Tem a certeza que quer sair? Os dados preenchidos nesta reserva vão perder-se.')) return;
+  if (hasCheckoutProgress() && !confirm('Quer sair deste checkout? O rascunho fica guardado neste navegador para poder continuar mais tarde.')) return;
   closeCheckoutModal();
 }
 
@@ -34,12 +34,16 @@ $('#passportModal').addEventListener('click', e => { if (e.target.id === 'passpo
 $('#passportModalAccept').onclick = async () => {
   closePassportModal();
   openCheckoutModal();
-  resetCheckoutState();
-  renderCheckoutSummary(getCurrentOffer());
+  const offer = getCurrentOffer();
+  resetCheckoutState({ keepDraft: true });
+  const restored = restoreCheckoutDraft(offer?.id);
+  setDraftOfferId(offer?.id);
+  renderCheckoutSummary(offer);
   setCheckoutStep(1);
   // Se ja houver sessao ativa da Area de Cliente, isto marca o email como
   // verificado e pre-preenche os dados antes do primeiro render - sem
   // isto, o formulario piscava rapidamente no estado "por verificar".
   await applyExistingSessionIfAny();
   renderCheckoutStep1();
+  if (restored) setTimeout(() => { const el = document.getElementById('checkoutAutosaveStatus'); if (el) el.textContent = '✓ Recuperámos os dados que já tinha preenchido'; }, 0);
 };

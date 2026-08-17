@@ -27,6 +27,14 @@ function docStatus(documents, passengers) {
   ];
 }
 
+function manualConfirmationDetails() {
+  const manualLocator = prompt('Localizador real do operador (obrigatório para confirmação manual):')?.trim() || '';
+  if (!manualLocator) throw new Error('Confirmação cancelada: falta o localizador real do operador.');
+  const manualConfirmationReason = prompt('Como foi confirmada? Ex.: portal do operador, telefone, email:')?.trim() || '';
+  if (!manualConfirmationReason) throw new Error('Confirmação cancelada: indique como verificou a reserva.');
+  return { manualLocator, manualConfirmationReason };
+}
+
 export function renderSummaryTab(panel, reservation, reload, data = {}) {
   const statuses = data.statuses || [];
   const serviceLines = data.serviceLines || [];
@@ -104,7 +112,7 @@ export function renderSummaryTab(panel, reservation, reload, data = {}) {
     btn.disabled = true;
     btn.textContent = 'A guardar...';
     try {
-      await api('/api/admin/reservations/update', { method: 'POST', body: JSON.stringify({ reservationId: reservation.id, status }) });
+      await api('/api/admin/reservations/update', { method: 'POST', body: JSON.stringify({ reservationId: reservation.id, status, ...(status === 'CONFIRMED' ? manualConfirmationDetails() : {}) }) });
       await reload();
     } catch (err) {
       msg.textContent = err.message;

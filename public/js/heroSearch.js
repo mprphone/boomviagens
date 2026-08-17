@@ -156,3 +156,52 @@ document.addEventListener('click', e => {
     calendarPanel.hidden = true;
   }
 });
+
+// Seletor de viajantes mais legivel do que dois campos numericos pequenos.
+// As idades detalhadas sao validadas no checkout, onde o operador realmente
+// precisa delas para classificar o passageiro.
+function paxSummaryText() {
+  const adults = Number($('#adultsInput')?.value || 1);
+  const children = Number($('#childrenInput')?.value || 0);
+  return `${adults} adulto${adults === 1 ? '' : 's'}${children ? ` · ${children} criança${children === 1 ? '' : 's'}` : ''}`;
+}
+
+function syncPaxUi() {
+  const adults = Number($('#adultsInput')?.value || 1);
+  const children = Number($('#childrenInput')?.value || 0);
+  if ($('#adultsCount')) $('#adultsCount').textContent = adults;
+  if ($('#childrenCount')) $('#childrenCount').textContent = children;
+  if ($('#paxSummary')) $('#paxSummary').textContent = paxSummaryText();
+  calendarCache = null;
+}
+
+function openPaxPanel() {
+  const panel = $('#paxPanel');
+  const trigger = $('#paxTrigger');
+  if (!panel || !trigger) return;
+  positionPanelBelow(panel, trigger, true);
+  panel.hidden = false;
+  syncPaxUi();
+}
+
+$('#paxTrigger')?.addEventListener('click', openPaxPanel);
+$('#paxTrigger')?.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPaxPanel(); } });
+$('#paxPanelClose')?.addEventListener('click', () => { $('#paxPanel').hidden = true; });
+$('#paxApplyBtn')?.addEventListener('click', () => { syncPaxUi(); $('#paxPanel').hidden = true; });
+$('#paxPanel')?.addEventListener('click', e => {
+  const btn = e.target.closest('[data-pax]');
+  if (!btn) return;
+  const input = btn.dataset.pax === 'adults' ? $('#adultsInput') : $('#childrenInput');
+  const min = btn.dataset.pax === 'adults' ? 1 : 0;
+  const max = 8;
+  input.value = Math.min(max, Math.max(min, Number(input.value || min) + Number(btn.dataset.delta || 0)));
+  syncPaxUi();
+});
+
+document.addEventListener('click', e => {
+  const panel = $('#paxPanel');
+  const trigger = $('#paxTrigger');
+  if (panel && trigger && !panel.hidden && !panel.contains(e.target) && !trigger.contains(e.target)) panel.hidden = true;
+});
+
+syncPaxUi();

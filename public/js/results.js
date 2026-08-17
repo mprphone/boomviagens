@@ -12,6 +12,32 @@ import { showReview } from './review.js';
 // integracao, nao texto para o cliente ver. Traduz os padroes conhecidos;
 // para codigos desconhecidos (ex.: "DOBLE EPKT"), poe em capitalizacao
 // normal em vez de adivinhar uma traducao que pode estar errada.
+
+const RESULT_IMAGES = {
+  'Punta Cana': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=900&q=80',
+  'Riviera Maya': 'https://images.unsplash.com/photo-1510097467424-192d713fd8b2?auto=format&fit=crop&w=900&q=80',
+  'Sal': 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=80',
+  'Maldivas': 'https://images.unsplash.com/photo-1573843981267-be1999ff37cd?auto=format&fit=crop&w=900&q=80',
+  'Disneyland Paris': 'https://images.unsplash.com/photo-1499856871958-5b9627545d1a?auto=format&fit=crop&w=900&q=80',
+  'Madeira': 'https://images.unsplash.com/photo-1526392060635-9d6019884377?auto=format&fit=crop&w=900&q=80'
+};
+
+function resultImage(offer) { return RESULT_IMAGES[offer.destination] || RESULT_IMAGES['Punta Cana']; }
+
+function saveOfferLocally(offer) {
+  const key = 'boom_saved_trips_v1';
+  const current = JSON.parse(localStorage.getItem(key) || '[]');
+  const safe = { ...offer, costPrice: undefined, marginValue: undefined, marginPercent: undefined, trace: undefined, savedAt: new Date().toISOString() };
+  localStorage.setItem(key, JSON.stringify([safe, ...current.filter(x => x.id !== offer.id)].slice(0, 20)));
+}
+
+window.saveResultTrip = function(hotelIndex, button) {
+  const offer = currentSearchResults[hotelIndex];
+  if (!offer) return;
+  saveOfferLocally(offer);
+  if (button) { button.textContent = '♥ Guardada'; button.classList.add('is-saved'); }
+};
+
 const KNOWN_ROOM_NAMES = {
   'DOBLE NO REEMBOLSABLE': 'Quarto duplo - tarifa não reembolsável',
   'DOBLE OFERTA': 'Quarto duplo - oferta promocional',
@@ -99,7 +125,7 @@ function renderHotelRow(offer, hotelIndex) {
   const trip = dateRange(offer.checkin, offer.checkout);
   return `
     <article class="hotel-row" data-index="${hotelIndex}">
-      <div class="hotel-row-media" aria-hidden="true">🏨</div>
+      <div class="hotel-row-media" style="background-image:url('${resultImage(offer)}')"><button type="button" class="result-save" onclick="saveResultTrip(${hotelIndex}, this)" aria-label="Guardar viagem">♡ Guardar</button></div>
       <div class="hotel-row-info">
         <div class="meta">${offer.live ? '<span class="pill live">Preço real</span>' : '<span class="pill">Simulação</span>'}</div>
         <h3>${esc(offer.hotel)}</h3>
@@ -150,7 +176,7 @@ function renderHighlights(results, budget) {
       ${picks.map(p => `
         <article class="highlight-card">
           <span class="highlight-ribbon">${p.ribbon} ${esc(p.label)}</span>
-          <div class="highlight-media" aria-hidden="true">🏨</div>
+          <div class="highlight-media" style="background-image:url('${resultImage(p.offer)}')"></div>
           <h4>${esc(p.offer.hotel)}</h4>
           <div class="hotel-row-stars">${'★'.repeat(Math.max(1, Math.min(5, Math.round(p.offer.rating || 4))))}</div>
           <p class="muted small">${esc(p.offer.destination)}${p.offer.country ? `, ${esc(p.offer.country)}` : ''}</p>
