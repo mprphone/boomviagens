@@ -2,7 +2,7 @@
 // e passageiros com idades. O objetivo é pedir informação suficiente para
 // obter tarifas corretas sem transformar a pesquisa num formulário pesado.
 
-import { $, esc, api } from './utils.js';
+import { $, esc, api, notify } from './utils.js';
 
 const SEARCH_MODES = {
   PACKAGE: { destination: 'Para onde quer ir?', checkin: 'Ida / entrada', checkout: 'Volta / saída', submit: 'Pesquisar viagens', origin: true },
@@ -54,12 +54,12 @@ document.querySelectorAll('.search-tab').forEach(tab => {
 });
 
 const DESTINATION_FALLBACK = [
-  { name: 'Punta Cana', country: 'República Dominicana', icon: '🏝️' },
-  { name: 'Riviera Maya', country: 'México', icon: '🌊' },
-  { name: 'Sal', country: 'Cabo Verde', icon: '🏖️' },
-  { name: 'Maldivas', country: 'Maldivas', icon: '🌴' },
-  { name: 'Disneyland Paris', country: 'França', icon: '🎢' },
-  { name: 'Madeira', country: 'Portugal', icon: '🌋' }
+  { name: 'Punta Cana', country: 'República Dominicana', icon: 'PC' },
+  { name: 'Riviera Maya', country: 'México', icon: 'RM' },
+  { name: 'Sal', country: 'Cabo Verde', icon: 'SL' },
+  { name: 'Maldivas', country: 'Maldivas', icon: 'MV' },
+  { name: 'Disneyland Paris', country: 'França', icon: 'DP' },
+  { name: 'Madeira', country: 'Portugal', icon: 'MD' }
 ];
 let destinationTimer = null;
 let destinationRequestSeq = 0;
@@ -88,7 +88,7 @@ function paintDestinationSuggestions(items) {
   positionPanelBelow(panel, $('#destinationInput'), false);
   panel.innerHTML = items.map(d => `
     <button type="button" class="suggest-item" data-value="${esc(d.name)}" data-iata="${esc(d.iata || '')}">
-      <span class="suggest-icon">${esc(d.icon || '📍')}</span>
+      <span class="suggest-icon">${esc(d.icon || 'DT')}</span>
       <span><b>${esc(d.name)}</b>${d.country ? `<small>${esc(d.country)}${d.iata ? ` · ${esc(d.iata)}` : ''}</small>` : ''}</span>
     </button>`).join('');
   panel.hidden = false;
@@ -518,7 +518,7 @@ function submitFlightSearch() {
   } catch (err) {
     const note = $('#flightWorldNoteError');
     if (note) note.textContent = err.message;
-    else alert(err.message);
+    else notify(err.message);
   }
 }
 

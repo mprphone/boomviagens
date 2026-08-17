@@ -1,36 +1,42 @@
-# Boomviagens — Frontoffice Rebuild
+# Boomviagens — Frontoffice Rebuild V8
 
 ## Âmbito
 
-Refatoração visual e estrutural do frontoffice público, preservando o servidor, contratos HTTP, backoffice, autenticação, checkout, pricing, persistência e integrações existentes.
+Refatoração visual e estrutural profunda do frontoffice público e da área reservada do cliente. O servidor, contratos HTTP, backoffice, autenticação, pricing, persistência e integrações existentes foram preservados.
 
 ## Auditoria efetuada
 
-- O servidor Node serve o frontoffice estático e encaminha as rotas por `src/http/router.js`.
-- A pesquisa pública mantém contratos independentes para pesquisa federada, voos, experiências, aeroportos, destinos, calendário de preço, partilha e construtor de viagem.
-- O checkout mantém as etapas e endpoints de criação, escolha e confirmação do pagamento.
-- A área de cliente mantém autenticação, perfil, passageiros, reservas, documentos e pagamentos.
-- O backoffice permanece isolado em `public/backoffice` e não foi alterado.
-- As integrações Duffel, HBX, Ticketmaster, TourDiez, OpenWeather, Google Places, Stripe, Easypay e Facturalusa continuam exclusivamente no servidor.
+- O servidor Node serve o frontoffice e encaminha as rotas por `src/http/router.js`.
+- A pesquisa mantém contratos independentes para pesquisa federada, voos, experiências, aeroportos, destinos, calendário de preço, partilha e construtor de viagem.
+- O checkout mantém os endpoints de criação de reserva, escolha de método e confirmação do pagamento.
+- A área de cliente mantém autenticação, perfil, passageiros, reservas, documentos, pagamentos, mensagens e pedidos.
+- O backoffice continua isolado em `public/backoffice` e não foi alterado.
+- Duffel, HBX, Ticketmaster, TourDiez, OpenWeather, Google Places, Stripe, Easypay, Facturalusa e Supabase continuam exclusivamente no servidor.
 
-## Alterações
+## Alterações estruturais
 
-- Header público redesenhado, compacto e sticky, com navegação comercial, apoio, idioma, moeda e conta.
-- Hero reconstruído com hierarquia editorial, mensagem de confiança e pesquisa como ação principal.
-- Motor de pesquisa reorganizado visualmente para reduzir ruído, mantendo tabs, tipos de produto, autocomplete mundial, todos os aeroportos, datas, passageiros e multi-cidade.
-- Sistema visual novo: azul Boomviagens, tipografia Plus Jakarta Sans + DM Sans, escala de espaços consistente, superfícies claras, sombras subtis e estados de foco acessíveis.
-- Homepage refinada com categorias, ofertas reais, inspiração, prova de confiança e agências.
-- Resultados, construtor de viagem e checkout harmonizados com a nova identidade através de uma camada visual partilhada.
-- Comportamento mobile reforçado para header, pesquisa, categorias, cards, filtros e ações.
-- Removido o emoji do botão principal de pesquisa e substituído o menu mobile por um ícone CSS consistente.
+- Substituição real da estrutura pública e consolidação das antigas folhas visuais num único sistema em `public/css/app.css`.
+- Novo header comercial e responsivo, homepage, catálogo completo de serviços, destinos, campanhas, confiança e balcões.
+- Motor com formulários próprios para pacotes, hotéis, voos, experiências e cruzeiros; autocomplete mundial, grupos de aeroportos, calendário, passageiros e multi-cidade foram preservados.
+- Resultados com pesquisa compacta, filtros, ordenação, comparação, estados de loading/empty/error e resumo persistente da viagem.
+- Construtor de viagem separado dos resultados, com voo, hotel, transfer, seguro, experiências e informação contextual.
+- Checkout em cinco etapas reais: Dados, Passageiros, Extras, Pagamento e Confirmação. Extras sem preço disponível criam um pedido no CRM e nunca alteram silenciosamente o total.
+- Área reservada alinhada com a nova identidade Boomviagens, navegação sem emojis principais e erros funcionais apresentados por notificações acessíveis.
+- Novo centro autenticado de pedidos e mensagens para apoio, alterações, cancelamentos, reclamações, pagamentos e documentos, com referência, associação à reserva e histórico do cliente.
+- Catálogo de capacidades gerado no servidor. Apenas serviços com adaptador configurado aparecem como pesquisa online; os restantes mantêm um fluxo comercial operacional por pedido assistido.
+- Remoção de `alert()` do frontoffice e da área de cliente.
 
-## Ficheiros modificados
+## Principais ficheiros
 
-- `public/index.html`
-- `public/css/base.css`
-- `public/css/header.css`
-- `public/css/hero-search.css`
-- `public/css/polish.css`
+- `public/index.html`, `public/css/app.css`
+- `public/js/services.js`, `public/js/heroSearch.js`, `public/js/results.js`, `public/js/review.js`
+- `public/js/checkout/extrasStep.js` e restantes módulos de checkout
+- `public/conta/index.html`, `public/conta/css/shell.css`, `public/conta/js/*`
+- `src/integrations/serviceCatalog.js`, `src/routes/publicRoutes.js`, `server.js`
+- `docs/SERVICE_INTEGRATIONS.md`, `.env.example`
+- `scripts/test-frontoffice-v8.js`, `package.json`
+
+As folhas antigas `header.css`, `hero-search.css`, `home.css`, `results.css`, `review.css`, `checkout.css`, `shared.css` e `polish.css` foram removidas porque já não são importadas.
 
 ## APIs preservadas
 
@@ -39,27 +45,28 @@ Refatoração visual e estrutural do frontoffice público, preservando o servido
 - `/api/travel-intelligence`, `/api/trip-builder/update`
 - `/api/share-trip`, `/api/assisted-request`
 - `/api/checkout`, `/api/payment/method`, `/api/payment/confirm`
-- Rotas `/api/customer/*` e `/api/admin/*`
+- Rotas `/api/customer/*` e `/api/admin/*`, incluindo `/api/customer/support-request` e histórico de pedidos
 
 ## Testes efetuados
 
-- Validação sintática dos 124 ficheiros JavaScript.
+- Validação sintática de 142 ficheiros JavaScript, incluindo o frontoffice, área de cliente e backoffice preservado.
 - Testes de integrações, pricing, passageiros e controlo de custos.
-- Testes operacionais de destinos, datas e tipos de serviço.
+- Testes operacionais de destinos, datas, tipos de serviço e contratos existentes.
 - Testes de aeroportos mundiais, ida, ida e volta e multi-cidade.
-- Testes do frontoffice: pesquisa global, grupos aeroportuários, calendário e transição checkout 1 → 2.
-- Smoke test HTTP local do documento público e recursos CSS.
+- Testes do frontoffice V7 e V8, incluindo catálogo multiproduto, cinco etapas de checkout, serviços assistidos e ausência de segredos no catálogo público.
+- Smoke tests HTTP locais do documento público, área de cliente, CSS, módulos e `/api/config`.
 
 ## Limitações e dependências de produção
 
-- Preços, disponibilidade e conteúdo comercial dependem das respostas reais dos fornecedores e da configuração do ambiente.
-- Pagamentos reais dependem das credenciais e webhooks Stripe/Easypay configurados em produção.
+- Preços, disponibilidade e conteúdo comercial dependem sempre das respostas reais dos fornecedores.
+- Pagamentos reais dependem das credenciais, criação de sessão e webhooks Stripe/Easypay configurados em produção.
+- Serviços ainda sem adaptador utilizam pedido assistido; passam a online apenas depois de o adaptador implementar pesquisa, normalização, pricing e confirmação.
 - O enriquecimento Google Places mantém-se desativado por defeito.
 - Não foram criados preços, stock ou dados demo.
-- A inspeção visual automatizada em navegador ficou indisponível na sessão de execução; a implementação foi validada por estrutura, CSS responsivo e testes funcionais existentes.
+- A inspeção visual automatizada em navegador não estava disponível nesta sessão. A implementação foi validada por estrutura, CSS responsivo, contratos, testes e HTTP, ficando recomendada a verificação visual final no deployment.
 
 ## Segurança
 
-- `.env` não foi alterado.
-- Nenhum segredo, NET, margem, rate key ou token foi movido para o cliente.
-- O ZIP de entrega exclui `.env`, `.git`, `node_modules` e bases locais com dados reais.
+- `.env` não foi alterado nem incluído no controlo de versões.
+- Nenhum segredo, NET, margem, rate key ou token foi movido para o cliente ou para `/api/config`.
+- As novas variáveis em `.env.example` são apenas convenções sem valores reais.

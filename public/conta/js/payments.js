@@ -2,7 +2,7 @@
 // reserva, tal como o checkout ja funciona hoje - nao inventa um plano
 // de sinal/2 prestacoes/saldo que o sistema nao tem).
 
-import { $, esc, money, api } from './utils.js';
+import { $, esc, money, api, notify } from './utils.js';
 
 export async function renderPagamentos() {
   const el = $('#view-pagamentos');
@@ -43,7 +43,7 @@ export async function renderPagamentos() {
         await api('/api/payment/confirm', { method: 'POST', body: JSON.stringify({ paymentId: btn.dataset.payment }) });
         await renderPagamentos();
       } catch (err) {
-        alert(err.message);
+        notify(err.message);
         btn.disabled = false;
         btn.textContent = 'Pagar agora';
       }

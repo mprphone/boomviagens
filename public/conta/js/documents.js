@@ -5,7 +5,7 @@
 // proprio cliente (rotas /api/customer/documents/*, com ou sem
 // reservationId consoante o bloco).
 
-import { $, esc, api } from './utils.js';
+import { $, esc, api, notify } from './utils.js';
 
 // Categorias visiveis ao cliente (ver domain.js#CUSTOMER_VISIBLE_DOCUMENT_TYPES
 // no servidor - aqui e so o agrupamento visual do que a API ja devolve).
@@ -112,7 +112,7 @@ export function wireUploadForm(block, reservationId) {
       passengerInput.value = '';
       await loadDocs(reservationId, block.querySelector('[data-list], [data-family-list]'));
     } catch (err) {
-      alert(err.message);
+      notify(err.message);
       submitBtn.disabled = false;
       submitBtn.textContent = 'Anexar';
     }
@@ -178,7 +178,7 @@ export async function loadDocs(reservationId, listEl) {
         try {
           await api('/api/customer/documents/delete', { method: 'POST', body: JSON.stringify({ documentId: btn.dataset.doc }) });
           await loadDocs(reservationId, listEl);
-        } catch (err) { alert(err.message); }
+        } catch (err) { notify(err.message); }
       };
     });
     listEl.querySelector('.doc-download-all')?.addEventListener('click', () => downloadAll(data.documents));

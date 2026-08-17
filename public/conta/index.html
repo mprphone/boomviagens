@@ -7,7 +7,7 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/conta/css/shell.css" />
   <link rel="stylesheet" href="/conta/css/dashboard.css" />
   <link rel="stylesheet" href="/conta/css/reservations.css" />
@@ -42,6 +42,7 @@
 
   <div id="appShell" class="app-shell" hidden>
     <aside class="sidebar">
+      <a class="sidebar-brand" href="/"><img src="/logo.svg" alt="Boomviagens" /></a>
       <div class="sidebar-profile">
         <div class="sidebar-avatar" id="avatarInitial">?</div>
         <div>
@@ -52,34 +53,34 @@
 
       <nav class="sidebar-nav">
         <button type="button" class="nav-item is-active" data-view="dashboard">
-          <span class="nav-item-icon">🏠</span>Dashboard
+          <span class="nav-item-icon" aria-hidden="true"></span>Visão geral
         </button>
         <button type="button" class="nav-item" data-view="viagens">
-          <span class="nav-item-icon">🧳</span>As minhas viagens
+          <span class="nav-item-icon" aria-hidden="true"></span>As minhas viagens
         </button>
         <button type="button" class="nav-item" data-view="anteriores">
-          <span class="nav-item-icon">📅</span>Reservas anteriores
+          <span class="nav-item-icon" aria-hidden="true"></span>Reservas anteriores
         </button>
         <button type="button" class="nav-item" data-view="documentos">
-          <span class="nav-item-icon">📄</span>Documentos
+          <span class="nav-item-icon" aria-hidden="true"></span>Documentos
         </button>
         <button type="button" class="nav-item" data-view="pagamentos">
-          <span class="nav-item-icon">💳</span>Pagamentos
+          <span class="nav-item-icon" aria-hidden="true"></span>Pagamentos
         </button>
         <button type="button" class="nav-item" data-view="dados">
-          <span class="nav-item-icon">👤</span>Os meus dados
+          <span class="nav-item-icon" aria-hidden="true"></span>Os meus dados
         </button>
         <button type="button" class="nav-item" data-view="passageiros">
-          <span class="nav-item-icon">🧑‍🤝‍🧑</span>Passageiros
+          <span class="nav-item-icon" aria-hidden="true"></span>Passageiros
         </button>
         <button type="button" class="nav-item" data-view="preferencias">
-          <span class="nav-item-icon">⚙️</span>Preferências
+          <span class="nav-item-icon" aria-hidden="true"></span>Preferências
         </button>
-        <button type="button" class="nav-item is-disabled" disabled>
-          <span class="nav-item-icon">💬</span>Mensagens<span class="soon-badge">em breve</span>
+        <button type="button" class="nav-item" data-view="mensagens">
+          <span class="nav-item-icon" aria-hidden="true"></span>Pedidos e mensagens
         </button>
         <button type="button" class="nav-item" data-view="emergencia">
-          <span class="nav-item-icon">🆘</span>Contactos de emergência
+          <span class="nav-item-icon" aria-hidden="true"></span>Contactos de emergência
         </button>
       </nav>
 
@@ -111,6 +112,7 @@
         <section id="view-dados" class="view" hidden></section>
         <section id="view-passageiros" class="view" hidden></section>
         <section id="view-preferencias" class="view" hidden></section>
+        <section id="view-mensagens" class="view" hidden></section>
         <section id="view-emergencia" class="view" hidden></section>
       </main>
     </div>

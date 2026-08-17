@@ -29,7 +29,7 @@ function renderNextTrip(trip) {
     <div class="next-trip">
       <span class="next-trip-badge">Próxima viagem</span>
       <h2>${esc(offer.destination)}${offer.country ? `, ${esc(offer.country)}` : ''}</h2>
-      <p class="next-trip-dates">📅 ${dateRange(offer.checkin, offer.checkout)} (${offer.nights} noites)</p>
+      <p class="next-trip-dates">${dateRange(offer.checkin, offer.checkout)} (${offer.nights} noites)</p>
       <p class="next-trip-countdown">${countdown}</p>
       <div class="next-trip-actions">
         <button type="button" class="btn" data-open-trip="${esc(trip.id)}">Ver detalhes da viagem</button>
@@ -47,12 +47,12 @@ function renderStatusChips(trip) {
         <div><div class="status-chip-title">Reserva confirmada</div><div class="status-chip-sub">${esc(trip.id)}</div></div>
       </div>
       <div class="status-chip">
-        <div class="status-chip-icon ${missing.length ? 'warn' : 'ok'}">${missing.length ? '⚠️' : '📄'}</div>
+        <div class="status-chip-icon ${missing.length ? 'warn' : 'ok'}">DOC</div>
         <div><div class="status-chip-title">Documentos</div><div class="status-chip-sub">${missing.length ? `${missing.length} em falta` : 'Tudo entregue'}</div></div>
       </div>
       ${trip.payment ? `
       <div class="status-chip">
-        <div class="status-chip-icon ${trip.payment.status === 'PAID' ? 'ok' : 'warn'}">💳</div>
+        <div class="status-chip-icon ${trip.payment.status === 'PAID' ? 'ok' : 'warn'}">PG</div>
         <div><div class="status-chip-title">Pagamento</div><div class="status-chip-sub">${trip.payment.status === 'PAID' ? 'Pago' : 'Pendente'}</div></div>
       </div>` : ''}
     </div>`;
@@ -66,7 +66,7 @@ function renderItinerary(trip) {
       <div class="panel-head"><h2>Detalhes da viagem</h2></div>
       <div class="itinerary-list">
         <div class="itinerary-item">
-          <div class="itinerary-icon">🏨</div>
+          <div class="itinerary-icon">HT</div>
           <div class="itinerary-body">
             <b>${esc(offer.hotel)}</b>
             <span>${dateRange(offer.checkin, offer.checkout)} · ${esc(offer.board)}</span>

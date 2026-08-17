@@ -55,8 +55,8 @@ export function computeHighlights(results, budget) {
     used.add(offer.id);
     picks.push({ label, ribbon, offer, reasons: reasonsFor(offer, kind, budget), hotelIndex: results.indexOf(offer) });
   };
-  add('Melhor escolha', '🏆', 'escolha', byScore[0]);
-  add('Melhor preço', '💰', 'preco', byPrice[0]);
-  add('Melhor hotel', '✨', 'hotel', byRating[0]);
+  add('Melhor escolha', '', 'escolha', byScore[0]);
+  add('Melhor preço', '', 'preco', byPrice[0]);
+  add('Melhor hotel', '', 'hotel', byRating[0]);
   return picks;
 }

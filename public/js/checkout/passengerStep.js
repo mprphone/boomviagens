@@ -10,7 +10,7 @@ import {
   getBookerTravels
 } from './checkoutState.js';
 import { renderCheckoutStep1 } from './billingStep.js';
-import { renderCheckoutStep3 } from './paymentStep.js';
+import { renderCheckoutExtras } from './extrasStep.js';
 
 function guessFirstAndLastName(fullName) {
   const parts = (fullName || '').trim().split(/\s+/).filter(Boolean);
@@ -134,7 +134,7 @@ export async function renderPassengerStep() {
         </div>
       </div>
       <label class="consent"><input type="checkbox" id="saveToWalletCheck" /><span>Guardar este passageiro na minha lista para futuras viagens</span></label>
-      ${isLast ? '<div class="ready-to-pay"><b>Próximo passo: pagamento</b><span>Depois de validar estes dados, escolhe MB WAY, Multibanco ou Cartão numa página separada.</span></div>' : ''}
+      ${isLast ? '<div class="ready-to-pay"><b>Próximo passo: extras</b><span>Revise os serviços da viagem antes de escolher o método de pagamento.</span></div>' : ''}
       <div id="passengerFormError"></div>
       <div class="passenger-nav"><button class="ghost" type="button" id="passengerBack">Voltar</button><button class="btn wide" type="submit">${isLast ? 'Validar passageiros e continuar' : 'Guardar e seguinte'}</button></div>
       <p class="autosave-line" id="checkoutAutosaveStatus">✓ Guardado automaticamente neste checkout</p>
@@ -219,7 +219,7 @@ async function submitCheckout(form) {
       body: JSON.stringify({ offer: currentOffer, customer: { ...billing, passengers: passengerPayloads }, passengers: passengerPayloads, paymentMethod: 'MB WAY', idempotencyKey: `${currentOffer.id}-${billing.email}-${Date.now()}` })
     });
     setLastPayment(data.payment); setLastReservation(data.reservation); setReservationCreated(true);
-    setCheckoutStep(3); renderCheckoutStep3(data);
+    setCheckoutStep(3); renderCheckoutExtras(data);
   } catch (err) {
     btn.disabled = false; btn.textContent = 'Validar passageiros e continuar';
     $('#passengerFormError').innerHTML = `<p class="error">${esc(err.message)}</p>`;

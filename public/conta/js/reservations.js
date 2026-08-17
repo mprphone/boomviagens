@@ -2,7 +2,7 @@
 // anteriores" (canceladas ou com checkin ja passado) - a mesma lista de
 // /api/customer/reservations, so filtrada por data/estado real.
 
-import { $, esc, money, dateRange, statusLabel, api } from './utils.js';
+import { $, esc, money, dateRange, statusLabel, api, notify } from './utils.js';
 import { openTripDetail } from './tripDetail.js';
 import { renderResumePayment } from './resumePayment.js';
 
@@ -19,7 +19,7 @@ function tripCard(r) {
   const needsPayment = r.payment && r.payment.status !== 'PAID';
   return `
     <article class="trip-card" data-reservation="${esc(r.id)}" data-needs-payment="${needsPayment ? '1' : ''}">
-      <div class="trip-card-media" aria-hidden="true">🏨</div>
+      <div class="trip-card-media" aria-hidden="true">HT</div>
       <div class="trip-card-body">
         <b>${esc(offer.hotel || 'Reserva')}</b>
         <span>${esc(offer.destination || '')}${offer.country ? `, ${esc(offer.country)}` : ''}</span>
@@ -55,7 +55,7 @@ async function renderList(elId, filterFn, emptyMessage) {
         await api('/api/payment/confirm', { method: 'POST', body: JSON.stringify({ paymentId: btn.dataset.payment }) });
         await renderList(elId, filterFn, emptyMessage);
       } catch (err) {
-        alert(err.message);
+        notify(err.message);
         btn.disabled = false;
         btn.textContent = 'Pagar agora';
       }

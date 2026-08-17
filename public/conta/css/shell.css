@@ -1,16 +1,15 @@
 /* Tokens, reset e a estrutura da aplicacao: ecra de login e a moldura
    fixa (sidebar clara + topbar) que envolve todas as vistas. Paleta
-   propositadamente diferente do site (azul) e do backoffice (indigo
-   escuro) - aqui e verde/teal, sidebar clara, a assinalar que isto e
-   o espaco pessoal do cliente. */
+   alinhada com o frontoffice (azul) e distinta do backoffice (indigo
+   escuro), com sidebar clara para assinalar o espaço pessoal do cliente. */
 
 :root {
   --ink: #0f172a;
   --ink-soft: #3c4a63;
   --muted: #64748b;
-  --accent: #0d9488;
-  --accent-dark: #0f766e;
-  --accent-bg: #e6f6f4;
+  --accent: #086fb8;
+  --accent-dark: #075486;
+  --accent-bg: #eaf6fc;
   --green: #16a34a;
   --green-bg: #e7f6ec;
   --amber: #b45309;
@@ -19,18 +18,18 @@
   --red-bg: #fbe9e9;
   --blue: #0284c7;
   --blue-bg: #e5f4fb;
-  --bg: #f4f8f7;
+  --bg: #f5f8fa;
   --card: #ffffff;
-  --line: #e2e9e7;
-  --line-soft: #edf3f1;
+  --line: #dce6ed;
+  --line-soft: #eaf0f4;
   --sidebar-bg: #ffffff;
   --sidebar-active-bg: #e6f6f4;
   --radius: 14px;
   --radius-sm: 10px;
   --shadow-sm: 0 2px 8px rgba(15, 23, 42, .06);
   --shadow: 0 18px 40px rgba(15, 23, 42, .10);
-  --font: "Inter", "Segoe UI", Arial, sans-serif;
-  --font-display: "Manrope", "Inter", "Segoe UI", Arial, sans-serif;
+  --font: "DM Sans", "Segoe UI", Arial, sans-serif;
+  --font-display: "Plus Jakarta Sans", "DM Sans", sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -190,6 +189,9 @@ button:focus-visible,
   border-right: 1px solid var(--line);
 }
 
+.sidebar-brand { display:flex; align-items:center; padding:2px 10px 18px; border-bottom:1px solid var(--line); margin-bottom:14px; }
+.sidebar-brand img { width:165px; max-height:44px; }
+
 .sidebar-profile {
   display: flex;
   align-items: center;
@@ -242,7 +244,8 @@ button:focus-visible,
   transition: background .15s ease, color .15s ease, border-color .15s ease;
 }
 
-.nav-item-icon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
+.nav-item-icon { position:relative; width:18px; height:18px; flex-shrink:0; border:1.5px solid currentColor; border-radius:6px; opacity:.78; }
+.nav-item-icon:after { content:""; position:absolute; left:4px; right:4px; top:5px; height:1.5px; background:currentColor; box-shadow:0 4px 0 currentColor; }
 
 .nav-item:not(.is-disabled):hover { background: var(--line-soft); }
 .nav-item.is-active { background: var(--sidebar-active-bg); border-left-color: var(--accent); color: var(--accent-dark); }
@@ -396,3 +399,7 @@ button:focus-visible,
   .content { padding: 20px 16px 32px; }
   .topbar { padding: 16px; }
 }
+
+.account-toast-region{position:fixed;right:20px;bottom:20px;z-index:1500;display:grid;gap:10px;max-width:min(390px,calc(100vw - 32px))}.account-toast{padding:13px 16px;border-radius:12px;background:#10233f;color:#fff;box-shadow:0 18px 42px rgba(10,31,61,.24);font-size:14px;font-weight:700;opacity:0;transform:translateY(8px);transition:.2s ease}.account-toast.visible{opacity:1;transform:none}.account-toast.error{border-left:4px solid #e94b5f}.account-toast.success{border-left:4px solid #1d9d76}
+
+.support-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,.8fr);gap:20px;align-items:start}.support-form{display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-top:18px}.support-form label{display:grid;gap:7px;color:var(--ink-soft);font-size:13px;font-weight:700}.support-form select,.support-form textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 12px;background:#fff;color:var(--ink);font:inherit;resize:vertical}.support-form select:focus,.support-form textarea:focus{border-color:var(--accent);outline:3px solid rgba(8,111,184,.12)}.support-message-field,.support-form .customer-form-message,.support-form button{grid-column:1/-1}.support-list{display:grid;gap:10px;margin-top:14px}.support-item{border:1px solid var(--line);border-radius:12px;padding:13px;background:#fbfdfe}.support-item>div,.support-item footer{display:flex;align-items:center;justify-content:space-between;gap:10px}.support-item p{margin:9px 0;color:var(--ink-soft);font-size:13px;line-height:1.5}.support-item footer{color:var(--muted);font-size:11px}.support-kind{color:var(--accent-dark);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em}@media(max-width:900px){.support-layout{grid-template-columns:1fr}}@media(max-width:560px){.support-form{grid-template-columns:1fr}.support-form label{grid-column:1/-1}}

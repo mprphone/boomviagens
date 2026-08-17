@@ -25,9 +25,9 @@ export function renderCheckoutSummary(offer) {
     </div>
     ${trip ? `<div class="summary-dates">${trip}</div>` : ''}
     <ul class="summary-facts">
-      <li><span>👥</span>${esc(pax)}</li>
-      <li><span>🌙</span>${offer.nights || '-'} noites</li>
-      <li><span>🍽️</span>${esc(offer.board || 'Regime a confirmar')}</li>
+      <li><span>PX</span>${esc(pax)}</li>
+      <li><span>NT</span>${offer.nights || '-'} noites</li>
+      <li><span>RG</span>${esc(offer.board || 'Regime a confirmar')}</li>
       <li><span>${offer.freeCancellation ? '✓' : '!'}</span>${offer.freeCancellation ? 'Cancelamento flexível' : 'Tarifa com restrições de cancelamento'}</li>
     </ul>
     <div class="summary-total"><span>Total da viagem</span><strong id="summaryTotalValue">${money(offer.finalPrice)}</strong></div>

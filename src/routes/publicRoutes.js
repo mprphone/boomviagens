@@ -9,7 +9,7 @@ const OFFER_TOKEN_TTL_MS = 30 * 60 * 1000;
 const { resolveDestination, resolveOrigin, destinationMatches } = require('../integrations/destinations');
 
 module.exports = function registerPublicRoutes(router, ctx) {
-  const { json, readDb, updateDb, tourdiezAdapter, searchOffers, baseOffers, getOfferById, searchPayload, normalize, rateLimit, domain, travelIntelligence, hbx, duffel, applyMargin } = ctx;
+  const { json, readDb, updateDb, tourdiezAdapter, searchOffers, baseOffers, getOfferById, searchPayload, normalize, rateLimit, domain, travelIntelligence, serviceCatalog, hbx, duffel, applyMargin } = ctx;
   const { publicDeals, ensureCollections, addOperatorLog, now } = domain;
   const { sealToken, openToken } = ctx.auth;
 
@@ -420,7 +420,8 @@ module.exports = function registerPublicRoutes(router, ctx) {
       features: {
         exploreZone: integrationStatus.some(x => x.id === 'google-places' && x.enabled),
         travelIntelligence: true
-      }
+      },
+      services: serviceCatalog?.publicServices?.() || []
     });
   });
 

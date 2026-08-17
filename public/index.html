@@ -3,380 +3,191 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Boomviagens - Reservas Inteligentes</title>
+  <meta name="description" content="Compare e reserve voos, hotéis, pacotes, experiências e serviços de viagem com apoio especializado Boomviagens." />
+  <meta name="theme-color" content="#073f68" />
+  <title>Boomviagens — A sua próxima viagem começa aqui</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/base.css" />
-  <link rel="stylesheet" href="/css/header.css" />
-  <link rel="stylesheet" href="/css/hero-search.css" />
-  <link rel="stylesheet" href="/css/home.css" />
-  <link rel="stylesheet" href="/css/results.css" />
-  <link rel="stylesheet" href="/css/review.css" />
-  <link rel="stylesheet" href="/css/checkout.css" />
-  <link rel="stylesheet" href="/css/shared.css" />
-  <link rel="stylesheet" href="/css/polish.css" />
+  <link rel="stylesheet" href="/css/app.css" />
 </head>
 <body>
+  <a class="skip-link" href="#conteudo">Saltar para o conteúdo</a>
   <header class="topbar">
-    <div class="topbar-utility"><div class="topbar-utility-inner"><span>Agência de viagens portuguesa · apoio antes, durante e depois</span><div><a href="tel:" id="topbarPhone"><strong id="topbarPhoneNumber">253 695 089</strong></a><a href="#ajuda">Ajuda</a><button type="button" class="utility-control" aria-label="Moeda">EUR</button><button type="button" class="utility-control" aria-label="Idioma">PT</button></div></div></div>
-    <div class="topbar-main">
-      <a class="brand" href="#pesquisa" aria-label="Boomviagens"><img src="/logo.svg" alt="Boomviagens" /></a>
+    <div class="utility-bar">
+      <div class="utility-inner">
+        <span>Agência portuguesa · apoio antes, durante e depois da viagem</span>
+        <div class="utility-actions"><a href="#ajuda">Ajuda</a><button type="button">PT</button><button type="button">EUR</button></div>
+      </div>
+    </div>
+    <div class="nav-shell">
+      <a class="brand" href="#pesquisa" aria-label="Boomviagens — início"><img src="/logo.svg" alt="Boomviagens" /></a>
       <nav class="main-nav" aria-label="Navegação principal">
-        <a href="#pesquisa" data-service="PACKAGE">Pacotes</a><a href="#pesquisa" data-service="HOTEL">Hotéis</a><a href="#pesquisa" data-service="FLIGHT">Voos</a><a href="#pesquisa" data-service="CRUISE">Cruzeiros</a><a href="#pesquisa" data-service="EXPERIENCE">Experiências</a><a href="#novidades">Destinos</a><a href="#novidades">Promoções</a>
+        <a href="#pesquisa" data-service="PACKAGE">Pacotes</a>
+        <a href="#pesquisa" data-service="HOTEL">Hotéis</a>
+        <a href="#pesquisa" data-service="FLIGHT">Voos</a>
+        <a href="#pesquisa" data-service="CRUISE">Cruzeiros</a>
+        <a href="#pesquisa" data-service="EXPERIENCE">Experiências</a>
+        <a href="#destinos">Destinos</a>
+        <button class="more-services-trigger" type="button" aria-expanded="false" aria-controls="servicesMenu">Mais serviços</button>
+        <div class="services-menu" id="servicesMenu" hidden>
+          <button type="button" data-catalog-service="TRANSFER">Transfers</button>
+          <button type="button" data-catalog-service="CAR">Rent-a-car</button>
+          <button type="button" data-catalog-service="TRAIN">Comboios</button>
+          <button type="button" data-catalog-service="FERRY">Ferries</button>
+          <button type="button" data-catalog-service="CIRCUIT">Circuitos</button>
+          <button type="button" data-catalog-service="INSURANCE">Seguros</button>
+          <button type="button" data-catalog-service="GIFT">Cheque presente</button>
+        </div>
       </nav>
-      <a class="account-link" href="/conta/" aria-label="A minha conta"><span class="account-mark" aria-hidden="true"></span><span>A minha conta</span></a>
+      <a class="phone-link" href="tel:" id="topbarPhone"><span class="phone-mark" aria-hidden="true"></span><span><b id="topbarPhoneNumber">253 695 089</b><small>Apoio personalizado</small></span></a>
+      <a class="account-link" href="/conta/"><span class="account-mark" aria-hidden="true"></span><span><b>A minha conta</b><small>Entrar ou registar</small></span></a>
       <button class="mobile-menu-btn" id="mobileMenuBtn" type="button" aria-label="Abrir menu"><span></span><span></span><span></span></button>
     </div>
   </header>
 
-  <main>
+  <main id="conteudo">
     <section class="hero" id="pesquisa">
-      <div class="hero-heading">
-        <p class="hero-kicker">Viaje melhor, com apoio de quem sabe</p>
-        <h1>A sua próxima viagem<br />começa <em>aqui.</em></h1>
-        <p class="hero-tagline">Compare voos, hotéis, pacotes e experiências num só lugar.</p>
+      <div class="hero-copy">
+        <p class="hero-kicker">Planeie. Compare. Viaje.</p>
+        <h1>Encontre a sua<br />próxima viagem.</h1>
+        <p>Preços reais, escolhas claras e uma equipa consigo em todas as etapas.</p>
       </div>
 
       <div class="search-card">
-        <div class="search-tabs" role="tablist">
-          <button type="button" class="search-tab is-active" data-mode="quick" role="tab" aria-selected="true">
-            Pesquisa
-          </button>
-          <button type="button" class="search-tab" data-mode="ai" role="tab" aria-selected="false">
-            Diga o que procura
-          </button>
-        </div>
-
-        <div class="product-switch" id="productSwitch" role="tablist" aria-label="O que pretende procurar">
+        <div class="product-switch" id="productSwitch" role="tablist" aria-label="Escolha o serviço">
           <button type="button" data-search-type="PACKAGE" class="is-active">Pacotes</button>
           <button type="button" data-search-type="HOTEL">Hotéis</button>
           <button type="button" data-search-type="FLIGHT">Voos</button>
-          <button type="button" data-search-type="EXPERIENCE">Experiências</button>
           <button type="button" data-search-type="CRUISE">Cruzeiros</button>
+          <button type="button" data-search-type="EXPERIENCE">Experiências</button>
         </div>
 
         <form id="searchForm" data-search-type="PACKAGE">
           <input type="hidden" name="searchType" id="searchTypeInput" value="PACKAGE" />
-          <textarea name="prompt" id="promptInput" class="prompt-input" rows="2" placeholder="Ex: Praia em agosto, 2 adultos e 2 crianças, tudo incluído, até 3.500€, saída do Porto…"></textarea>
+          <textarea name="prompt" id="promptInput" class="prompt-input" rows="2" hidden></textarea>
 
-          <div class="flight-search-panel flight-search-v7" id="flightSearchPanel" hidden>
+          <div class="flight-search-panel" id="flightSearchPanel" hidden>
             <input type="hidden" id="flightTripType" name="tripType" value="ROUND_TRIP" />
             <input type="hidden" id="multiCitySlicesInput" name="multiCitySlices" value="" />
-            <div class="flight-search-toolbar">
-              <div class="trip-type-switch" id="tripTypeSwitch"><button type="button" data-trip-type="ROUND_TRIP" class="is-active">Ida e volta</button><button type="button" data-trip-type="ONE_WAY">Só ida</button><button type="button" data-trip-type="MULTI_CITY">Multi-cidade</button></div>
-              <div class="flight-toolbar-options"><button type="button" class="flight-pax-compact" id="flightPaxTrigger"><span>Viajantes</span><strong id="flightPaxSummary">2 adultos</strong></button><label class="cabin-inline"><span>Classe</span><select id="flightCabinClass" name="cabinClass"><option value="economy">Económica</option><option value="premium_economy">Premium Economy</option><option value="business">Executiva</option><option value="first">Primeira</option></select></label></div>
+            <div class="flight-toolbar">
+              <div class="trip-type-switch" id="tripTypeSwitch">
+                <button type="button" data-trip-type="ROUND_TRIP" class="is-active">Ida e volta</button>
+                <button type="button" data-trip-type="ONE_WAY">Só ida</button>
+                <button type="button" data-trip-type="MULTI_CITY">Multi-cidade</button>
+              </div>
+              <label class="cabin-select"><span>Classe</span><select id="flightCabinClass" name="cabinClass"><option value="economy">Económica</option><option value="premium_economy">Premium Economy</option><option value="business">Executiva</option><option value="first">Primeira</option></select></label>
             </div>
             <div class="flight-simple-row" id="flightSimpleRow">
-              <label class="flight-place-field" data-airport-field><small>Origem</small><input id="flightOriginText" name="originLabel" placeholder="Cidade ou aeroporto" autocomplete="off" /><input id="flightOriginIata" name="originIata" type="hidden" /><div class="airport-suggest" hidden></div></label>
+              <label class="search-field place-field" data-airport-field><small>De</small><input id="flightOriginText" name="originLabel" placeholder="Cidade ou aeroporto" autocomplete="off" /><input id="flightOriginIata" name="originIata" type="hidden" /><div class="airport-suggest" hidden></div></label>
               <button class="swap-airports" id="swapAirportsBtn" type="button" aria-label="Trocar origem e destino">⇄</button>
-              <label class="flight-place-field" data-airport-field><small>Destino</small><input id="flightDestinationText" name="destinationLabel" placeholder="Cidade ou aeroporto" autocomplete="off" /><input id="flightDestinationIata" name="destinationIata" type="hidden" /><div class="airport-suggest" hidden></div></label>
-              <div class="flight-date-field"><small>Ida</small><input id="flightDepartureDate" name="flightCheckin" type="hidden" /><button type="button" class="date-display" data-date-target="flightDepartureDate"><strong>Escolher data</strong><span>▾</span></button></div>
-              <div class="flight-date-field" id="flightReturnField"><small>Volta</small><input id="flightReturnDate" name="flightCheckout" type="hidden" /><button type="button" class="date-display" data-date-target="flightReturnDate"><strong>Escolher data</strong><span>▾</span></button></div>
+              <label class="search-field place-field" data-airport-field><small>Para</small><input id="flightDestinationText" name="destinationLabel" placeholder="Cidade ou aeroporto" autocomplete="off" /><input id="flightDestinationIata" name="destinationIata" type="hidden" /><div class="airport-suggest" hidden></div></label>
+              <div class="search-field date-field"><small>Ida</small><input id="flightDepartureDate" name="flightCheckin" type="hidden" /><button type="button" class="date-display" data-date-target="flightDepartureDate"><strong>Escolher data</strong><span>▾</span></button></div>
+              <div class="search-field date-field" id="flightReturnField"><small>Volta</small><input id="flightReturnDate" name="flightCheckout" type="hidden" /><button type="button" class="date-display" data-date-target="flightReturnDate"><strong>Escolher data</strong><span>▾</span></button></div>
+              <button type="button" class="search-field travellers-field flight-pax-compact" id="flightPaxTrigger"><small>Viajantes</small><strong id="flightPaxSummary">2 adultos</strong></button>
               <button class="btn flight-search-submit" id="flightSearchSubmit" type="button">Pesquisar voos</button>
             </div>
-            <div class="multicity-panel" id="multiCityPanel" hidden><div class="multicity-heading"><div><b>Construa o seu itinerário</b><span>Adicione até 6 trajetos. Pode chegar a uma cidade e regressar de outra.</span></div><button type="button" class="ghost" id="addMultiCityLeg">+ Adicionar trajeto</button></div><div id="multiCityRows"></div><div class="multicity-actions"><button type="button" class="flight-pax-compact" id="multiPaxTrigger"><span>Viajantes</span><strong id="multiPaxSummary">2 adultos</strong></button><button class="btn flight-search-submit" id="multiCitySearchSubmit" type="button">Pesquisar multi-cidade</button></div></div>
-            <div class="flight-search-footer"><p class="flight-search-error" id="flightWorldNoteError" aria-live="polite"></p><p class="flight-world-note">Pesquise qualquer cidade ou aeroporto. Para Londres, Nova Iorque ou Paris, pode escolher <b>todos os aeroportos</b> da cidade.</p></div>
+            <div class="multicity-panel" id="multiCityPanel" hidden>
+              <div class="multicity-heading"><div><b>Construa o seu itinerário</b><span>Adicione até seis trajetos.</span></div><button type="button" class="ghost" id="addMultiCityLeg">Adicionar trajeto</button></div>
+              <div id="multiCityRows"></div>
+              <div class="multicity-actions"><button type="button" class="flight-pax-compact" id="multiPaxTrigger"><small>Viajantes</small><strong id="multiPaxSummary">2 adultos</strong></button><button class="btn" id="multiCitySearchSubmit" type="button">Pesquisar multi-cidade</button></div>
+            </div>
+            <div class="flight-search-footer"><p class="flight-search-error" id="flightWorldNoteError" aria-live="polite"></p><p>Pesquise cidades, aeroportos ou áreas metropolitanas como Londres, Nova Iorque e Paris.</p></div>
             <div class="flight-date-popover" id="flightDatePicker" hidden></div>
           </div>
 
           <div class="search-pills">
-            <label class="pill-field pill-destination">
-              <span class="pill-icon">📍</span>
-              <input name="destination" id="destinationInput" placeholder="Para onde quer ir?" autocomplete="off" />
-              <input name="destinationIata" id="destinationIataInput" type="hidden" value="" />
-            </label>
-            <label class="pill-field" id="originField">
-              <span class="pill-icon">✈️</span>
-              <select name="origin"><option>Lisboa</option><option selected>Porto</option><option>Faro</option></select>
-            </label>
-            <label class="pill-field pill-date">
-              <span class="pill-icon">📅</span>
-              <span class="pill-date-stack"><small id="checkinLabel">Ida / entrada</small><input name="checkin" id="checkinInput" type="date" autocomplete="off" /></span>
-            </label>
-            <label class="pill-field pill-date" id="checkoutField">
-              <span class="pill-icon">↩</span>
-              <span class="pill-date-stack"><small id="checkoutLabel">Volta / saída</small><input name="checkout" id="checkoutInput" type="date" autocomplete="off" /></span>
-            </label>
-            <div class="pill-field pill-pax" id="paxTrigger" role="button" tabindex="0" aria-haspopup="dialog">
-              <span class="pill-icon">👥</span>
-              <span class="pax-summary" id="paxSummary">2 adultos</span>
-              <span class="pax-chevron">⌄</span>
-              <input name="adults" id="adultsInput" type="hidden" value="2" />
-              <input name="children" id="childrenInput" type="hidden" value="0" />
-              <input name="infants" id="infantsInput" type="hidden" value="0" />
-              <input name="childAges" id="childAgesInput" type="hidden" value="" />
-              <input name="infantAges" id="infantAgesInput" type="hidden" value="" />
-            </div>
+            <label class="search-field destination-field"><small>Destino</small><input name="destination" id="destinationInput" placeholder="Para onde quer ir?" autocomplete="off" /><input name="destinationIata" id="destinationIataInput" type="hidden" /></label>
+            <label class="search-field" id="originField"><small>Partida</small><select name="origin"><option>Lisboa</option><option selected>Porto</option><option>Faro</option></select></label>
+            <label class="search-field"><small id="checkinLabel">Ida / entrada</small><input name="checkin" id="checkinInput" type="date" autocomplete="off" /></label>
+            <label class="search-field" id="checkoutField"><small id="checkoutLabel">Volta / saída</small><input name="checkout" id="checkoutInput" type="date" autocomplete="off" /></label>
+            <div class="search-field travellers-field" id="paxTrigger" role="button" tabindex="0" aria-haspopup="dialog"><small>Viajantes</small><strong id="paxSummary">2 adultos</strong><input name="adults" id="adultsInput" type="hidden" value="2" /><input name="children" id="childrenInput" type="hidden" value="0" /><input name="infants" id="infantsInput" type="hidden" value="0" /><input name="childAges" id="childAgesInput" type="hidden" /><input name="infantAges" id="infantAgesInput" type="hidden" /></div>
             <input type="hidden" name="nights" id="nightsInput" value="7" />
-            <button class="btn search-submit" type="submit">Pesquisar</button>
+            <button class="btn search-submit" type="submit">Pesquisar viagens</button>
           </div>
-
-          <div class="search-trust-line">
-            <span>✓ Comparamos preço e condições</span>
-            <span>✓ Pagamento seguro</span>
-            <span>✓ Apoio humano sempre que precisar</span>
-          </div>
+          <div class="search-trust-line"><span>Preços e condições comparados</span><span>Pagamento seguro</span><span>Apoio humano sempre que precisar</span></div>
         </form>
       </div>
     </section>
 
-    <div class="category-chips" aria-label="Categorias em destaque">
-      <a href="#novidades" class="chip">
-        <span class="chip-icon" aria-hidden="true">🔥</span>
-        <span><strong>Last Minute</strong><small>Ofertas imperdíveis</small></span>
-      </a>
-      <a href="#pesquisa" class="chip" data-destino="Punta Cana" data-prompt="Quero umas ferias de verao, tudo incluido, 7 noites para 2 adultos.">
-        <span class="chip-icon" aria-hidden="true">☀️</span>
-        <span><strong>Verão 2027</strong><small>Reserve já</small></span>
-      </a>
-      <a href="#pesquisa" class="chip" data-destino="Sal" data-prompt="Quero uma viagem em familia, tudo incluido, 7 noites para 2 adultos e 2 criancas.">
-        <span class="chip-icon" aria-hidden="true">👨‍👩‍👧</span>
-        <span><strong>Famílias</strong><small>Viagens em família</small></span>
-      </a>
-      <a href="#pesquisa" class="chip" data-destino="Maldivas" data-prompt="Quero uma viagem romantica de lua de mel, 7 noites para 2 adultos.">
-        <span class="chip-icon" aria-hidden="true">💍</span>
-        <span><strong>Lua de Mel</strong><small>Momentos únicos</small></span>
-      </a>
-      <a href="#pesquisa" class="chip" data-destino="Riviera Maya" data-prompt="Quero uma viagem tudo incluido, 7 noites para 2 adultos.">
-        <span class="chip-icon" aria-hidden="true">🏝️</span>
-        <span><strong>Tudo Incluído</strong><small>Desfrute sem pensar</small></span>
-      </a>
-      <a href="#pesquisa" class="chip" data-destino="Disneyland Paris" data-prompt="Quero visitar um parque tematico, Disneyland Paris, 3 noites para 2 adultos.">
-        <span class="chip-icon" aria-hidden="true">🎢</span>
-        <span><strong>Disney</strong><small>Magia para todos</small></span>
-      </a>
-    </div>
+    <section class="assurance-bar" aria-label="Garantias Boomviagens">
+      <div><i></i><span><b>Preço transparente</b><small>Sem custos escondidos</small></span></div>
+      <div><i></i><span><b>Reserva segura</b><small>Pagamentos protegidos</small></span></div>
+      <div><i></i><span><b>Apoio especializado</b><small>Antes, durante e depois</small></span></div>
+      <div><i></i><span><b>Agência portuguesa</b><small>Atendimento próximo</small></span></div>
+    </section>
 
     <div class="home-layout" id="homeShowcase">
-      <section id="novidades" class="showcase">
-        <div class="showcase-head">
-          <div>
-            <p class="eyebrow">Ofertas em destaque</p>
-            <h2>Últimos lugares a este preço</h2>
-          </div>
-          <a href="#pesquisa">Ver todas →</a>
-        </div>
+      <section class="showcase services-showcase" id="servicos">
+        <div class="showcase-head"><div><p class="eyebrow">Tudo para a sua viagem</p><h2>Um só lugar. Todos os serviços.</h2><p>Reserve online ou peça ajuda à nossa equipa, sem saltar entre plataformas.</p></div></div>
+        <div class="service-grid" id="serviceCatalogGrid" aria-live="polite"></div>
+      </section>
+
+      <section id="novidades" class="showcase deals-showcase">
+        <div class="showcase-head"><div><p class="eyebrow">Oportunidades</p><h2>Viagens a considerar agora</h2><p>Quando existe preço real mostramos o valor. Caso contrário, consultamos disponibilidade.</p></div><a href="#pesquisa">Explorar viagens</a></div>
         <div id="dealsGrid" class="deals-grid"></div>
       </section>
 
-      <section id="recomendado" class="showcase" hidden>
-        <div class="showcase-head">
-          <div>
-            <p class="eyebrow">Escolhidas para si</p>
-            <h2>Recomendado para si</h2>
-          </div>
+      <section id="recomendado" class="showcase" hidden><div class="showcase-head"><div><p class="eyebrow">Escolhidas para si</p><h2>Recomendado para si</h2></div></div><div id="recommendedGrid" class="recommended-grid"></div></section>
+
+      <section class="showcase destination-showcase" id="destinos">
+        <div class="showcase-head"><div><p class="eyebrow">Inspiração</p><h2>Para onde quer ir?</h2><p>Ideias selecionadas para diferentes formas de viajar.</p></div><a href="#pesquisa">Ver todos os destinos</a></div>
+        <div class="destination-grid">
+          <a class="destination-card destination-card-large" href="#pesquisa" data-destino="Punta Cana" style="--cover:url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=86')"><span><small>Caraíbas</small><b>Punta Cana</b><em>Tudo incluído</em></span></a>
+          <a class="destination-card" href="#pesquisa" data-destino="Madeira" style="--cover:url('https://images.unsplash.com/photo-1526392060635-9d6019884377?auto=format&fit=crop&w=900&q=86')"><span><small>Portugal</small><b>Madeira</b><em>Natureza</em></span></a>
+          <a class="destination-card" href="#pesquisa" data-destino="Paris" style="--cover:url('https://images.unsplash.com/photo-1502602898657-3e91760cbb34?auto=format&fit=crop&w=900&q=86')"><span><small>França</small><b>Paris</b><em>City break</em></span></a>
+          <a class="destination-card" href="#pesquisa" data-destino="Maldivas" style="--cover:url('https://images.unsplash.com/photo-1573843981267-be1999ff37cd?auto=format&fit=crop&w=900&q=86')"><span><small>Oceano Índico</small><b>Maldivas</b><em>Lua de mel</em></span></a>
+          <a class="destination-card" href="#pesquisa" data-destino="Nova Iorque" style="--cover:url('https://images.unsplash.com/photo-1485871981521-5b1fd3805eee?auto=format&fit=crop&w=900&q=86')"><span><small>Estados Unidos</small><b>Nova Iorque</b><em>Grandes cidades</em></span></a>
         </div>
-        <div id="recommendedGrid" class="recommended-grid"></div>
       </section>
 
-      <section class="showcase">
-        <div class="showcase-head">
-          <div>
-            <p class="eyebrow">Inspiração</p>
-            <h2>Explore por tipo de viagem</h2>
-          </div>
-        </div>
-        <div class="type-grid">
-          <a href="#pesquisa" class="type-tile" data-destino="Punta Cana" data-prompt="Quero umas ferias de praia, tudo incluido, 7 noites para 2 adultos." style="background-image:url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=500&q=80')">
-            <span>🏖️</span>Praia
-          </a>
-          <a href="#pesquisa" class="type-tile" data-destino="Maldivas" data-prompt="Quero uma grande viagem ate as Maldivas, 7 noites para 2 adultos." style="background-image:url('https://images.unsplash.com/photo-1573843981267-be1999ff37cd?auto=format&fit=crop&w=500&q=80')">
-            <span>🧳</span>Grandes Viagens
-          </a>
-          <a href="#pesquisa" class="type-tile" data-destino="Disneyland Paris" data-prompt="Quero uma escapadinha a uma cidade, 3 noites para 2 adultos." style="background-image:url('https://images.unsplash.com/photo-1499856871958-5b9627545d1a?auto=format&fit=crop&w=500&q=80')">
-            <span>🏙️</span>Escapadinhas
-          </a>
-          <a href="#pesquisa" class="type-tile" data-destino="Maldivas" data-prompt="Quero uma viagem romantica de lua de mel, 7 noites para 2 adultos." style="background-image:url('https://images.unsplash.com/photo-1465156799763-2c087c332922?auto=format&fit=crop&w=500&q=80')">
-            <span>❤️</span>Lua de Mel
-          </a>
-          <a href="#pesquisa" class="type-tile" data-destino="Sal" data-prompt="Quero uma viagem em familia, tudo incluido, 7 noites para 2 adultos e 2 criancas." style="background-image:url('https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=500&q=80')">
-            <span>👨‍👩‍👧</span>Família
-          </a>
-          <a href="#pesquisa" class="type-tile" data-service="CRUISE" style="background-image:url('https://images.unsplash.com/photo-1548574505-5e239809ee19?auto=format&fit=crop&w=500&q=80')">
-            <span>⚓</span>Cruzeiros
-          </a>
-        </div>
+      <section class="trip-types">
+        <article><span>01</span><div><h3>Famílias</h3><p>Hotéis, bagagem, transfers e atividades pensados em conjunto.</p><a href="#pesquisa" data-destino="Sal">Ver opções</a></div></article>
+        <article><span>02</span><div><h3>Lua de mel</h3><p>Viagens especiais, desenhadas com acompanhamento personalizado.</p><a href="#pesquisa" data-destino="Maldivas">Começar a planear</a></div></article>
+        <article><span>03</span><div><h3>Grandes viagens</h3><p>Circuitos, múltiplos destinos e apoio operacional completo.</p><button type="button" data-catalog-service="CIRCUIT">Pedir proposta</button></div></article>
       </section>
 
       <section class="trust-strip">
-        <div class="trust-strip-item">
-          <span class="trust-strip-icon" aria-hidden="true">🧭</span>
-          <div><b>Preço e condições comparados</b><span>Mostramos o que realmente está incluído</span></div>
-        </div>
-        <div class="trust-strip-item">
-          <span class="trust-strip-icon" aria-hidden="true">🔒</span>
-          <div><b>Pagamento 100% seguro</b><span>Tecnologia de encriptação SSL</span></div>
-        </div>
-        <div class="trust-strip-item">
-          <span class="trust-strip-icon" aria-hidden="true">🔄</span>
-          <div><b>Cancelamento flexível</b><span>Condições transparentes</span></div>
-        </div>
-        <div class="trust-strip-item">
-          <span class="trust-strip-icon" aria-hidden="true">🙋</span>
-          <div><b>Apoio humano dedicado</b><span>Estamos sempre consigo</span></div>
-        </div>
+        <div><p class="eyebrow">Viaje com confiança</p><h2>Uma agência real por detrás de cada reserva.</h2></div>
+        <ul><li>Condições explicadas antes do pagamento</li><li>Processo completo registado</li><li>Documentos organizados por viagem</li><li>Apoio humano quando é necessário</li></ul>
       </section>
 
-      <section id="agenciasSection" class="agencies-section" hidden>
-        <div class="agencies-main">
-          <div class="showcase-head compact">
-            <div>
-              <p class="eyebrow" id="agenciesCount">Agências ao seu lado</p>
-              <h2>Visite-nos ou fale connosco</h2>
-            </div>
-          </div>
-          <p class="muted">Estamos aqui para tornar a sua viagem inesquecível.</p>
-          <div id="agenciesGrid" class="agencies-grid"></div>
-        </div>
-        <div class="agencies-online-card">
-          <h3>Prefere reservar online?</h3>
-          <p class="muted">Reserve a qualquer hora, de forma rápida e segura.</p>
-          <a class="btn wide" href="#pesquisa">Reservar agora</a>
-        </div>
-      </section>
+      <section id="agenciasSection" class="agencies-section" hidden><div><div class="showcase-head compact"><div><p class="eyebrow" id="agenciesCount">Agências ao seu lado</p><h2>Visite-nos ou fale connosco</h2></div></div><div id="agenciesGrid" class="agencies-grid"></div></div><aside><h3>Prefere tratar online?</h3><p>Pesquise e reserve a qualquer hora.</p><a class="btn wide" href="#pesquisa">Começar agora</a></aside></section>
     </div>
 
-    <section id="resultsPage" class="panel results-page" hidden>
+    <section id="resultsPage" class="results-page" hidden>
       <div class="results-recap">
-        <div>
-          <p class="eyebrow">Resultados</p>
-          <h2 id="resultsRecapTitle">Melhor preco e recomendacao</h2>
-          <p class="muted" id="resultsRecapDetails"></p>
-        </div>
-        <div class="results-recap-actions">
-          <span id="resultCount" class="badge">0 opcoes</span>
-          <button type="button" class="ghost" id="newSearchBtn">Nova pesquisa</button>
-        </div>
+        <div><p class="eyebrow">Resultados da pesquisa</p><h2 id="resultsRecapTitle">A organizar as melhores opções</h2><p id="resultsRecapDetails"></p></div>
+        <div class="results-recap-actions"><span id="resultCount" class="badge">0 opções</span><button type="button" class="ghost" id="newSearchBtn">Alterar pesquisa</button></div>
       </div>
       <div id="parsedBox" class="parsed"></div>
       <div id="resultsHighlights" class="highlight-strip"></div>
       <div class="results-layout">
         <aside class="results-filters" id="resultsFilters" hidden></aside>
-        <div class="results-main-column">
-          <div id="resultsToolbar" class="results-toolbar"></div>
-          <div id="results" class="results-list"></div>
-        </div>
+        <div class="results-main-column"><div id="resultsToolbar" class="results-toolbar"></div><div id="results" class="results-list"></div></div>
+        <aside class="trip-summary" id="tripSummary"><p class="eyebrow">A sua pesquisa</p><h3>Escolha uma opção</h3><p>O resumo da viagem fica aqui enquanto compara resultados.</p></aside>
       </div>
     </section>
 
-    <section id="reviewPage" class="panel" hidden>
-      <div class="section-head">
-        <div>
-          <p class="eyebrow">Construa a sua viagem</p>
-          <h2>Reveja, personalize, guarde ou partilhe</h2>
-        </div>
-        <button type="button" class="ghost" id="backToResultsBtn">Voltar aos resultados</button>
-      </div>
-      <div id="reviewContent"></div>
-    </section>
+    <section id="reviewPage" class="review-page" hidden><div class="review-nav"><div><p class="eyebrow">A sua viagem</p><h2>Personalize antes de reservar</h2></div><button type="button" class="ghost" id="backToResultsBtn">Voltar aos resultados</button></div><div id="reviewContent"></div></section>
 
-    <div id="passportModal" class="modal-overlay" hidden>
-      <div class="modal-box panel passport-modal">
-        <p class="eyebrow">Reserva segura</p>
-        <h2>Vamos confirmar os dados consigo</h2>
-        <ul>
-          <li>Os nomes devem corresponder exatamente ao documento que cada passageiro vai usar.</li>
-          <li>Vamos validar idade, tipo de passageiro, documentos duplicados e validade até ao regresso.</li>
-          <li>Antes do pagamento, o sistema volta a confirmar os dados essenciais e a disponibilidade.</li>
-        </ul>
-        <div class="passport-modal-actions">
-          <button type="button" class="ghost" id="passportModalClose">Fechar</button>
-          <button type="button" class="btn" id="passportModalAccept">Continuar com assistência</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="checkoutModal" class="modal-overlay" hidden>
-      <div class="modal-box panel checkout-panel">
-        <button type="button" id="closeCheckoutModal" class="modal-close" aria-label="Fechar">&times;</button>
-        <div class="section-head">
-          <div>
-            <p class="eyebrow">Checkout seguro</p>
-            <h2>Finalizar reserva</h2>
-          </div>
-          <span class="badge green">Ambiente de teste - sem cobranca real</span>
-        </div>
-
-        <ol class="stepper" id="checkoutStepper">
-          <li class="stepper-step" data-step="1"><span class="stepper-dot">1</span><span class="stepper-label">Faturação</span></li>
-          <li class="stepper-step" data-step="2"><span class="stepper-dot">2</span><span class="stepper-label">Passageiros</span></li>
-          <li class="stepper-step" data-step="3"><span class="stepper-dot">3</span><span class="stepper-label">Pagamento</span></li>
-          <li class="stepper-step" data-step="4"><span class="stepper-dot">4</span><span class="stepper-label">Confirmação</span></li>
-        </ol>
-
-        <div class="checkout-grid">
-          <div id="checkoutMain" class="checkout-main"></div>
-          <aside id="checkoutSummary" class="checkout-summary"></aside>
-        </div>
-      </div>
-    </div>
-
-    <section id="legal" class="panel legal">
-      <h2>Viaje com acompanhamento Boomviagens</h2>
-      <p>Informação legal, RNAVT, termos, privacidade, cookies e condições de viagem ficam disponíveis nesta área antes da publicação comercial definitiva.</p>
-    </section>
+    <section id="legal" class="legal-section"><div><b>Compra responsável</b><span>Preços e disponibilidade são confirmados pelos fornecedores. Nunca mostramos inventário fictício.</span></div><a href="#ajuda">Precisa de ajuda?</a></section>
   </main>
 
+  <div id="passportModal" class="modal-overlay" hidden><div class="modal passport-dialog" role="dialog" aria-modal="true" aria-labelledby="passportModalTitle"><h3 id="passportModalTitle">Confirme os documentos</h3><p>Confirme nomes, datas de nascimento, nacionalidade, validade e regras do destino antes de pagar.</p><ul><li>Nome igual ao documento</li><li>Validade suficiente para a viagem</li><li>Vistos e autorizações quando aplicável</li></ul><div class="modal-actions"><button type="button" class="ghost" id="passportModalClose">Fechar</button><button type="button" class="btn" id="passportModalAccept">Continuar com assistência</button></div></div></div>
+
+  <div id="checkoutModal" class="modal-overlay checkout-overlay" hidden><div class="modal checkout-modal" role="dialog" aria-modal="true" aria-label="Finalizar reserva"><button type="button" id="closeCheckoutModal" class="modal-close" aria-label="Fechar">×</button><div class="checkout-brand"><img src="/logo.svg" alt="Boomviagens" /><div><b>Reserva segura</b><span>Os seus dados estão protegidos</span></div></div><ol class="stepper" id="checkoutStepper"><li class="stepper-step is-active" data-step="1"><span>1</span>Dados</li><li class="stepper-step" data-step="2"><span>2</span>Passageiros</li><li class="stepper-step" data-step="3"><span>3</span>Extras</li><li class="stepper-step" data-step="4"><span>4</span>Pagamento</li><li class="stepper-step" data-step="5"><span>5</span>Confirmação</li></ol><div class="checkout-layout"><div id="checkoutMain" class="checkout-main"></div><aside id="checkoutSummary" class="checkout-summary"></aside></div></div></div>
+
+  <div id="serviceRequestModal" class="modal-overlay" hidden><div class="modal service-request-dialog" role="dialog" aria-modal="true" aria-labelledby="serviceRequestTitle"><button type="button" class="modal-close" data-close-service-modal aria-label="Fechar">×</button><p class="eyebrow">Pedido personalizado</p><h2 id="serviceRequestTitle">Como podemos ajudar?</h2><p id="serviceRequestIntro">Diga-nos o que procura. O pedido entra diretamente no nosso processo comercial.</p><form id="serviceRequestForm"><input type="hidden" name="kind" id="serviceRequestKind" /><div class="form-grid"><label><span>Destino ou percurso</span><input name="destination" placeholder="Ex: Açores, Lisboa–Madrid" /></label><label><span>Data de início</span><input name="checkin" type="date" /></label><label><span>Data de fim</span><input name="checkout" type="date" /></label><label><span>Viajantes</span><input name="adults" type="number" min="1" max="20" value="2" /></label><label><span>Nome</span><input name="name" required maxlength="120" /></label><label><span>Email</span><input name="email" type="email" /></label><label><span>Telefone</span><input name="phone" /></label><label class="wide"><span>O que é importante para si?</span><textarea name="notes" rows="4" placeholder="Preferências, orçamento, companhia, cabine, bagagem ou outras informações"></textarea></label></div><p class="form-feedback" id="serviceRequestFeedback" aria-live="polite"></p><button class="btn wide" type="submit">Enviar pedido à Boomviagens</button></form></div></div>
+
   <div class="suggest-panel" id="destinationSuggest" hidden></div>
-  <div class="pax-panel" id="paxPanel" hidden>
-    <div class="pax-panel-head"><b>Viajantes</b><button type="button" id="paxPanelClose" aria-label="Fechar">×</button></div>
-    <div class="pax-row"><div><b>Adultos</b><small>12 anos ou mais na data da viagem</small></div><div class="counter"><button type="button" data-pax="adults" data-delta="-1">−</button><strong id="adultsCount">2</strong><button type="button" data-pax="adults" data-delta="1">+</button></div></div>
-    <div class="pax-row"><div><b>Crianças</b><small>2–11 anos na data da viagem</small></div><div class="counter"><button type="button" data-pax="children" data-delta="-1">−</button><strong id="childrenCount">0</strong><button type="button" data-pax="children" data-delta="1">+</button></div></div>
-    <div id="childAgesBox" class="pax-age-box" hidden></div>
-    <div class="pax-row"><div><b>Bebés</b><small>0–1 ano na data da viagem</small></div><div class="counter"><button type="button" data-pax="infants" data-delta="-1">−</button><strong id="infantsCount">0</strong><button type="button" data-pax="infants" data-delta="1">+</button></div></div>
-    <div id="infantAgesBox" class="pax-age-box" hidden></div>
-    <p class="pax-help">As idades são usadas já na pesquisa para pedir tarifas corretas. No checkout confirmamos a data de nascimento e a categoria de cada passageiro.</p>
-    <button type="button" class="btn wide" id="paxApplyBtn">Aplicar</button>
-  </div>
+  <div class="pax-panel" id="paxPanel" hidden><div class="pax-panel-head"><b>Viajantes</b><button type="button" id="paxPanelClose" aria-label="Fechar">×</button></div><div class="pax-row"><div><b>Adultos</b><small>12 anos ou mais</small></div><div class="counter"><button type="button" data-pax="adults" data-delta="-1">−</button><strong id="adultsCount">2</strong><button type="button" data-pax="adults" data-delta="1">+</button></div></div><div class="pax-row"><div><b>Crianças</b><small>2–11 anos</small></div><div class="counter"><button type="button" data-pax="children" data-delta="-1">−</button><strong id="childrenCount">0</strong><button type="button" data-pax="children" data-delta="1">+</button></div></div><div id="childAgesBox" class="pax-age-box" hidden></div><div class="pax-row"><div><b>Bebés</b><small>0–1 ano</small></div><div class="counter"><button type="button" data-pax="infants" data-delta="-1">−</button><strong id="infantsCount">0</strong><button type="button" data-pax="infants" data-delta="1">+</button></div></div><div id="infantAgesBox" class="pax-age-box" hidden></div><button type="button" class="btn wide" id="paxApplyBtn">Aplicar</button></div>
   <div class="calendar-panel" id="calendarPanel" hidden></div>
 
-  <div class="chat-widget">
-    <div class="assistant-panel" id="chatPanel" hidden>
-      <div class="assistant-head">
-        <span class="assistant-head-icon">💬</span>
-        <div>
-          <b>Assistente Boom</b>
-          <span>Ajuda para escolher e preparar a sua viagem</span>
-        </div>
-        <button type="button" class="chat-close" id="chatCloseBtn" aria-label="Fechar">&times;</button>
-      </div>
-      <div id="chatMessages" class="assistant-messages"><p><b>Boom:</b> Ola! Diga-me o destino, datas, orcamento e passageiros.</p></div>
-      <form id="chatForm"><input name="message" placeholder="Ex: quero Caraibas em agosto" /><button>Enviar</button></form>
-    </div>
-    <button type="button" class="chat-trigger" id="chatTriggerBtn">
-      <span aria-hidden="true">✨</span><span>Precisa de ajuda a escolher?</span>
-    </button>
-  </div>
+  <div class="chat-widget"><div class="assistant-panel" id="chatPanel" hidden><div class="assistant-head"><div><b>Assistente Boom</b><span>Ajuda para planear a sua viagem</span></div><button type="button" class="chat-close" id="chatCloseBtn" aria-label="Fechar">×</button></div><div id="chatMessages" class="assistant-messages"><p><b>Boom:</b> Olá! Diga-me o destino, datas e orçamento.</p></div><form id="chatForm"><input name="message" placeholder="Ex: Caraíbas em agosto" /><button>Enviar</button></form></div><button type="button" class="chat-trigger" id="chatTriggerBtn" aria-label="Abrir assistente"><span class="chat-dot"></span><span>Podemos ajudar?</span></button></div>
 
-  <footer>
-    <div class="footer-grid">
-      <div class="footer-col footer-brand">
-        <img src="/logo.svg" alt="Boomviagens" />
-        <p>About Destiny, Unipessoal Lda<br />NIF 509080308<br />RNAVT: <span id="rnavt">INSERIR_RNAVT</span></p>
-      </div>
-      <div class="footer-col">
-        <h4>Destinos</h4>
-        <a href="#pesquisa" data-destino="Punta Cana" data-prompt="Quero viajar para as Caraibas, tudo incluido, 7 noites para 2 adultos.">Caraibas</a>
-        <a href="#pesquisa" data-destino="Disneyland Paris" data-prompt="Quero viajar para a Europa, 3 noites para 2 adultos.">Europa</a>
-        <a href="#pesquisa" data-destino="Sal" data-prompt="Quero viajar para Cabo Verde, tudo incluido, 7 noites para 2 adultos.">Africa</a>
-        <a href="#pesquisa" data-destino="Maldivas" data-prompt="Quero uma grande viagem ate as Maldivas, 7 noites para 2 adultos.">Grandes viagens</a>
-      </div>
-      <div class="footer-col">
-        <h4>Empresa</h4>
-        <a href="#legal">Sobre nos</a>
-        <a href="mailto:geral@boomviagens.pt">Contactos</a>
-      </div>
-      <div class="footer-col">
-        <h4>Legal</h4>
-        <a href="#legal">Termos e condicoes</a>
-        <a href="#legal">Privacidade</a>
-        <a href="#legal">Livro de reclamacoes</a>
-      </div>
-    </div>
-    <div class="footer-bottom">&copy; 2026 Boomviagens - boomviagens.pt</div>
-  </footer>
+  <footer><div class="footer-grid"><div class="footer-brand"><img src="/logo.svg" alt="Boomviagens" /><p>Viagens pensadas consigo, do primeiro plano ao regresso a casa.</p></div><div><b>Reservar</b><a href="#pesquisa" data-service="PACKAGE">Pacotes</a><a href="#pesquisa" data-service="HOTEL">Hotéis</a><a href="#pesquisa" data-service="FLIGHT">Voos</a><a href="#pesquisa" data-service="EXPERIENCE">Experiências</a></div><div><b>Apoio</b><a href="/conta/">Área de cliente</a><a href="#agenciasSection">Agências</a><a href="#ajuda">Contactos</a></div><div><b>Informação legal</b><p>About Destiny, Unipessoal Lda<br />NIF 509080308<br />RNAVT: <span id="rnavt">INSERIR_RNAVT</span></p></div></div><div class="footer-bottom"><span>© 2026 Boomviagens</span><span>Preços e disponibilidade sujeitos a confirmação.</span></div></footer>
 
   <script type="module" src="/js/main.js"></script>
 </body>

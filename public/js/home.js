@@ -72,16 +72,16 @@ function dealCard(deal, index) {
   return `
     <article class="deal-card">
       <div class="deal-card-media">
-        ${image ? `<img src="${esc(image)}" alt="${esc(deal.title)}" loading="lazy" />` : '<div class="deal-image-placeholder" aria-hidden="true">✈️</div>'}
+        ${image ? `<img src="${esc(image)}" alt="${esc(deal.title)}" loading="lazy" />` : '<div class="deal-image-placeholder" aria-hidden="true"></div>'}
         <span class="deal-tag">${esc(deal.tag || '')}</span>
-        <button type="button" class="deal-favorite" aria-label="Guardar">♡</button>
+        <button type="button" class="deal-favorite" aria-label="Guardar">Guardar</button>
       </div>
       <div class="deal-body">
         <p class="deal-dest">${esc(deal.title)}</p>
         <h3>${esc(deal.hotel)}</h3>
         <div class="hotel-row-stars">${stars(deal.rating)}</div>
         <div class="deal-meta">
-          <span>✈ ${esc(deal.origin)}</span>
+          <span>Partida: ${esc(deal.origin)}</span>
           <span>${Number(deal.nights || 0)} noites</span>
           <span>${esc(deal.board)}</span>
         </div>
@@ -126,7 +126,7 @@ export async function loadDeals() {
 // ver smartParse em src/mockOperators.js), so para a razao "dentro do
 // orcamento" ter algum sentido antes de existir uma pesquisa real.
 const TYPICAL_BUDGET = 2500;
-const RECOMMENDED_RIBBON = { 'Melhor escolha': '🏆 A nossa recomendação', 'Melhor preço': '💰 Melhor preço', 'Melhor hotel': '⭐ Melhor hotel' };
+const RECOMMENDED_RIBBON = { 'Melhor escolha': 'A nossa recomendação', 'Melhor preço': 'Melhor preço', 'Melhor hotel': 'Melhor hotel' };
 
 function renderRecommended(deals) {
   const section = $('#recomendado');
@@ -139,7 +139,7 @@ function renderRecommended(deals) {
   target.innerHTML = picks.map((p, index) => `
     <article class="recommended-card">
       <span class="highlight-ribbon">${esc(RECOMMENDED_RIBBON[p.label] || p.label)}</span>
-      ${safeImageUrl(p.offer.image) ? `<img src="${esc(safeImageUrl(p.offer.image))}" alt="${esc(p.offer.hotel)}" loading="lazy" />` : '<div class="deal-image-placeholder" aria-hidden="true">✈️</div>'}
+      ${safeImageUrl(p.offer.image) ? `<img src="${esc(safeImageUrl(p.offer.image))}" alt="${esc(p.offer.hotel)}" loading="lazy" />` : '<div class="deal-image-placeholder" aria-hidden="true"></div>'}
       <div class="recommended-body">
         <p class="deal-dest">${esc(p.offer.title)}</p>
         <h3>${esc(p.offer.hotel)}</h3>
@@ -169,10 +169,10 @@ async function loadAgencies() {
     $('#agenciesCount').textContent = `${branches.length} agência${branches.length === 1 ? '' : 's'} ao seu lado`;
     target.innerHTML = branches.map(b => `
       <div class="agency-card">
-        <div class="agency-card-icon" aria-hidden="true">🏬</div>
+        <div class="agency-card-icon" aria-hidden="true"></div>
         <b>${esc(b.name)}</b>
         <span class="muted small">${esc(b.address || '')}</span>
-        ${b.phone ? `<a href="tel:${esc(String(b.phone).replace(/[^+\d]/g, ''))}" class="agency-card-phone">📞 ${esc(b.phone)}</a>` : ''}
+        ${b.phone ? `<a href="tel:${esc(String(b.phone).replace(/[^+\d]/g, ''))}" class="agency-card-phone">${esc(b.phone)}</a>` : ''}
       </div>`).join('');
   } catch {
     section.hidden = true;

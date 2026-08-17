@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
-const roots = ['server.js', 'src', 'scripts', path.join('public', 'js'), path.join('public', 'backoffice', 'js')];
+const roots = ['server.js', 'src', 'scripts', path.join('public', 'js'), path.join('public', 'conta', 'js'), path.join('public', 'backoffice', 'js')];
 const files = [];
 
 function walk(target) {

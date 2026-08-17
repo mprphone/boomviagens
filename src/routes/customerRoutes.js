@@ -187,6 +187,53 @@ module.exports = function registerCustomerRoutes(router, ctx) {
     return json(res, 200, { ok: true, customer: sanitizeCustomer(customer), hasPassword: Boolean(customer.passwordHash) });
   });
 
+  router.get('/api/customer/support-requests', async (req, res) => {
+    const customerEmail = customerSessionEmail(req);
+    if (!customerEmail) return unauthorized(res);
+    const db = ensureCollections(await readDb());
+    const requests = db.leads
+      .filter(lead => lead.source === 'CUSTOMER_AREA' && lead.email === customerEmail)
+      .map(lead => ({ id: lead.id, createdAt: lead.createdAt, kind: lead.kind, status: lead.status, reservationId: lead.reservationId || '', notes: lead.notes || '' }))
+      .slice(0, 50);
+    return json(res, 200, { ok: true, requests });
+  });
+
+  router.post('/api/customer/support-request', async (req, res) => {
+    const customerEmail = customerSessionEmail(req);
+    if (!customerEmail) return unauthorized(res);
+    const limited = rateLimit(req, res, 'customer-support-request', 12, 60 * 60 * 1000);
+    if (limited) return limited;
+    const body = await parseBody(req);
+    const allowedKinds = new Set(['APOIO', 'ALTERACAO', 'CANCELAMENTO', 'RECLAMACAO', 'PAGAMENTO', 'DOCUMENTOS']);
+    const kind = allowedKinds.has(String(body.kind || '').toUpperCase()) ? String(body.kind).toUpperCase() : 'APOIO';
+    const reservationId = cleanText(body.reservationId, 120);
+    const notes = cleanText(body.notes, 1500);
+    if (notes.length < 10) return json(res, 400, { ok: false, error: 'Descreva o pedido com um pouco mais de detalhe.' });
+    const db = ensureCollections(await readDb());
+    const reservation = reservationId ? ownReservationOrNull(db, reservationId, customerEmail) : null;
+    if (reservationId && !reservation) return json(res, 404, { ok: false, error: 'Reserva não encontrada.' });
+    const customer = db.customers.find(item => item.email === customerEmail) || { email: customerEmail };
+    const requestId = id('lead');
+    await updateDb(data => {
+      ensureCollections(data);
+      data.leads.unshift({
+        id: requestId,
+        createdAt: now(),
+        source: 'CUSTOMER_AREA',
+        kind,
+        status: 'NOVO',
+        reservationId: reservationId || undefined,
+        name: customer.name || reservation?.customer?.name || 'Cliente',
+        email: customerEmail,
+        phone: customer.phone || reservation?.customer?.phone || '',
+        destination: reservation?.offer?.destination || '',
+        notes
+      });
+      audit(data, customerEmail, 'CUSTOMER_SUPPORT_REQUESTED', { requestId, kind, reservationId: reservationId || null });
+    });
+    return json(res, 200, { ok: true, requestId, status: 'NOVO' });
+  });
+
   // A identidade vem sempre da sessao (customerEmail), nunca do corpo do
   // pedido - assim um cliente autenticado nunca consegue editar os dados
   // de outro so por enviar um email diferente no body.

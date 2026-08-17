@@ -12,7 +12,7 @@ function paymentInstructions(payment) {
   const method = payment.method || '';
   if (method.includes('MB WAY')) {
     return `<div class="payment-method-box">
-      <div class="payment-method-icon">📱</div>
+      <div class="payment-method-icon">MW</div>
       <div><b>Confirme na app MB WAY</b><p class="muted">Vai receber um pedido de pagamento de ${money(payment.amount)} para aprovar na app associada ao seu número.</p></div>
     </div>`;
   }
@@ -25,7 +25,7 @@ function paymentInstructions(payment) {
       ${payment.expiresAt ? `<p class="muted small">Válida até ${new Date(payment.expiresAt).toLocaleString('pt-PT')}.</p>` : ''}`;
   }
   return `<div class="payment-method-box">
-    <div class="payment-method-icon">💳</div>
+    <div class="payment-method-icon">CC</div>
     <div><b>Pagamento com cartão</b><p class="muted">Seria redirecionado para um gateway seguro (Stripe/SIBS) para introduzir os dados do cartão.</p></div>
   </div>`;
 }

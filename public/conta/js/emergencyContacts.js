@@ -22,7 +22,7 @@ export async function renderEmergencia() {
     <div class="panel" style="max-width:480px">
       <div class="panel-head"><h2>Precisa de ajuda?</h2></div>
       <p class="muted">Contacte a nossa equipa a qualquer momento, antes, durante ou depois da sua viagem.</p>
-      ${company.phone ? `<p style="font-size:16px"><a href="tel:${esc(company.phone)}">📞 ${esc(company.phone)}</a></p>` : ''}
+      ${company.phone ? `<p style="font-size:16px"><a href="tel:${esc(company.phone)}">${esc(company.phone)}</a></p>` : ''}
       ${company.email ? `<p style="font-size:16px"><a href="mailto:${esc(company.email)}">✉️ ${esc(company.email)}</a></p>` : ''}
       ${!company.phone && !company.email ? '<p class="empty-note">Contactos por confirmar.</p>' : ''}
       <p class="muted">Para o seguro de viagem e outros contactos específicos de uma reserva, consulte o separador "Ajuda" dentro dessa viagem.</p>

@@ -9,8 +9,8 @@ import { $, esc, money, dateRange, shortDate, api } from './utils.js';
 import { uploadFormHtml, wireUploadForm, loadDocs } from './documents.js';
 
 const TYPE_ICON = {
-  VOO: '✈️', ALOJAMENTO: '🏨', TRANSFER: '🚌', CRUZEIRO: '🚢', RENT_A_CAR: '🚗',
-  SEGURO: '🛡️', VISTO: '📄', RESTAURACAO: '🍽️', TOUR: '🎟️', DIVERSOS: '📦'
+  VOO: 'VO', ALOJAMENTO: 'HT', TRANSFER: 'TR', CRUZEIRO: 'CR', RENT_A_CAR: 'RC',
+  SEGURO: 'SG', VISTO: 'VS', RESTAURACAO: 'RG', TOUR: 'EX', DIVERSOS: 'SV'
 };
 const TYPE_LABEL = {
   VOO: 'Voo', ALOJAMENTO: 'Hotel', TRANSFER: 'Transfer', CRUZEIRO: 'Cruzeiro', RENT_A_CAR: 'Aluguer de carro',
@@ -53,7 +53,7 @@ export async function openTripDetail(reservationId) {
     <div class="trip-header">
       <h2>${esc(offer.destination || '')}${offer.country ? `, ${esc(offer.country)}` : ''}</h2>
       <p class="muted">${esc(offer.hotel || '')}</p>
-      <p class="trip-header-meta">📅 ${dateRange(offer.checkin, offer.checkout) || 'Datas a confirmar'} · ${r.passengers?.length || 0} passageiro${(r.passengers?.length || 0) === 1 ? '' : 's'} · Processo ${esc(r.processNumber)}</p>
+      <p class="trip-header-meta">${dateRange(offer.checkin, offer.checkout) || 'Datas a confirmar'} · ${r.passengers?.length || 0} passageiro${(r.passengers?.length || 0) === 1 ? '' : 's'} · Processo ${esc(r.processNumber)}</p>
     </div>
     <div class="trip-tabs" role="tablist">
       ${TABS.map((t, i) => `<button type="button" class="trip-tab ${i === 0 ? 'is-active' : ''}" data-tab="${t.key}">${esc(t.label)}</button>`).join('')}
@@ -213,7 +213,7 @@ async function renderAjudaTab(panel, r, reload, isActive) {
     <div class="panel">
       <div class="panel-head"><h2>Precisa de ajuda?</h2></div>
       <p class="muted">A nossa equipa responde por email ou telefone.</p>
-      ${company.phone ? `<p><a href="tel:${esc(company.phone)}">📞 ${esc(company.phone)}</a></p>` : ''}
+      ${company.phone ? `<p><a href="tel:${esc(company.phone)}">${esc(company.phone)}</a></p>` : ''}
       ${company.email ? `<p><a href="mailto:${esc(company.email)}">✉️ ${esc(company.email)}</a></p>` : ''}
       <p class="muted">Pedidos e reclamações vão poder ser abertos e acompanhados diretamente aqui numa próxima fase.</p>
     </div>`;

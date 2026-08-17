@@ -9,6 +9,7 @@ import { $ } from './utils.js';
 const HOME_SECTIONS = ['pesquisa', 'homeShowcase'];
 
 export function goHome() {
+  document.body.classList.remove('is-results', 'is-review');
   HOME_SECTIONS.forEach(id => { const el = document.getElementById(id); if (el) el.hidden = false; });
   $('#resultsPage').hidden = true;
   $('#reviewPage').hidden = true;
@@ -16,7 +17,9 @@ export function goHome() {
 }
 
 export function goToResults() {
-  HOME_SECTIONS.forEach(id => { const el = document.getElementById(id); if (el) el.hidden = true; });
+  document.body.classList.add('is-results');
+  const hero = document.getElementById('pesquisa'); if (hero) hero.hidden = false;
+  const home = document.getElementById('homeShowcase'); if (home) home.hidden = true;
   $('#reviewPage').hidden = true;
   $('#resultsPage').hidden = false;
   $('#resultsPage').scrollIntoView({ behavior: 'smooth', block: 'start' });

@@ -48,6 +48,23 @@ export function formToJson(form) {
   return Object.fromEntries(new FormData(form).entries());
 }
 
+export function notify(message, type = 'error') {
+  let host = document.getElementById('appNotifications');
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'appNotifications';
+    host.setAttribute('aria-live', 'polite');
+    host.style.cssText = 'position:fixed;right:18px;top:118px;z-index:600;display:grid;gap:8px;width:min(360px,calc(100vw - 28px))';
+    document.body.appendChild(host);
+  }
+  const item = document.createElement('div');
+  const success = type === 'success';
+  item.style.cssText = `border:1px solid ${success ? '#a9ddc5' : '#efc5cb'};border-radius:11px;padding:12px 14px;background:${success ? '#e9f7f0' : '#fff3f5'};color:${success ? '#126b45' : '#9f2938'};font:600 12px/1.45 "DM Sans",sans-serif;box-shadow:0 12px 34px rgba(10,45,68,.14)`;
+  item.textContent = String(message || 'Não foi possível concluir esta ação.');
+  host.appendChild(item);
+  setTimeout(() => item.remove(), 4200);
+}
+
 // Digito de controlo do NIF portugues - mesmo algoritmo do servidor
 // (src/validation.js#isValidNif), aqui so para dar feedback imediato no
 // formulario sem esperar por um pedido; o servidor continua a validar.

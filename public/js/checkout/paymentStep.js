@@ -20,16 +20,16 @@ function renderPaymentChoice(data) {
   const payment = getLastPayment() || data.payment;
   $('#checkoutMain').innerHTML = `
     <div class="payment-step">
-      <div class="checkout-step-heading"><div><p class="eyebrow">Pagamento</p><h3>Escolha como pretende pagar</h3></div><span class="secure-payment-badge">🔒 Seguro</span></div>
+      <div class="checkout-step-heading"><div><p class="eyebrow">Pagamento</p><h3>Escolha como pretende pagar</h3></div><span class="secure-payment-badge">Pagamento seguro</span></div>
       <div class="prepayment-checks">
         <div class="check-ok">✓ Passageiros validados</div>
         <div class="check-ok">✓ Documentos válidos até ao regresso</div>
         <div class="check-ok">✓ Total da viagem: <b>${money(payment.amount)}</b></div>
       </div>
       <div class="payment-methods payment-methods-large" role="radiogroup" aria-label="Método de pagamento">
-        ${paymentOption('MB WAY','📱','MB WAY','Confirmação rápida na aplicação')}
-        ${paymentOption('Referência Multibanco','🏧','Multibanco','Pague através do banco ou homebanking')}
-        ${paymentOption('Cartão','💳','Cartão','Visa / Mastercard em ambiente seguro')}
+        ${paymentOption('MB WAY','MW','MB WAY','Confirmação rápida na aplicação')}
+        ${paymentOption('Referência Multibanco','MB','Multibanco','Pague através do banco ou homebanking')}
+        ${paymentOption('Cartão','CC','Cartão','Visa / Mastercard em ambiente seguro')}
       </div>
       <label class="consent"><input type="checkbox" id="termsCheck" /><span>Li e aceito os <a href="#legal">Termos e Condições</a> e a <a href="#legal">Política de Privacidade</a>.</span></label>
       <div id="checkoutPaymentError"></div>
@@ -69,12 +69,12 @@ async function selectMethodAndContinue() {
 
 function paymentInstructions(method, payment) {
   const mock = paymentsMode === 'mock';
-  if (method.includes('MB WAY')) return `<div class="payment-method-box"><div class="payment-method-icon">📱</div><div><b>MB WAY</b><p class="muted">${mock ? 'No ambiente de testes simulamos a confirmação.' : 'A referência/pedido real só será criado quando a sessão do gateway estiver ligada.'}</p></div></div>`;
+  if (method.includes('MB WAY')) return `<div class="payment-method-box"><div class="payment-method-icon">MW</div><div><b>MB WAY</b><p class="muted">${mock ? 'No ambiente de testes simulamos a confirmação.' : 'A referência/pedido real só será criado quando a sessão do gateway estiver ligada.'}</p></div></div>`;
   if (method.includes('Multibanco')) {
-    if (!mock) return '<div class="payment-method-box"><div class="payment-method-icon">🏧</div><div><b>Multibanco</b><p class="muted">A entidade e referência reais serão mostradas apenas depois de serem criadas pelo gateway.</p></div></div>';
+    if (!mock) return '<div class="payment-method-box"><div class="payment-method-icon">MB</div><div><b>Multibanco</b><p class="muted">A entidade e referência reais serão mostradas apenas depois de serem criadas pelo gateway.</p></div></div>';
     return `<div class="mb-slip"><div class="mb-slip-row"><span>Entidade de teste</span><strong>12345</strong></div><div class="mb-slip-row"><span>Referência de teste</span><strong>${esc(payment.reference)}</strong></div><div class="mb-slip-row"><span>Valor</span><strong>${money(payment.amount)}</strong></div></div>`;
   }
-  return `<div class="payment-method-box"><div class="payment-method-icon">💳</div><div><b>Cartão</b><p class="muted">${mock ? 'No ambiente de testes a cobrança é simulada.' : 'A sessão de cartão será apresentada pelo gateway; a Boomviagens não deve receber os dados brutos do cartão.'}</p></div></div>`;
+  return `<div class="payment-method-box"><div class="payment-method-icon">CC</div><div><b>Cartão</b><p class="muted">${mock ? 'No ambiente de testes a cobrança é simulada.' : 'A sessão de cartão será apresentada pelo gateway; a Boomviagens não deve receber os dados brutos do cartão.'}</p></div></div>`;
 }
 
 function renderPaymentGateway(data) {
@@ -94,7 +94,7 @@ function renderPaymentGateway(data) {
 }
 
 function renderSavedForLater(data) {
-  $('#checkoutMain').innerHTML = `<div class="confirmation-state"><div class="confirmation-icon">💾</div><h3>Reserva guardada</h3><p class="muted">A referência <b>${esc(data.reservation.id)}</b> fica associada à sua conta. Pode retomar na Área de Cliente sem voltar a preencher os passageiros.</p><p class="secure-box">Área de Cliente → Próximas viagens → Retomar pagamento.</p><button class="ghost" type="button" id="checkoutSavedDone">Fechar</button></div>`;
+  $('#checkoutMain').innerHTML = `<div class="confirmation-state"><div class="confirmation-icon">OK</div><h3>Reserva guardada</h3><p class="muted">A referência <b>${esc(data.reservation.id)}</b> fica associada à sua conta. Pode retomar na Área de Cliente sem voltar a preencher os passageiros.</p><p class="secure-box">Área de Cliente → Próximas viagens → Retomar pagamento.</p><button class="ghost" type="button" id="checkoutSavedDone">Fechar</button></div>`;
   $('#checkoutSavedDone').onclick = () => closeCheckoutModal();
 }
 
@@ -119,7 +119,7 @@ async function onConfirmPayment() {
   $('#checkoutPaymentError').innerHTML = '';
   try {
     const data = await api('/api/payment/confirm', { method: 'POST', body: JSON.stringify({ paymentId: getLastPayment().id }) });
-    setCheckoutStep(4); renderCheckoutStep4(data);
+    setCheckoutStep(5); renderCheckoutStep4(data);
   } catch (err) {
     btn.disabled = false; btn.textContent = 'Simular pagamento aprovado';
     $('#checkoutPaymentError').innerHTML = `<p class="error">${esc(err.message)}</p>`;

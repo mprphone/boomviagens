@@ -10,6 +10,7 @@ import { renderPagamentos } from './payments.js';
 import { renderDados } from './profile.js';
 import { renderPassageiros } from './passengers.js';
 import { renderPreferencias } from './preferences.js';
+import { renderMensagens } from './support.js';
 import { renderEmergencia } from './emergencyContacts.js';
 
 const VIEWS = {
@@ -21,6 +22,7 @@ const VIEWS = {
   dados: { title: 'Os meus dados', render: renderDados },
   passageiros: { title: 'Passageiros', render: renderPassageiros },
   preferencias: { title: 'Preferências', render: renderPreferencias },
+  mensagens: { title: 'Pedidos e mensagens', render: renderMensagens },
   emergencia: { title: 'Contactos de emergência', render: renderEmergencia }
 };
 
@@ -54,8 +56,8 @@ async function fillHelpBox() {
   try {
     const data = await api('/api/config');
     const company = data.company || {};
-    if (company.phone) { $('#helpPhone').textContent = `📞 ${company.phone}`; $('#helpPhone').href = `tel:${company.phone}`; }
-    if (company.email) { $('#helpEmail').textContent = `✉️ ${company.email}`; $('#helpEmail').href = `mailto:${company.email}`; }
+    if (company.phone) { $('#helpPhone').textContent = company.phone; $('#helpPhone').href = `tel:${company.phone}`; }
+    if (company.email) { $('#helpEmail').textContent = company.email; $('#helpEmail').href = `mailto:${company.email}`; }
   } catch {
     // Painel de ajuda so nao aparece com dados - nao e critico para a conta funcionar.
   }

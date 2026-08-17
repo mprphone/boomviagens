@@ -2,7 +2,7 @@
 // interativa. A pesquisa base continua barata: APIs de enriquecimento como
 // Duffel/Weather/Ticketmaster só entram quando o cliente abre uma viagem.
 
-import { $, esc, money, dateRange, api, formToJson, safeImageUrl, safeExternalUrl, cssImageUrl } from './utils.js';
+import { $, esc, money, dateRange, api, formToJson, safeImageUrl, safeExternalUrl, cssImageUrl, notify } from './utils.js';
 import { goHome, goToResults } from './router.js';
 import { applyRoomOption, computeHighlights } from './offers.js';
 import { showReview } from './review.js';
@@ -55,7 +55,7 @@ window.saveResultTrip = function(hotelIndex, button) {
   const offer = currentSearchResults[hotelIndex];
   if (!offer) return;
   saveOfferLocally(offer);
-  if (button) { button.textContent = '♥ Guardada'; button.classList.add('is-saved'); }
+  if (button) { button.textContent = 'Guardada'; button.classList.add('is-saved'); }
 };
 
 window.shareResultTrip = async function(hotelIndex, button) {
@@ -70,7 +70,7 @@ window.shareResultTrip = async function(hotelIndex, button) {
       await navigator.clipboard.writeText(data.url);
       if (button) button.textContent = 'Ligação copiada ✓';
     }
-  } catch (err) { alert(err.message); }
+  } catch (err) { notify(err.message); }
   finally {
     if (button) { button.disabled = false; setTimeout(() => { if (button.isConnected) button.textContent = original; }, 1800); }
   }
@@ -95,9 +95,9 @@ function productResults() {
   return currentProductFilter === 'ALL' ? currentSearchResults : currentSearchResults.filter(o => productGroup(o) === currentProductFilter);
 }
 function productTabLabel(type) {
-  if (type === 'DYNAMIC_PACKAGE') return '✈ Voo + hotel';
-  if (type === 'PACKAGE') return '🧳 Pacotes';
-  if (type === 'HOTEL') return '🏨 Só hotel';
+  if (type === 'DYNAMIC_PACKAGE') return 'Voo + hotel';
+  if (type === 'PACKAGE') return 'Pacotes';
+  if (type === 'HOTEL') return 'Só hotel';
   return 'Todas';
 }
 
@@ -192,7 +192,7 @@ function renderHotelRow(offer, hotelIndex) {
   const reasons = [offer.freeCancellation ? 'Cancelamento flexível' : null, /tudo inclu/i.test(offer.board || '') ? 'Tudo incluído' : null, Number(offer.rating || 0) >= 4.5 ? 'Excelente classificação' : null].filter(Boolean);
   return `<article class="hotel-row" data-index="${hotelIndex}">
     <div class="hotel-row-media" style="background-image:url('${cssImageUrl(resultImage(offer))}')">
-      <button type="button" class="result-save" onclick="saveResultTrip(${hotelIndex}, this)" aria-label="Guardar viagem">♡ Guardar</button>
+      <button type="button" class="result-save" onclick="saveResultTrip(${hotelIndex}, this)" aria-label="Guardar viagem">Guardar</button>
       <span class="result-source">${sourceLabel(offer)}</span>
     </div>
     <div class="hotel-row-info">
@@ -200,8 +200,8 @@ function renderHotelRow(offer, hotelIndex) {
       <p class="muted small">${esc(offer.destination)}${offer.country ? ` · ${esc(offer.country)}` : ''}${trip ? ` · ${trip}` : ''}</p>
       <div class="result-reasons">${reasons.map(r => `<span>✓ ${esc(r)}</span>`).join('')}</div>
       <div class="result-card-actions">
-        <button type="button" class="text-action" onclick="toggleCompare(${hotelIndex})">${isCompared ? '✓ A comparar' : '⇄ Comparar'}</button>
-        <button type="button" class="text-action" onclick="shareResultTrip(${hotelIndex}, this)">↗ Partilhar</button>
+        <button type="button" class="text-action" onclick="toggleCompare(${hotelIndex})">${isCompared ? 'A comparar' : 'Comparar'}</button>
+        <button type="button" class="text-action" onclick="shareResultTrip(${hotelIndex}, this)">Partilhar</button>
       </div>
       <div class="result-from"><span>desde</span><strong>${money(sorted[0]?.finalPrice || offer.finalPrice)}</strong><small>${money(perPerson)} / pessoa</small></div>
     </div>
@@ -289,7 +289,7 @@ window.toggleCompare = function(index) {
   index = Number(index);
   if (compared.has(index)) compared.delete(index);
   else {
-    if (compared.size >= 3) { alert('Pode comparar até 3 hotéis de cada vez.'); return; }
+    if (compared.size >= 3) { notify('Pode comparar até 3 hotéis de cada vez.'); return; }
     compared.add(index);
   }
   renderResultsList(); renderCompareBar();
@@ -310,6 +310,17 @@ function customerStatusText(status) {
   return 'Compare, guarde e reveja as condições antes de reservar.';
 }
 
+function updateTripSummary(parsed = {}, offer = null) {
+  const box = $('#tripSummary');
+  if (!box) return;
+  const destination = parsed.destination || offer?.destination || 'A sua viagem';
+  const dates = dateRange(parsed.checkin || offer?.checkin, parsed.checkout || offer?.checkout) || 'Datas por confirmar';
+  const travellers = Number(parsed.adults || offer?.adults || 1) + Number(parsed.children || offer?.children || 0) + Number(parsed.infants || offer?.infants || 0);
+  const price = Number(offer?.finalPrice || 0);
+  const tripType = parsed.tripType === 'MULTI_CITY' ? 'Multi-cidade' : parsed.tripType === 'ONE_WAY' ? 'Só ida' : parsed.tripType ? 'Ida e volta' : '';
+  box.innerHTML = `<p class="eyebrow">A sua pesquisa</p><h3>${esc(destination)}</h3><div class="trip-summary-list"><div class="trip-summary-line"><span>Datas</span><b>${esc(dates)}</b></div><div class="trip-summary-line"><span>Viajantes</span><b>${travellers}</b></div>${tripType ? `<div class="trip-summary-line"><span>Viagem</span><b>${tripType}</b></div>` : ''}</div>${price > 0 ? `<div class="trip-summary-price"><span>Opção selecionada</span><strong>${money(price)}</strong></div>` : '<p>Compare as opções e escolha a que melhor se adapta à sua viagem.</p>'}`;
+}
+
 function renderResultsPage(data) {
   currentSearchResults = data.results || []; currentParsed = data.parsed || {}; currentSearchMessage = data.message || ''; currentCatalogTeasers = data.catalogTeasers || []; currentProductCounts = data.productCounts || { dynamic: 0, packages: 0, hotels: 0 }; compared.clear(); renderCompareBar();
   currentProductFilter = currentProductCounts.dynamic ? 'DYNAMIC_PACKAGE' : currentProductCounts.packages ? 'PACKAGE' : currentProductCounts.hotels ? 'HOTEL' : 'ALL';
@@ -318,6 +329,7 @@ function renderResultsPage(data) {
   $('#resultsRecapTitle').textContent = data.parsed.destination;
   $('#resultsRecapDetails').textContent = `${tripDates ? tripDates + ' · ' : ''}${data.parsed.nights} noites · ${data.parsed.adults} adultos${data.parsed.children ? ` + ${data.parsed.children} crianças` : ''}${data.parsed.infants ? ` + ${data.parsed.infants} bebés` : ''} · saída ${data.parsed.origin}`;
   $('#parsedBox').innerHTML = `<div class="search-confidence"><span class="search-confidence-icon">✓</span><div><b>Pesquisa concluída</b><span>${esc(customerStatusText(data.operatorStatus || {}))}</span></div></div>`;
+  updateTripSummary(data.parsed);
   const initial = productResults(); if (initial.length) renderFilters(initial); else $('#resultsFilters').hidden = true; renderResultsList();
 }
 
@@ -337,7 +349,7 @@ function assistedRequestHtml(kind, context = {}) {
 
 function renderCatalogTeasers(items = []) {
   if (!items.length) return '';
-  return `<section class="catalog-teasers"><div class="catalog-teasers-head"><div><p class="eyebrow">Mais alojamentos neste destino</p><h3>Catálogo disponível para consulta</h3></div><span>Sem preço inventado: disponibilidade a confirmar</span></div><div class="catalog-teaser-grid">${items.map((h,i)=>`<article class="catalog-teaser-card">${h.image?`<img src="${esc(safeImageUrl(h.image))}" loading="lazy" alt=""/>`:'<div class="catalog-teaser-placeholder">🏨</div>'}<div><div class="hotel-row-stars">${'★'.repeat(Math.max(1, Math.min(5, Math.round(h.stars||4))))}</div><h4>${esc(h.name)}</h4><p class="muted small">${esc(h.city || h.address || currentParsed.destination || '')}</p><span class="status-chip neutral">Preço e disponibilidade a confirmar</span><button type="button" class="ghost mini-action catalog-interest" data-catalog-index="${i}">Pedir cotação</button></div></article>`).join('')}</div></section>`;
+  return `<section class="catalog-teasers"><div class="catalog-teasers-head"><div><p class="eyebrow">Mais alojamentos neste destino</p><h3>Catálogo disponível para consulta</h3></div><span>Sem preço inventado: disponibilidade a confirmar</span></div><div class="catalog-teaser-grid">${items.map((h,i)=>`<article class="catalog-teaser-card">${h.image?`<img src="${esc(safeImageUrl(h.image))}" loading="lazy" alt=""/>`:'<div class="catalog-teaser-placeholder"></div>'}<div><div class="hotel-row-stars">${'★'.repeat(Math.max(1, Math.min(5, Math.round(h.stars||4))))}</div><h4>${esc(h.name)}</h4><p class="muted small">${esc(h.city || h.address || currentParsed.destination || '')}</p><span class="status-chip neutral">Preço e disponibilidade a confirmar</span><button type="button" class="ghost mini-action catalog-interest" data-catalog-index="${i}">Pedir cotação</button></div></article>`).join('')}</div></section>`;
 }
 
 function flightLegSummary(flight = {}) {
@@ -361,6 +373,7 @@ function renderFlightResults(data) {
   $('#parsedBox').innerHTML = `<div class="search-confidence"><span class="search-confidence-icon">✓</span><div><b>${currentSearchResults.length} opções encontradas</b><span>Pesquisa mundial Duffel. Comparamos companhias, escalas e preço total; a oferta é revalidada antes da reserva.</span></div></div>`;
   $('#resultsFilters').hidden = true; $('#resultsHighlights').innerHTML=''; $('#resultCount').textContent=`${currentSearchResults.length} voos`;
   $('#resultsToolbar').innerHTML = '';
+  updateTripSummary(currentParsed);
   $('#results').innerHTML = currentSearchResults.length ? `<div class="flight-results-context"><div><b>${currentSearchResults.length} opções encontradas</b><span>${data.mode==='test'?'Ambiente Duffel TEST: o inventário é propositadamente reduzido. Em LIVE podem existir muitas mais opções.':'Compare por preço, duração e escalas.'}</span></div><div class="flight-filter-chips"><button class="is-active" data-flight-sort="recommended">Recomendados</button><button data-flight-sort="price">Mais baratos</button><button data-flight-sort="duration">Mais rápidos</button></div></div><div class="standalone-flight-list flight-results-v5">${currentSearchResults.map((o,i)=>{const f=flightLegSummary(o.flight);return `<article class="standalone-flight-card"><div class="flight-brand"><span>${i===0?'Melhor preço':i===1?'Boa alternativa':'Opção'}</span><b>${esc(f.carriers)}</b><small>${f.slices.length>2?'Multi-cidade':f.slices.length===1?'Só ida':'Ida e volta'}</small></div><div class="standalone-flight-legs">${f.slices.map((slice,idx)=>flightSliceRow(slice,idx,f.slices.length)).join('')}</div><div class="standalone-flight-price"><span>Total da viagem</span><strong>${money(o.finalPrice)}</strong><small>${currentParsed.adults>1?`${money(o.finalPrice/Math.max(1,currentParsed.adults))} / adulto`:''}</small><button type="button" class="btn" data-flight-select="${i}">Escolher</button></div></article>`}).join('')}</div></div>` : `<div class="empty-search"><b>Não encontrámos voos para estas condições.</b><span>Experimente outras datas, aeroportos próximos ou permita mais escalas.</span></div>`;
   document.querySelectorAll('[data-flight-select]').forEach(btn => btn.onclick=()=>showReview(currentSearchResults[Number(btn.dataset.flightSelect)]));
   document.querySelectorAll('[data-flight-sort]').forEach(btn => btn.onclick=()=>{
@@ -375,17 +388,19 @@ function renderFlightResults(data) {
 function renderExperienceResults(data) {
   currentSearchResults=[]; currentParsed=data.parsed||{}; currentCatalogTeasers=[];
   const activities=data.activities||[]; const events=data.events||[];
+  updateTripSummary(currentParsed);
   $('#resultsRecapTitle').textContent=`Experiências em ${currentParsed.destination||''}`;
   $('#resultsRecapDetails').textContent=`${dateRange(currentParsed.checkin,currentParsed.checkout)} · ${currentParsed.adults||1} adulto(s)`;
   $('#parsedBox').innerHTML=`<div class="search-confidence"><span class="search-confidence-icon">✓</span><div><b>${activities.length+events.length} sugestões encontradas</b><span>Atividades HBX e eventos Ticketmaster aparecem separados para saber exatamente o que está disponível.</span></div></div>`;
   $('#resultsFilters').hidden=true; $('#resultsHighlights').innerHTML=''; $('#resultCount').textContent=`${activities.length+events.length} opções`; $('#resultsToolbar').innerHTML='';
-  const activityHtml=activities.length?`<section class="experience-source"><div class="experience-source-head"><div><p class="eyebrow">Atividades</p><h3>Experiências reserváveis no destino</h3></div><span>HBX Activities</span></div><div class="experience-grid">${activities.map((a,i)=>`<article class="experience-card">${a.image?`<img src="${esc(safeImageUrl(a.image))}" loading="lazy" alt=""/>`:'<div class="experience-placeholder">🎟️</div>'}<div><h4>${esc(a.name)}</h4><p>${esc(a.description||'')}</p><div class="experience-card-bottom"><strong>${a.finalPrice>0?money(a.finalPrice):'Preço a confirmar'}</strong><button type="button" class="ghost mini-action activity-interest" data-activity-index="${i}">Tenho interesse</button></div></div></article>`).join('')}</div></section>`:'';
-  const eventHtml=events.length?`<section class="experience-source"><div class="experience-source-head"><div><p class="eyebrow">Durante a sua estadia</p><h3>Eventos que acontecem nestas datas</h3></div><span>Ticketmaster</span></div><div class="event-grid">${events.map(e=>{const url=safeExternalUrl(e.url||'');return `<article class="event-card">${e.image?`<img src="${esc(safeImageUrl(e.image))}" loading="lazy" alt=""/>`:'<div class="experience-placeholder">🎫</div>'}<div><h4>${esc(e.name||e.title||'Evento')}</h4><p class="muted">${esc([e.date,e.time,e.venue].filter(Boolean).join(' · '))}</p>${url?`<a class="btn mini-action" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Ver bilhetes</a>`:''}</div></article>`}).join('')}</div></section>`:'';
+  const activityHtml=activities.length?`<section class="experience-source"><div class="experience-source-head"><div><p class="eyebrow">Atividades</p><h3>Experiências reserváveis no destino</h3></div><span>HBX Activities</span></div><div class="experience-grid">${activities.map((a,i)=>`<article class="experience-card">${a.image?`<img src="${esc(safeImageUrl(a.image))}" loading="lazy" alt=""/>`:'<div class="experience-placeholder"></div>'}<div><h4>${esc(a.name)}</h4><p>${esc(a.description||'')}</p><div class="experience-card-bottom"><strong>${a.finalPrice>0?money(a.finalPrice):'Preço a confirmar'}</strong><button type="button" class="ghost mini-action activity-interest" data-activity-index="${i}">Tenho interesse</button></div></div></article>`).join('')}</div></section>`:'';
+  const eventHtml=events.length?`<section class="experience-source"><div class="experience-source-head"><div><p class="eyebrow">Durante a sua estadia</p><h3>Eventos que acontecem nestas datas</h3></div><span>Ticketmaster</span></div><div class="event-grid">${events.map(e=>{const url=safeExternalUrl(e.url||'');return `<article class="event-card">${e.image?`<img src="${esc(safeImageUrl(e.image))}" loading="lazy" alt=""/>`:'<div class="experience-placeholder"></div>'}<div><h4>${esc(e.name||e.title||'Evento')}</h4><p class="muted">${esc([e.date,e.time,e.venue].filter(Boolean).join(' · '))}</p>${url?`<a class="btn mini-action" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Ver bilhetes</a>`:''}</div></article>`}).join('')}</div></section>`:'';
   $('#results').innerHTML=(activityHtml+eventHtml)||`<div class="empty-search"><b>Não encontrámos atividades ou eventos para estas datas.</b><span>Isto não significa falha da API: pode simplesmente não existir oferta publicada neste período.</span></div>`;
 }
 
 function renderCruiseRequest(payload) {
   currentParsed=payload; currentSearchResults=[]; currentCatalogTeasers=[];
+  updateTripSummary(payload);
   $('#resultsRecapTitle').textContent='Cruzeiros à sua medida';
   $('#resultsRecapDetails').textContent=`${payload.destination||'Destino flexível'} · ${dateRange(payload.checkin,payload.checkout)}`;
   $('#parsedBox').innerHTML='<div class="search-confidence"><span class="search-confidence-icon">⚓</span><div><b>Pedido especializado</b><span>Ainda não temos um inventário de cruzeiros por API. Em vez de um erro, registamos o pedido para a equipa tratar.</span></div></div>';
