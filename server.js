@@ -18,6 +18,7 @@ const { normalize } = require('./src/pricing');
 const { FacturalusaClient } = require('./src/facturalusaClient');
 const createInvoicing = require('./src/invoicing');
 const createPaymentConfirmation = require('./src/paymentConfirmation');
+const { StripeGatewayAdapter, EasyPayGatewayAdapter, PaymentGatewayRegistry } = require('./src/paymentGatewayAdapters');
 
 const registerPublicRoutes = require('./src/routes/publicRoutes');
 const registerCustomerRoutes = require('./src/routes/customerRoutes');
@@ -34,6 +35,7 @@ const PUBLIC = path.join(__dirname, 'public');
 const tourdiezAdapter = new TourDiezAdapter(process.env);
 const operators = new OperatorRegistry([tourdiezAdapter]);
 const facturalusa = new FacturalusaClient(process.env);
+const paymentGateways = new PaymentGatewayRegistry([new StripeGatewayAdapter(process.env), new EasyPayGatewayAdapter(process.env)]);
 
 // Contexto partilhado por todas as rotas: cada modulo em src/routes/ so
 // pede o que precisa daqui, em vez de cada rota ter de repetir os mesmos
@@ -66,7 +68,8 @@ const ctx = {
   validatePassword,
   normalize,
   rateLimit: auth.rateLimit,
-  facturalusa
+  facturalusa,
+  paymentGateways
 };
 ctx.invoicing = createInvoicing(ctx);
 ctx.paymentConfirmation = createPaymentConfirmation(ctx);
