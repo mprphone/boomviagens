@@ -219,7 +219,16 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
     // Quando o produto foi construído componente a componente, cada serviço
     // mantém o seu próprio NET/PVP assinado. Assim transfer/atividade não são
     // somados novamente dentro do alojamento no backoffice.
-    if (offer.components?.hotel) {
+    if (offer.productType === 'FLIGHT' && offer.components?.flight) {
+      serviceLines.push({
+        id: id('svc'), createdAt: now(), reservationId: reservation.id, type: 'VOO',
+        description: `Voo ${offer.origin || ''} - ${offer.destination || ''}`, status: 'NAO_CONFIRMADO',
+        supplierName: 'Duffel', reference: offer.components.flight.offerId || '', locator: '', quantity: 1,
+        dateStart: offer.checkin || '', dateEnd: offer.checkout || '',
+        netValue: Number(offer.components.flight.costPrice || offer.costPrice || 0), pvpValue: Number(offer.components.flight.finalPrice || offer.finalPrice || 0),
+        discountPercent: 0, paid: false, notes: 'Voo selecionado online. Revalidar oferta Duffel antes de emissão.'
+      });
+    } else if (offer.components?.hotel) {
       serviceLines.push({
         id: id('svc'), createdAt: now(), reservationId: reservation.id, type: 'ALOJAMENTO',
         description: offer.board ? `${offer.hotel} - ${offer.board}` : offer.hotel,
@@ -260,7 +269,7 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
     }
     for (const a of (offer.components?.activities || [])) {
       serviceLines.push({
-        id: id('svc'), createdAt: now(), reservationId: reservation.id, type: 'ATIVIDADE',
+        id: id('svc'), createdAt: now(), reservationId: reservation.id, type: 'TOUR',
         description: a.name || a.payload?.name || 'Atividade', status: 'NAO_CONFIRMADO', supplierName: 'HBX Activities',
         reference: a.payload?.code || '', locator: '', quantity: 1, dateStart: offer.checkin || '', dateEnd: offer.checkout || '',
         netValue: Number(a.costPrice || 0), pvpValue: Number(a.finalPrice || 0), discountPercent: 0, paid: false,

@@ -66,6 +66,8 @@ function searchPayload(body = {}) {
     destination: optionalText(body.destination, 120),
     origin: optionalText(body.origin, 80),
     checkin: optionalText(body.checkin, 30),
+    checkout: optionalText(body.checkout, 30),
+    searchType: ['PACKAGE','HOTEL','FLIGHT','EXPERIENCE','CRUISE'].includes(String(body.searchType || '').toUpperCase()) ? String(body.searchType).toUpperCase() : 'PACKAGE',
     nights: numberInRange(body.nights, 'Noites', 1, 60, 7),
     adults,
     children,

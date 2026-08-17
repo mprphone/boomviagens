@@ -167,3 +167,7 @@ npm run dev
 ## Auditoria V3
 
 Antes de qualquer deploy real, ler **`docs/AUDITORIA_V3_2026-08-17.md`**. A V3 é adequada a Preview/testes, mas ainda tem bloqueios explícitos para pagamentos e bookings automáticos reais.
+
+## Operational Presentation V4 — 17/08/2026
+
+A navegação pública passou a ter modos funcionais de Pacotes, Hotéis, Voos, Experiências e Cruzeiros. Em Vercel, inventário demo está sempre bloqueado: não são apresentados hotéis/preços de outro destino como fallback. Consulte `docs/AUDITORIA_OPERACIONAL_V4_2026-08-17.md` para alterações, testes e limitações de produção.

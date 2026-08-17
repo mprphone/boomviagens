@@ -4,6 +4,41 @@
 
 import { $, esc, api } from './utils.js';
 
+const SEARCH_MODES = {
+  PACKAGE: { destination: 'Para onde quer ir?', checkin: 'Ida / entrada', checkout: 'Volta / saída', submit: 'Pesquisar viagens', origin: true },
+  HOTEL: { destination: 'Cidade, ilha ou localidade', checkin: 'Entrada', checkout: 'Saída', submit: 'Pesquisar hotéis', origin: false },
+  FLIGHT: { destination: 'Para onde quer voar?', checkin: 'Ida', checkout: 'Volta', submit: 'Pesquisar voos', origin: true },
+  EXPERIENCE: { destination: 'Onde quer descobrir experiências?', checkin: 'Desde', checkout: 'Até', submit: 'Ver experiências', origin: false },
+  CRUISE: { destination: 'Destino, região ou itinerário', checkin: 'A partir de', checkout: 'Até', submit: 'Pedir proposta', origin: false }
+};
+
+function isoDateOffset(days) {
+  const d = new Date(); d.setHours(12,0,0,0); d.setDate(d.getDate()+days); return d.toISOString().slice(0,10);
+}
+function syncNightsFromDates() {
+  const a = $('#checkinInput')?.value; const b = $('#checkoutInput')?.value;
+  if (!a || !b) return;
+  const diff = Math.round((new Date(`${b}T12:00:00`) - new Date(`${a}T12:00:00`)) / 86400000);
+  if (diff > 0 && $('#nightsInput')) $('#nightsInput').value = String(Math.min(60, diff));
+}
+export function setSearchType(type = 'PACKAGE') {
+  type = String(type || 'PACKAGE').toUpperCase();
+  if (!SEARCH_MODES[type]) type = 'PACKAGE';
+  const cfg = SEARCH_MODES[type]; const form = $('#searchForm');
+  if (!form) return;
+  form.dataset.searchType = type; $('#searchTypeInput').value = type;
+  document.querySelectorAll('#productSwitch [data-search-type]').forEach(btn => btn.classList.toggle('is-active', btn.dataset.searchType === type));
+  const destination = $('#destinationInput'); if (destination) destination.placeholder = cfg.destination;
+  if ($('#checkinLabel')) $('#checkinLabel').textContent = cfg.checkin;
+  if ($('#checkoutLabel')) $('#checkoutLabel').textContent = cfg.checkout;
+  if ($('#originField')) $('#originField').hidden = !cfg.origin;
+  const submit = form.querySelector('.search-submit'); if (submit) submit.textContent = `🔍 ${cfg.submit}`;
+  const trust = form.querySelector('.search-trust-line');
+  if (trust) trust.innerHTML = type === 'FLIGHT' ? '<span>✓ Comparamos horários e preços</span><span>✓ Tarifas revalidadas antes de reservar</span><span>✓ Apoio humano sempre que precisar</span>' : type === 'EXPERIENCE' ? '<span>✓ Atividades HBX</span><span>✓ Eventos Ticketmaster</span><span>✓ Sem inventar disponibilidade</span>' : type === 'CRUISE' ? '<span>✓ Pedido tratado por especialista</span><span>✓ Guardamos o seu interesse</span><span>✓ Sem compromisso</span>' : '<span>✓ Comparamos preço e condições</span><span>✓ Pagamento seguro</span><span>✓ Apoio humano sempre que precisar</span>';
+}
+
+document.querySelectorAll('#productSwitch [data-search-type]').forEach(btn => btn.addEventListener('click', () => setSearchType(btn.dataset.searchType)));
+
 document.querySelectorAll('.search-tab').forEach(tab => {
   tab.addEventListener('click', () => {
     document.querySelectorAll('.search-tab').forEach(t => {
@@ -156,7 +191,6 @@ async function openCalendar() {
     <div class="cal-months">${months.map(renderCalendarMonth).join('')}</div>`;
 }
 
-$('#checkinInput')?.addEventListener('click', openCalendar);
 $('#calendarPanel')?.addEventListener('click', e => {
   const btn = e.target.closest('.cal-day:not(.cal-unavailable)');
   if (!btn?.dataset.date) return;
@@ -264,4 +298,15 @@ document.addEventListener('click', e => {
   if (panel && trigger && !panel.hidden && !panel.contains(e.target) && !trigger.contains(e.target)) panel.hidden = true;
 });
 
+const today = isoDateOffset(1);
+const checkin = $('#checkinInput'); const checkout = $('#checkoutInput');
+if (checkin) { checkin.min = today; if (!checkin.value) checkin.value = isoDateOffset(30); }
+if (checkout) { checkout.min = checkin?.value || today; if (!checkout.value) checkout.value = isoDateOffset(37); }
+checkin?.addEventListener('change', () => {
+  if (checkout) { checkout.min = checkin.value || today; if (!checkout.value || checkout.value <= checkin.value) checkout.value = isoDateOffset(37); }
+  syncNightsFromDates(); calendarCache = null;
+});
+checkout?.addEventListener('change', syncNightsFromDates);
+syncNightsFromDates();
+setSearchType($('#searchTypeInput')?.value || 'PACKAGE');
 syncPaxUi();

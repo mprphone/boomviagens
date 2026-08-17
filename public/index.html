@@ -21,11 +21,11 @@
   <header class="topbar">
     <div class="brand"><img src="/logo.svg" alt="Boomviagens" /></div>
     <nav class="main-nav">
-      <a href="#pesquisa">Pacotes</a>
-      <a href="#pesquisa">Hotéis</a>
-      <a href="#pesquisa" data-soon="Voos">Voos</a>
-      <a href="#pesquisa" data-soon="Cruzeiros">Cruzeiros</a>
-      <a href="#pesquisa" data-soon="Experiencias">Experiências</a>
+      <a href="#pesquisa" data-service="PACKAGE">Pacotes</a>
+      <a href="#pesquisa" data-service="HOTEL">Hotéis</a>
+      <a href="#pesquisa" data-service="FLIGHT">Voos</a>
+      <a href="#pesquisa" data-service="CRUISE">Cruzeiros</a>
+      <a href="#pesquisa" data-service="EXPERIENCE">Experiências</a>
       <a href="#novidades">Destinos</a>
       <a href="#novidades">Promoções</a>
     </nav>
@@ -58,7 +58,16 @@
           </button>
         </div>
 
-        <form id="searchForm">
+        <div class="product-switch" id="productSwitch" role="tablist" aria-label="O que pretende procurar">
+          <button type="button" data-search-type="PACKAGE" class="is-active">✈️ + 🏨 Pacotes</button>
+          <button type="button" data-search-type="HOTEL">🏨 Hotéis</button>
+          <button type="button" data-search-type="FLIGHT">✈️ Voos</button>
+          <button type="button" data-search-type="EXPERIENCE">🎟️ Experiências</button>
+          <button type="button" data-search-type="CRUISE">⚓ Cruzeiros</button>
+        </div>
+
+        <form id="searchForm" data-search-type="PACKAGE">
+          <input type="hidden" name="searchType" id="searchTypeInput" value="PACKAGE" />
           <textarea name="prompt" id="promptInput" class="prompt-input" rows="2" placeholder="Ex: Praia em agosto, 2 adultos e 2 crianças, tudo incluído, até 3.500€, saída do Porto…"></textarea>
 
           <div class="search-pills">
@@ -66,13 +75,17 @@
               <span class="pill-icon">📍</span>
               <input name="destination" id="destinationInput" placeholder="Para onde quer ir?" autocomplete="off" />
             </label>
-            <label class="pill-field">
+            <label class="pill-field" id="originField">
               <span class="pill-icon">✈️</span>
               <select name="origin"><option>Lisboa</option><option selected>Porto</option><option>Faro</option></select>
             </label>
-            <label class="pill-field">
+            <label class="pill-field pill-date">
               <span class="pill-icon">📅</span>
-              <input name="checkin" id="checkinInput" type="text" readonly placeholder="Datas flexíveis" autocomplete="off" />
+              <span class="pill-date-stack"><small id="checkinLabel">Ida / entrada</small><input name="checkin" id="checkinInput" type="date" autocomplete="off" /></span>
+            </label>
+            <label class="pill-field pill-date" id="checkoutField">
+              <span class="pill-icon">↩</span>
+              <span class="pill-date-stack"><small id="checkoutLabel">Volta / saída</small><input name="checkout" id="checkoutInput" type="date" autocomplete="off" /></span>
             </label>
             <div class="pill-field pill-pax" id="paxTrigger" role="button" tabindex="0" aria-haspopup="dialog">
               <span class="pill-icon">👥</span>
@@ -169,7 +182,7 @@
           <a href="#pesquisa" class="type-tile" data-destino="Sal" data-prompt="Quero uma viagem em familia, tudo incluido, 7 noites para 2 adultos e 2 criancas." style="background-image:url('https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=500&q=80')">
             <span>👨‍👩‍👧</span>Família
           </a>
-          <a href="#pesquisa" class="type-tile" data-soon="Cruzeiros" style="background-image:url('https://images.unsplash.com/photo-1548574505-5e239809ee19?auto=format&fit=crop&w=500&q=80')">
+          <a href="#pesquisa" class="type-tile" data-service="CRUISE" style="background-image:url('https://images.unsplash.com/photo-1548574505-5e239809ee19?auto=format&fit=crop&w=500&q=80')">
             <span>⚓</span>Cruzeiros
           </a>
         </div>
@@ -289,8 +302,8 @@
     </div>
 
     <section id="legal" class="panel legal">
-      <h2>Elementos legais a completar antes de producao</h2>
-      <p>Rodape preparado para RNAVT, Livro de Reclamacoes, Termos, Privacidade, Cookies e condicoes de viagem. Substituir os campos INSERIR_RNAVT pelos dados finais da empresa.</p>
+      <h2>Viaje com acompanhamento Boomviagens</h2>
+      <p>Informação legal, RNAVT, termos, privacidade, cookies e condições de viagem ficam disponíveis nesta área antes da publicação comercial definitiva.</p>
     </section>
   </main>
 

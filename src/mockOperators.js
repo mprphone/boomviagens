@@ -40,8 +40,12 @@ function smartParse(input = {}) {
     ? input.checkin
     : null;
   const checkin = validCheckin || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  const checkout = new Date(new Date(`${checkin}T00:00:00Z`).getTime() + nights * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  return { destination, budget, adults, children, infants, childAges, infantAges, nights, origin, board, checkin, checkout, prompt: input.prompt || '' };
+  const validCheckout = /^\d{4}-\d{2}-\d{2}$/.test(input.checkout || '') && !Number.isNaN(new Date(`${input.checkout}T00:00:00Z`).getTime()) && input.checkout > checkin
+    ? input.checkout
+    : null;
+  const checkout = validCheckout || new Date(new Date(`${checkin}T00:00:00Z`).getTime() + nights * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const effectiveNights = Math.max(1, Math.round((new Date(`${checkout}T00:00:00Z`) - new Date(`${checkin}T00:00:00Z`)) / 86400000));
+  return { destination, budget, adults, children, infants, childAges, infantAges, nights: effectiveNights, origin, board, checkin, checkout, searchType: String(input.searchType || 'PACKAGE').toUpperCase(), prompt: input.prompt || '' };
 }
 
 function searchOffers(input, margins) {

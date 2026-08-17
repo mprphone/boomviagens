@@ -76,28 +76,30 @@ class TravelIntelligenceService {
       });
     }
     if (this.hbx?.isConfigured('transfers') && destination?.iata && offer.checkin && offer.checkout) {
-      // Transfers usa códigos ATLAS próprios; o código do Hotel Booking API
-      // não é intercambiável. Fazemos a ponte por GIATA só para o hotel que
-      // o cliente abriu, evitando varrer o catálogo de transfers.
-      const giataCode = offer.hbx?.giataCode || offer.components?.hotel?.giataCode || '';
-      const knownAtlas = offer.hbx?.atlasCode || offer.components?.hotel?.atlasCode || '';
-      if (knownAtlas || giataCode) {
+      // Transfers usa ATLAS; tentamos GIATA primeiro e, quando o Hotel
+      // Content não traz GIATA, fazemos correspondência segura pelo catálogo
+      // de transfers do MESMO destino + nome/coordenadas do hotel. Isto evita
+      // o antigo comportamento em que quase nenhum hotel mostrava transfer.
+      const hotelData = offer.components?.hotel || offer.hbx || {};
+      const hasHotel = Boolean(hotelData.hotelCode || hotelData.hotelName || offer.hotel);
+      if (hasHotel) {
         tasks.transfers = (async () => {
-          const mapping = knownAtlas ? { atlasCode: knownAtlas } : await this.hbx.transferHotelByGiata(giataCode);
-          if (!mapping?.atlasCode) return { services: [], unavailableReason: 'Hotel sem correspondência ATLAS para transfers.' };
+          const mapping = await this.hbx.resolveTransferHotel({
+            destinationCode: hotelData.destinationCode || destination.hbxCode || destination.iata,
+            giataCode: hotelData.giataCode || '',
+            hotelName: hotelData.hotelName || offer.hotel || '',
+            latitude: hotelData.latitude ?? offer.latitude ?? null,
+            longitude: hotelData.longitude ?? offer.longitude ?? null
+          });
+          if (!mapping?.atlasCode) return { services: [], unavailableReason: 'Não encontrámos correspondência segura deste hotel no catálogo de transfers.' };
           const outbound = offer.flight?.slices?.[0]?.arrivalAt || `${offer.checkin}T12:00:00`;
           const inboundDeparture = offer.flight?.slices?.[1]?.departureAt || `${offer.checkout}T10:00:00`;
-          return this.hbx.searchTransfers({
-            airportIata: destination.iata,
-            hotelCode: mapping.atlasCode,
-            checkIn: offer.checkin,
-            checkOut: offer.checkout,
-            outbound,
-            inbound: inboundDeparture,
-            adults: offer.adults || 1,
-            children: offer.children || 0,
-            infants: offer.infants || 0
+          const result = await this.hbx.searchTransfers({
+            airportIata: destination.iata, hotelCode: mapping.atlasCode,
+            checkIn: offer.checkin, checkOut: offer.checkout, outbound, inbound: inboundDeparture,
+            adults: offer.adults || 1, children: offer.children || 0, infants: offer.infants || 0
           });
+          return { ...result, matchedHotel: { atlasCode: mapping.atlasCode, matchedBy: mapping.matchedBy || (hotelData.giataCode ? 'GIATA' : 'ATLAS') } };
         })();
       }
     }

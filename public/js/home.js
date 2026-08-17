@@ -12,6 +12,24 @@ let heroDeals = [];
 let heroIndex = 0;
 let heroTimer = null;
 
+const EDITORIAL_INSPIRATION = [
+  { title:'Gran Canaria', subtitle:'Espanha', image:'https://images.unsplash.com/photo-1500375592092-40eb2168fd21?auto=format&fit=crop&w=800&q=80', text:'Sol, praias e opções para famílias.' },
+  { title:'Atenas', subtitle:'Grécia', image:'https://images.unsplash.com/photo-1555993539-1732b0258235?auto=format&fit=crop&w=800&q=80', text:'Cultura, gastronomia e escapadinhas.' },
+  { title:'Riviera Maya', subtitle:'México', image:'https://images.unsplash.com/photo-1510097467424-192d713fd8b2?auto=format&fit=crop&w=800&q=80', text:'Praia e resorts tudo incluído.' },
+  { title:'Madeira', subtitle:'Portugal', image:'https://images.unsplash.com/photo-1526392060635-9d6019884377?auto=format&fit=crop&w=800&q=80', text:'Natureza e experiências todo o ano.' },
+  { title:'Paris', subtitle:'França', image:'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?auto=format&fit=crop&w=800&q=80', text:'Cidade, cultura e eventos.' },
+  { title:'Sal', subtitle:'Cabo Verde', image:'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=800&q=80', text:'Praia, descanso e sol.' }
+];
+
+function renderEditorialInspiration(target) {
+  const heading = document.querySelector('#novidades .showcase-head h2');
+  const eyebrow = document.querySelector('#novidades .showcase-head .eyebrow');
+  if (heading) heading.textContent = 'Ideias para começar a procurar';
+  if (eyebrow) eyebrow.textContent = 'Inspiração';
+  target.innerHTML = EDITORIAL_INSPIRATION.map((d,i)=>`<article class="deal-card inspiration-card"><div class="deal-card-media"><img src="${esc(safeImageUrl(d.image))}" alt="${esc(d.title)}" loading="lazy"/><span class="deal-tag">Inspiração</span></div><div class="deal-body"><p class="deal-dest">${esc(d.subtitle)}</p><h3>${esc(d.title)}</h3><p class="muted small">${esc(d.text)}</p><div class="deal-bottom inspiration-bottom"><span><small>Consulte preço e disponibilidade</small></span><button class="btn" data-inspiration-index="${i}">Explorar</button></div></div></article>`).join('');
+  target.querySelectorAll('[data-inspiration-index]').forEach(btn=>btn.addEventListener('click',()=>{const d=EDITORIAL_INSPIRATION[Number(btn.dataset.inspirationIndex)];const form=$('#searchForm');form.destination.value=d.title;form.prompt.value=`Quero explorar viagens para ${d.title}.`;location.hash='#pesquisa';form.requestSubmit();}));
+}
+
 // So o fundo do hero roda entre as fotos das novidades - o cabecalho
 // (h1/tagline) e fixo desde o pedido de aproximar o visual ao VIAJA+,
 // que usa uma pergunta generica em vez de um carrossel de texto.
@@ -84,7 +102,7 @@ export async function loadDeals() {
     initHero(data.deals);
     const visibleDeals = data.deals.slice(0, 8);
     if (!visibleDeals.length) {
-      target.innerHTML = `<div class="home-empty-deals"><b>Preços reais quando pesquisar</b><span>${esc(data.message || 'Escolha destino, datas e passageiros para consultarmos a disponibilidade atual.')}</span></div>`;
+      renderEditorialInspiration(target);
       window.__boomHomeDeals = [];
       renderRecommended([]);
       loadAgencies();

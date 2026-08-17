@@ -27,6 +27,21 @@ function textValue(value, fallback = '') {
   return fallback;
 }
 
+function normText(value = '') {
+  return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function similarityScore(a = '', b = '') {
+  const left = normText(a); const right = normText(b);
+  if (!left || !right) return 0;
+  if (left === right) return 100;
+  if (left.includes(right) || right.includes(left)) return 85;
+  const aa = new Set(left.split(' ').filter(x => x.length > 2));
+  const bb = new Set(right.split(' ').filter(x => x.length > 2));
+  const common = [...aa].filter(x => bb.has(x)).length;
+  return common ? Math.round((common / Math.max(aa.size, bb.size)) * 75) : 0;
+}
+
 function categoryStars(code = '', name = '') {
   const m = `${code} ${name}`.match(/([1-5])/);
   return m ? Number(m[1]) : 4;
@@ -264,6 +279,61 @@ class HbxClient {
       this.cache.set(cacheKey, null, 15 * 60 * 1000);
       return null;
     }
+  }
+
+  async transferHotelsByDestination(destinationCode, limit = 1000) {
+    if (!this.isConfigured('transfers')) return [];
+    const code = String(destinationCode || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+    if (!code) return [];
+    const safeLimit = Math.max(1, Math.min(1000, Number(limit) || 1000));
+    const cacheKey = `transfer-hotels:${code}:${safeLimit}`;
+    const cached = this.cache.get(cacheKey);
+    if (cached) return cached;
+    try {
+      const { data } = await this.request('transfers', `/transfer-cache-api/1.0/hotels?fields=ALL&language=en&destinationCodes=${encodeURIComponent(code)}&offset=0&limit=${safeLimit}`);
+      const hotels = arr(Array.isArray(data) ? data : data?.hotels || data?.items).filter(Boolean);
+      this.cache.set(cacheKey, hotels, 24 * 60 * 60 * 1000);
+      return hotels;
+    } catch {
+      this.cache.set(cacheKey, [], 15 * 60 * 1000);
+      return [];
+    }
+  }
+
+  async resolveTransferHotel({ destinationCode = '', giataCode = '', hotelName = '', latitude = null, longitude = null } = {}) {
+    if (!this.isConfigured('transfers')) return null;
+    if (giataCode) {
+      const direct = await this.transferHotelByGiata(giataCode);
+      if (direct?.atlasCode) return direct;
+    }
+    const hotels = await this.transferHotelsByDestination(destinationCode, 1000);
+    if (!hotels.length) return null;
+    let best = null; let bestScore = 0;
+    for (const hotel of hotels) {
+      let score = similarityScore(hotelName, textValue(hotel.name));
+      const lat = num(hotel.coordinates?.latitude, null); const lon = num(hotel.coordinates?.longitude, null);
+      if (Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude)) && Number.isFinite(lat) && Number.isFinite(lon)) {
+        const d = Math.abs(Number(latitude) - lat) + Math.abs(Number(longitude) - lon);
+        if (d < 0.002) score += 30; else if (d < 0.01) score += 15;
+      }
+      if (score > bestScore) { bestScore = score; best = hotel; }
+    }
+    if (!best || bestScore < 45) return null;
+    return { atlasCode: String(best.code || ''), giataCode: String(best.giataCode || giataCode || ''), destinationCode: String(best.destinationCode || destinationCode || ''), matchedBy: 'name_or_coordinates', confidence: bestScore };
+  }
+
+  async hotelCatalog(input = {}) {
+    const portfolio = await this.hotelPortfolioByDestination(input.destinationCode, Math.max(20, Math.min(200, Number(input.limit || 80))));
+    return {
+      destinationCode: input.destinationCode,
+      source: portfolio.source,
+      hotels: portfolio.hotels.map(h => ({
+        hotelCode: String(h.code || ''), giataCode: String(h.giataCode || h.giata || ''), name: textValue(h.name) || `Hotel ${h.code || ''}`,
+        stars: categoryStars(h.category || h.categoryCode || '', h.categoryName || ''), image: firstImage(h),
+        latitude: num(h.coordinates?.latitude, null), longitude: num(h.coordinates?.longitude, null),
+        address: textValue(h.address), city: textValue(h.city), description: textValue(h.description).slice(0, 500)
+      })).filter(h => h.hotelCode)
+    };
   }
 
   async availabilityByHotelCodes(input = {}) {

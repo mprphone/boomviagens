@@ -360,3 +360,13 @@ main { width: 100%; }
 .pax-age-grid label { display:flex; flex-direction:column; gap:4px; color:var(--ink-soft); font-size:10.5px; font-weight:700; }
 .pax-age-grid select { width:100%; padding:8px; border:1px solid var(--line); border-radius:8px; background:#fff; }
 @media (max-width:520px) { .pax-age-grid { grid-template-columns:1fr; } }
+
+/* V4 — escolha clara do produto antes de pesquisar */
+.product-switch{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px;padding:4px;background:rgba(255,255,255,.78);border-radius:12px;width:max-content;max-width:100%}
+.product-switch button{border:0;background:transparent;padding:8px 12px;border-radius:9px;font:inherit;font-weight:700;color:#334155;cursor:pointer}
+.product-switch button.is-active{background:#087fb8;color:#fff;box-shadow:0 3px 10px rgba(8,127,184,.22)}
+.pill-field[hidden]{display:none!important}
+.pill-date-stack{display:flex;flex-direction:column;min-width:122px;line-height:1.05}
+.pill-date-stack small{font-size:10px;color:#64748b;font-weight:700;margin-bottom:3px}
+.pill-date-stack input[type=date]{border:0;background:transparent;min-width:122px;padding:0;font:inherit;font-size:12px;color:#0f172a;outline:0}
+@media(max-width:760px){.product-switch{width:100%;display:grid;grid-template-columns:repeat(2,1fr)}.product-switch button:first-child{grid-column:span 2}.pill-date-stack,.pill-date-stack input[type=date]{min-width:0;width:100%}}

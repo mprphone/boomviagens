@@ -2,7 +2,7 @@
 // interativa. A pesquisa base continua barata: APIs de enriquecimento como
 // Duffel/Weather/Ticketmaster só entram quando o cliente abre uma viagem.
 
-import { $, esc, money, dateRange, api, formToJson, safeImageUrl, cssImageUrl } from './utils.js';
+import { $, esc, money, dateRange, api, formToJson, safeImageUrl, safeExternalUrl, cssImageUrl } from './utils.js';
 import { goHome, goToResults } from './router.js';
 import { applyRoomOption, computeHighlights } from './offers.js';
 import { showReview } from './review.js';
@@ -40,6 +40,7 @@ let currentParsed = {};
 let currentSearchMessage = '';
 let currentProductFilter = 'ALL';
 let currentProductCounts = { dynamic: 0, packages: 0, hotels: 0 };
+let currentCatalogTeasers = [];
 let activeFilters = { stars: new Set(), boards: new Set(), freeCancellation: false, maxPrice: null, sort: 'recommended' };
 const compared = new Set();
 
@@ -239,7 +240,9 @@ function renderResultsList() {
   $('#resultCount').textContent = currentProductFilter === 'ALL' ? `${filtered.length} opções` : `${filtered.length} ${productTabLabel(currentProductFilter).replace(/^[^ ]+ /,'').toLowerCase()}`;
   renderToolbar(filtered.length);
   renderHighlights(base, currentParsed.budget);
-  $('#results').innerHTML = filtered.length ? filtered.map(r => renderHotelRow(r, currentSearchResults.indexOf(r))).join('') : `<div class="empty-search"><b>${base.length ? 'Não encontrámos opções com estes filtros.' : 'Não encontrámos disponibilidade nesta categoria.'}</b><span>${esc(currentSearchMessage || (base.length ? 'Experimente aumentar o preço máximo ou remover um filtro.' : 'Veja outra categoria, altere as datas ou a origem. O destino pesquisado nunca é substituído por outro.'))}</span></div>`;
+  const liveHtml = filtered.length ? filtered.map(r => renderHotelRow(r, currentSearchResults.indexOf(r))).join('') : `<div class="empty-search"><b>${base.length ? 'Não encontrámos opções com estes filtros.' : 'Não encontrámos disponibilidade nesta categoria.'}</b><span>${esc(currentSearchMessage || (base.length ? 'Experimente aumentar o preço máximo ou remover um filtro.' : 'Veja outra categoria, altere as datas ou a origem. O destino pesquisado nunca é substituído por outro.'))}</span></div>`;
+  const teasersHtml = (currentParsed.searchType === 'HOTEL' || currentProductFilter === 'HOTEL') ? renderCatalogTeasers(currentCatalogTeasers) : '';
+  $('#results').innerHTML = liveHtml + teasersHtml;
 }
 
 $('#results').addEventListener('click', e => {
@@ -308,7 +311,7 @@ function customerStatusText(status) {
 }
 
 function renderResultsPage(data) {
-  currentSearchResults = data.results; currentParsed = data.parsed; currentSearchMessage = data.message || ''; currentProductCounts = data.productCounts || { dynamic: 0, packages: 0, hotels: 0 }; compared.clear(); renderCompareBar();
+  currentSearchResults = data.results || []; currentParsed = data.parsed || {}; currentSearchMessage = data.message || ''; currentCatalogTeasers = data.catalogTeasers || []; currentProductCounts = data.productCounts || { dynamic: 0, packages: 0, hotels: 0 }; compared.clear(); renderCompareBar();
   currentProductFilter = currentProductCounts.dynamic ? 'DYNAMIC_PACKAGE' : currentProductCounts.packages ? 'PACKAGE' : currentProductCounts.hotels ? 'HOTEL' : 'ALL';
   activeFilters = { stars: new Set(), boards: new Set(), freeCancellation: false, maxPrice: null, sort: 'recommended' };
   const tripDates = dateRange(data.parsed.checkin, data.parsed.checkout);
@@ -318,6 +321,76 @@ function renderResultsPage(data) {
   const initial = productResults(); if (initial.length) renderFilters(initial); else $('#resultsFilters').hidden = true; renderResultsList();
 }
 
+
+function assistedRequestHtml(kind, context = {}) {
+  const destination = context.destination || currentParsed.destination || '';
+  const notes = context.notes || '';
+  return `<section class="assisted-request-card" data-assisted-box>
+    <div><p class="eyebrow">Pedido assistido</p><h3>${kind === 'CRUZEIRO' ? 'Encontre o cruzeiro certo para si' : 'Quer que confirmemos esta opção?'}</h3><p class="muted">Deixe um contacto. O pedido fica registado no backoffice com o destino e as datas que está a consultar.</p></div>
+    <form class="assisted-request-form" data-kind="${esc(kind)}" data-destination="${esc(destination)}" data-notes="${esc(notes)}">
+      <input name="name" placeholder="Nome" required maxlength="120" />
+      <input name="email" type="email" placeholder="Email" />
+      <input name="phone" placeholder="Telefone" />
+      <button class="btn" type="submit">Enviar pedido</button>
+    </form><div class="assisted-feedback" aria-live="polite"></div></section>`;
+}
+
+function renderCatalogTeasers(items = []) {
+  if (!items.length) return '';
+  return `<section class="catalog-teasers"><div class="catalog-teasers-head"><div><p class="eyebrow">Mais alojamentos neste destino</p><h3>Catálogo disponível para consulta</h3></div><span>Sem preço inventado: disponibilidade a confirmar</span></div><div class="catalog-teaser-grid">${items.map((h,i)=>`<article class="catalog-teaser-card">${h.image?`<img src="${esc(safeImageUrl(h.image))}" loading="lazy" alt=""/>`:'<div class="catalog-teaser-placeholder">🏨</div>'}<div><div class="hotel-row-stars">${'★'.repeat(Math.max(1, Math.min(5, Math.round(h.stars||4))))}</div><h4>${esc(h.name)}</h4><p class="muted small">${esc(h.city || h.address || currentParsed.destination || '')}</p><span class="status-chip neutral">Preço e disponibilidade a confirmar</span><button type="button" class="ghost mini-action catalog-interest" data-catalog-index="${i}">Pedir cotação</button></div></article>`).join('')}</div></section>`;
+}
+
+function flightLegSummary(flight = {}) {
+  const slices = flight.slices || []; const out = slices[0] || {}; const ret = slices[1] || {};
+  return { out, ret, carriers: (flight.carriers || []).join(' / ') || out.segments?.[0]?.operatingCarrier || 'Companhia aérea' };
+}
+function timeOnly(value) { try { return value ? new Date(value).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'}) : ''; } catch { return ''; } }
+
+function renderFlightResults(data) {
+  currentSearchResults = data.results || []; currentParsed = data.parsed || {}; currentCatalogTeasers = [];
+  const tripDates = dateRange(currentParsed.checkin, currentParsed.checkout);
+  $('#resultsRecapTitle').textContent = `Voos para ${currentParsed.destination || ''}`;
+  $('#resultsRecapDetails').textContent = `${tripDates}${currentParsed.origin ? ` · ${currentParsed.origin}` : ''} · ${currentParsed.adults || 1} adulto(s)`;
+  $('#parsedBox').innerHTML = `<div class="search-confidence"><span class="search-confidence-icon">✓</span><div><b>${currentSearchResults.length} opções de voo</b><span>Preços e horários vindos da Duffel. A tarifa escolhida volta a ser validada antes da reserva.</span></div></div>`;
+  $('#resultsFilters').hidden = true; $('#resultsHighlights').innerHTML=''; $('#resultCount').textContent=`${currentSearchResults.length} voos`;
+  $('#resultsToolbar').innerHTML = '';
+  $('#results').innerHTML = currentSearchResults.length ? `<div class="standalone-flight-list">${currentSearchResults.map((o,i)=>{const f=flightLegSummary(o.flight);return `<article class="standalone-flight-card"><div class="flight-brand"><span>${i===0?'Melhor preço':'Opção'}</span><b>${esc(f.carriers)}</b></div><div class="standalone-flight-legs"><div><b>${esc(f.out.origin||'')}</b><strong>${timeOnly(f.out.departureAt)}</strong><span>→</span><b>${esc(f.out.destination||'')}</b><small>${f.out.stops?`${f.out.stops} escala(s)`:'Direto'}</small></div>${f.ret.origin?`<div><b>${esc(f.ret.origin)}</b><strong>${timeOnly(f.ret.departureAt)}</strong><span>→</span><b>${esc(f.ret.destination)}</b><small>${f.ret.stops?`${f.ret.stops} escala(s)`:'Direto'}</small></div>`:''}</div><div class="standalone-flight-price"><span>Total</span><strong>${money(o.finalPrice)}</strong><button type="button" class="btn" data-flight-select="${i}">Escolher voo</button></div></article>`}).join('')}</div>` : `<div class="empty-search"><b>Não encontrámos voos para estas condições.</b><span>Experimente outras datas ou outro aeroporto de partida.</span></div>`;
+  document.querySelectorAll('[data-flight-select]').forEach(btn => btn.onclick=()=>showReview(currentSearchResults[Number(btn.dataset.flightSelect)]));
+}
+
+function renderExperienceResults(data) {
+  currentSearchResults=[]; currentParsed=data.parsed||{}; currentCatalogTeasers=[];
+  const activities=data.activities||[]; const events=data.events||[];
+  $('#resultsRecapTitle').textContent=`Experiências em ${currentParsed.destination||''}`;
+  $('#resultsRecapDetails').textContent=`${dateRange(currentParsed.checkin,currentParsed.checkout)} · ${currentParsed.adults||1} adulto(s)`;
+  $('#parsedBox').innerHTML=`<div class="search-confidence"><span class="search-confidence-icon">✓</span><div><b>${activities.length+events.length} sugestões encontradas</b><span>Atividades HBX e eventos Ticketmaster aparecem separados para saber exatamente o que está disponível.</span></div></div>`;
+  $('#resultsFilters').hidden=true; $('#resultsHighlights').innerHTML=''; $('#resultCount').textContent=`${activities.length+events.length} opções`; $('#resultsToolbar').innerHTML='';
+  const activityHtml=activities.length?`<section class="experience-source"><div class="experience-source-head"><div><p class="eyebrow">Atividades</p><h3>Experiências reserváveis no destino</h3></div><span>HBX Activities</span></div><div class="experience-grid">${activities.map((a,i)=>`<article class="experience-card">${a.image?`<img src="${esc(safeImageUrl(a.image))}" loading="lazy" alt=""/>`:'<div class="experience-placeholder">🎟️</div>'}<div><h4>${esc(a.name)}</h4><p>${esc(a.description||'')}</p><div class="experience-card-bottom"><strong>${a.finalPrice>0?money(a.finalPrice):'Preço a confirmar'}</strong><button type="button" class="ghost mini-action activity-interest" data-activity-index="${i}">Tenho interesse</button></div></div></article>`).join('')}</div></section>`:'';
+  const eventHtml=events.length?`<section class="experience-source"><div class="experience-source-head"><div><p class="eyebrow">Durante a sua estadia</p><h3>Eventos que acontecem nestas datas</h3></div><span>Ticketmaster</span></div><div class="event-grid">${events.map(e=>{const url=safeExternalUrl(e.url||'');return `<article class="event-card">${e.image?`<img src="${esc(safeImageUrl(e.image))}" loading="lazy" alt=""/>`:'<div class="experience-placeholder">🎫</div>'}<div><h4>${esc(e.name||e.title||'Evento')}</h4><p class="muted">${esc([e.date,e.time,e.venue].filter(Boolean).join(' · '))}</p>${url?`<a class="btn mini-action" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Ver bilhetes</a>`:''}</div></article>`}).join('')}</div></section>`:'';
+  $('#results').innerHTML=(activityHtml+eventHtml)||`<div class="empty-search"><b>Não encontrámos atividades ou eventos para estas datas.</b><span>Isto não significa falha da API: pode simplesmente não existir oferta publicada neste período.</span></div>`;
+}
+
+function renderCruiseRequest(payload) {
+  currentParsed=payload; currentSearchResults=[]; currentCatalogTeasers=[];
+  $('#resultsRecapTitle').textContent='Cruzeiros à sua medida';
+  $('#resultsRecapDetails').textContent=`${payload.destination||'Destino flexível'} · ${dateRange(payload.checkin,payload.checkout)}`;
+  $('#parsedBox').innerHTML='<div class="search-confidence"><span class="search-confidence-icon">⚓</span><div><b>Pedido especializado</b><span>Ainda não temos um inventário de cruzeiros por API. Em vez de um erro, registamos o pedido para a equipa tratar.</span></div></div>';
+  $('#resultsFilters').hidden=true;$('#resultsHighlights').innerHTML='';$('#resultsToolbar').innerHTML='';$('#resultCount').textContent='Pedido assistido';
+  $('#results').innerHTML=assistedRequestHtml('CRUZEIRO',{destination:payload.destination,notes:'Pedido de cruzeiro através do site.'});
+}
+
+document.addEventListener('submit', async e => {
+  const form=e.target.closest('.assisted-request-form'); if(!form)return;
+  e.preventDefault(); const feedback=form.parentElement.querySelector('.assisted-feedback'); const fd=formToJson(form);
+  try { feedback.textContent='A registar pedido…'; const data=await api('/api/assisted-request',{method:'POST',body:JSON.stringify({...fd,kind:form.dataset.kind,destination:form.dataset.destination,checkin:currentParsed.checkin,checkout:currentParsed.checkout,adults:currentParsed.adults,children:currentParsed.children,notes:form.dataset.notes})}); feedback.innerHTML=`<b>✓ Pedido registado</b> · referência ${esc(data.requestId)}`; form.hidden=true; }
+  catch(err){feedback.textContent=err.message;}
+});
+
+document.addEventListener('click', e => {
+  const cat=e.target.closest('.catalog-interest'); if(cat){ const h=currentCatalogTeasers[Number(cat.dataset.catalogIndex)]; if(!h)return; const container=document.createElement('div');container.innerHTML=assistedRequestHtml('HOTEL',{destination:currentParsed.destination,notes:`Pedido de cotação para ${h.name}.`});cat.closest('.catalog-teaser-card')?.appendChild(container.firstElementChild);cat.disabled=true; }
+  const act=e.target.closest('.activity-interest'); if(act){ const box=act.closest('.experience-card'); const name=box?.querySelector('h4')?.textContent||'Experiência'; const container=document.createElement('div');container.innerHTML=assistedRequestHtml('EXPERIENCIA',{destination:currentParsed.destination,notes:`Interesse na experiência: ${name}.`});box?.appendChild(container.firstElementChild);act.disabled=true; }
+});
+
 const SEARCH_STAGES = ['A consultar disponibilidade…', 'A organizar tarifas e condições…', 'A comparar preço e flexibilidade…', 'A ordenar as opções mais relevantes…', 'A preparar a sua viagem…'];
 function renderSearchLoading() {
   $('#results').innerHTML = `<div class="search-loading"><div class="search-loading-bar"><span></span></div><p id="searchLoadingText">${SEARCH_STAGES[0]}</p><small>Pode guardar, comparar e personalizar uma opção sem perder a pesquisa.</small></div>`;
@@ -326,10 +399,17 @@ function renderSearchLoading() {
 }
 
 $('#searchForm').addEventListener('submit', async e => {
-  e.preventDefault(); goToResults(); $('#parsedBox').innerHTML = ''; $('#resultsFilters').hidden = true; $('#resultCount').textContent = 'A procurar…'; $('#resultsRecapTitle').textContent = 'A procurar as melhores opções…'; $('#resultsRecapDetails').textContent = ''; $('#resultsHighlights').innerHTML = '';
-  const stopLoading = renderSearchLoading(); const minDelay = new Promise(resolve => setTimeout(resolve, 900));
-  try { const [data] = await Promise.all([api('/api/search', { method: 'POST', body: JSON.stringify(formToJson(e.target)) }), minDelay]); stopLoading(); renderResultsPage(data); }
-  catch (err) { stopLoading(); $('#results').innerHTML = `<p class="error">${esc(err.message)}</p>`; }
+  e.preventDefault();
+  const payload=formToJson(e.target); const type=String(payload.searchType||e.target.dataset.searchType||'PACKAGE').toUpperCase();
+  if (!payload.destination?.trim()) { $('#destinationInput')?.focus(); return; }
+  goToResults(); $('#parsedBox').innerHTML=''; $('#resultsFilters').hidden=true; $('#resultCount').textContent='A procurar…'; $('#resultsRecapTitle').textContent='A procurar as melhores opções…'; $('#resultsRecapDetails').textContent=''; $('#resultsHighlights').innerHTML='';
+  if(type==='CRUISE'){renderCruiseRequest(payload);return;}
+  const stopLoading=renderSearchLoading(); const minDelay=new Promise(resolve=>setTimeout(resolve,650));
+  try {
+    if(type==='FLIGHT') { const [data]=await Promise.all([api('/api/flights/search',{method:'POST',body:JSON.stringify(payload)}),minDelay]); stopLoading(); renderFlightResults(data); return; }
+    if(type==='EXPERIENCE') { const [data]=await Promise.all([api('/api/experiences/search',{method:'POST',body:JSON.stringify(payload)}),minDelay]); stopLoading(); renderExperienceResults(data); return; }
+    const [data]=await Promise.all([api('/api/search',{method:'POST',body:JSON.stringify(payload)}),minDelay]); stopLoading(); renderResultsPage(data);
+  } catch(err){stopLoading();$('#results').innerHTML=`<div class="empty-search"><b>Não foi possível concluir esta pesquisa.</b><span>${esc(err.message)}</span></div>`;}
 });
 
 $('#newSearchBtn').onclick = goHome;

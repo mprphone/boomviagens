@@ -1,29 +1,37 @@
-// Cabecalho: atalhos de destino/servico ainda nao disponivel, e os links
-// simples que voltam a homepage (nav plana, sem dropdowns).
+// Navegação pública: cada produto abre a pesquisa já no modo correto.
+// Não usamos alerts "ainda não disponível" — mesmo os cruzeiros têm um
+// fluxo operacional de pedido assistido e ficam registados no backoffice.
 
 import { $ } from './utils.js';
 import { goHome } from './router.js';
+import { setSearchType } from './heroSearch.js';
 
-document.querySelectorAll('a[data-destino], a[data-soon]').forEach(link => {
+function focusSearch() {
+  goHome();
+  location.hash = '#pesquisa';
+  setTimeout(() => $('#destinationInput')?.focus(), 60);
+}
+
+document.querySelectorAll('a[data-service]').forEach(link => {
   link.addEventListener('click', e => {
-    if (link.dataset.soon) {
-      e.preventDefault();
-      alert(`${link.dataset.soon}: ainda nao disponivel no Boomviagens. Contacte-nos enquanto isso para tratarmos do pedido a sua medida.`);
-      return;
-    }
-    if (!link.dataset.destino) return;
+    e.preventDefault();
+    setSearchType(link.dataset.service || 'PACKAGE');
+    focusSearch();
+  });
+});
+
+document.querySelectorAll('a[data-destino]').forEach(link => {
+  link.addEventListener('click', e => {
     e.preventDefault();
     const form = $('#searchForm');
-    form.destination.value = link.dataset.destino;
-    form.prompt.value = link.dataset.prompt || link.dataset.destino;
+    setSearchType(link.dataset.service || 'PACKAGE');
+    form.destination.value = link.dataset.destino || '';
+    form.prompt.value = link.dataset.prompt || link.dataset.destino || '';
     location.hash = '#pesquisa';
     form.requestSubmit();
   });
 });
 
-document.querySelectorAll('.main-nav a[href="#pesquisa"]:not([data-destino]):not([data-soon])').forEach(link => {
-  link.addEventListener('click', e => {
-    e.preventDefault();
-    goHome();
-  });
+document.querySelectorAll('.main-nav a[href="#pesquisa"]:not([data-destino]):not([data-service])').forEach(link => {
+  link.addEventListener('click', e => { e.preventDefault(); setSearchType('PACKAGE'); focusSearch(); });
 });

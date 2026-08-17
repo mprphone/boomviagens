@@ -12,6 +12,22 @@ function textRuleMatches(ruleValue, contextValue) {
   return Boolean(target) && terms.some(t => target.includes(t) || t.includes(target));
 }
 
+
+function canonicalProduct(value = '') {
+  const v = normalize(value).replace(/[^a-z0-9]/g, '');
+  if (['hotel','alojamento','lodging'].includes(v)) return 'HOTEL';
+  if (['pacote','package','dynamicpackage','voohotel'].includes(v)) return 'PACKAGE';
+  if (['voo','flight','air'].includes(v)) return 'FLIGHT';
+  if (['atividade','activity','tour','experiencia','experience'].includes(v)) return 'ACTIVITY';
+  if (['transfer','transfers'].includes(v)) return 'TRANSFER';
+  return String(value || '').toUpperCase();
+}
+function productRuleMatches(ruleValue, contextValue) {
+  if (!ruleValue || ruleValue === '*') return true;
+  const wanted = String(ruleValue).split(',').map(canonicalProduct).filter(Boolean);
+  return wanted.includes(canonicalProduct(contextValue));
+}
+
 function destinationScore(rule, destination) {
   if (rule.match === '*' || !rule.match) return 0;
   const target = normalize(destination);
@@ -29,7 +45,8 @@ function findMarginRule(destination, margins = [], context = {}) {
     if (score < 0) return null;
     for (const [field, value] of [['operator', context.operator], ['channel', context.channel], ['productType', context.productType]]) {
       if (!rule[field] || rule[field] === '*') continue;
-      if (!textRuleMatches(rule[field], value)) return null;
+      const matches = field === 'productType' ? productRuleMatches(rule[field], value) : textRuleMatches(rule[field], value);
+      if (!matches) return null;
       score += 4;
     }
     return { rule, score, index };
@@ -108,4 +125,4 @@ function marginSchemeVat(marginValue, vatRate = 23) {
   return { vatAmount, netMargin: Number((margin - vatAmount).toFixed(2)) };
 }
 
-module.exports = { applyMargin, computeScore, findMarginRule, normalize, marginSchemeVat, roundCommercial };
+module.exports = { applyMargin, computeScore, findMarginRule, normalize, canonicalProduct, marginSchemeVat, roundCommercial };

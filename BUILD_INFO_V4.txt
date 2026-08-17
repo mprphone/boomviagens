@@ -1,0 +1,18 @@
+Boomviagens — Operational Presentation V4
+Build date: 2026-08-17
+
+Core public modes:
+PACKAGE | HOTEL | FLIGHT | EXPERIENCE | CRUISE
+
+Important Vercel behavior:
+- demo inventory is hard-disabled on Vercel Preview and Production
+- no fake destination substitutions
+- no fake prices for HBX content-only catalog hotels
+
+Tests:
+- npm run check
+- npm run test:integrations
+- npm run test:operational
+- npm test
+
+See docs/AUDITORIA_OPERACIONAL_V4_2026-08-17.md

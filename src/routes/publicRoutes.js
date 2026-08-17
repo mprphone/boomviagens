@@ -13,6 +13,16 @@ module.exports = function registerPublicRoutes(router, ctx) {
   const { publicDeals, ensureCollections, addOperatorLog, now } = domain;
   const { sealToken, openToken } = ctx.auth;
 
+  function demoDataEnabled() {
+    // Dados fictícios nunca são permitidos em Vercel (preview ou produção).
+    // Para desenvolvimento local são necessários DOIS opt-ins explícitos,
+    // evitando que uma variável antiga ENABLE_DEMO_SEARCH=true publique
+    // Disneyland/Caribe como se fossem disponibilidade real.
+    const enabled = String(process.env.ENABLE_DEMO_SEARCH || '').toLowerCase() === 'true';
+    const acknowledged = String(process.env.BOOM_UNSAFE_DEMO_DATA || '') === 'I_UNDERSTAND';
+    return enabled && acknowledged && !process.env.VERCEL;
+  }
+
   // Cache curto + deduplicacao de pedidos em voo. Evita que duplo clique,
   // refresh ou dois separadores iguais gastem novamente quota HBX/Duffel.
   // Em Vercel esta cache e por instancia; para grande escala deve ser
@@ -205,7 +215,7 @@ module.exports = function registerPublicRoutes(router, ctx) {
         latitude: hotel.latitude, longitude: hotel.longitude, address: hotel.address || '', description: hotel.description || '', image: hotel.image || '',
         ...price,
         roomOptions,
-        hbx: { hotelCode: hotel.hotelCode, giataCode: hotel.giataCode || '', destinationCode: hotel.destinationCode || destination.hbxCode, rateKey: baseRate.rateKey, rateType: baseRate.rateType, roomCode: baseRate.roomCode },
+        hbx: { hotelCode: hotel.hotelCode, giataCode: hotel.giataCode || '', destinationCode: hotel.destinationCode || destination.hbxCode, rateKey: baseRate.rateKey, rateType: baseRate.rateType, roomCode: baseRate.roomCode, hotelName: hotel.name || '', latitude: hotel.latitude, longitude: hotel.longitude },
         operatorReliability: 9,
         label: 'Alojamento disponível'
       });
@@ -228,7 +238,7 @@ module.exports = function registerPublicRoutes(router, ctx) {
         costPrice: Number((hotelNet + flightPrice.costPrice).toFixed(2)),
         finalPrice: Number((hotelSale + flightPrice.finalPrice).toFixed(2)),
         components: {
-          hotel: { provider: 'HBX', hotelCode: hotelOffer.hbx?.hotelCode, giataCode: hotelOffer.hbx?.giataCode || '', rateKey: opt.rateKey || hotelOffer.hbx?.rateKey, rateType: opt.rateType || hotelOffer.hbx?.rateType, roomCode: opt.roomCode || hotelOffer.hbx?.roomCode, costPrice: hotelNet, finalPrice: hotelSale },
+          hotel: { provider: 'HBX', hotelCode: hotelOffer.hbx?.hotelCode, giataCode: hotelOffer.hbx?.giataCode || '', destinationCode: hotelOffer.hbx?.destinationCode || destination.hbxCode, hotelName: hotelOffer.hotel || '', latitude: hotelOffer.latitude, longitude: hotelOffer.longitude, rateKey: opt.rateKey || hotelOffer.hbx?.rateKey, rateType: opt.rateType || hotelOffer.hbx?.rateType, roomCode: opt.roomCode || hotelOffer.hbx?.roomCode, costPrice: hotelNet, finalPrice: hotelSale },
           flight: { componentId: 'flight-selected', provider: 'Duffel', offerId: flightOffer.id, costPrice: flightPrice.costPrice, finalPrice: flightPrice.finalPrice, offer: flightOffer }
         }
       };
@@ -243,7 +253,7 @@ module.exports = function registerPublicRoutes(router, ctx) {
       roomOptions,
       flightIncluded: true,
       flight: flightOffer,
-      components: { hotel: { provider: 'HBX', hotelCode: hotelOffer.hbx?.hotelCode, giataCode: hotelOffer.hbx?.giataCode || '', rateKey: hotelOffer.hbx?.rateKey, rateType: hotelOffer.hbx?.rateType, roomCode: hotelOffer.hbx?.roomCode, costPrice: hotelOffer.costPrice, finalPrice: hotelOffer.finalPrice }, flight: { componentId: 'flight-selected', provider: 'Duffel', offerId: flightOffer.id, costPrice: flightPrice.costPrice, finalPrice: flightPrice.finalPrice, offer: flightOffer } },
+      components: { hotel: { provider: 'HBX', hotelCode: hotelOffer.hbx?.hotelCode, giataCode: hotelOffer.hbx?.giataCode || '', destinationCode: hotelOffer.hbx?.destinationCode || destination.hbxCode, hotelName: hotelOffer.hotel || '', latitude: hotelOffer.latitude, longitude: hotelOffer.longitude, rateKey: hotelOffer.hbx?.rateKey, rateType: hotelOffer.hbx?.rateType, roomCode: hotelOffer.hbx?.roomCode, costPrice: hotelOffer.costPrice, finalPrice: hotelOffer.finalPrice }, flight: { componentId: 'flight-selected', provider: 'Duffel', offerId: flightOffer.id, costPrice: flightPrice.costPrice, finalPrice: flightPrice.finalPrice, offer: flightOffer } },
       label: 'Voo + hotel',
       score: Math.max(1, Number(hotelOffer.score || 80) + 3)
     };
@@ -357,6 +367,9 @@ module.exports = function registerPublicRoutes(router, ctx) {
         costPrice: Number(signed.costPrice || 0), finalPrice: Number(signed.finalPrice || 0)
       };
     }
+    if (!components.flight && signed.productType === 'FLIGHT' && signed.flight) {
+      components.flight = { componentId: 'flight-selected', provider: 'Duffel', offerId: signed.flight.id || '', costPrice: Number(signed.costPrice || 0), finalPrice: Number(signed.finalPrice || 0), offer: signed.flight };
+    }
     if (components.flight && !components.flight.offer && signed.flight) components.flight.offer = signed.flight;
     if (!Array.isArray(components.activities)) components.activities = [];
     return components;
@@ -416,7 +429,7 @@ module.exports = function registerPublicRoutes(router, ctx) {
     // fictícios num deployment real só para preencher a homepage. Até
     // existir uma tabela/campanha validada pelo backoffice, produção mostra
     // inspiração sem preço e convida o cliente a pesquisar disponibilidade.
-    const allowDemo = String(process.env.ENABLE_DEMO_SEARCH || 'false').toLowerCase() === 'true';
+    const allowDemo = demoDataEnabled();
     if (!allowDemo) return json(res, 200, { ok: true, deals: [], demo: false, message: 'Pesquise um destino para consultar preços e disponibilidade em tempo real.' });
     const db = await readDb();
     return json(res, 200, { ok: true, deals: publicDeals(db, baseOffers, getOfferById), demo: true });
@@ -430,6 +443,87 @@ module.exports = function registerPublicRoutes(router, ctx) {
     if (limited) return limited;
     const q = String(url.searchParams.get('q') || '').slice(0, 80);
     return json(res, 200, { ok: true, destinations: travelIntelligence.suggest(q, 10) });
+  });
+
+  function flightOnlyOffer(flight, parsed, destination, origin, margins, index = 0) {
+    const targetCurrency = String(process.env.CURRENCY || 'EUR').toUpperCase();
+    if (String(flight.totalCurrency || targetCurrency).toUpperCase() !== targetCurrency) return null;
+    const pricing = applyMargin(Number(flight.totalAmount || 0), destination.name, margins, { operator: 'Duffel', channel: 'ONLINE', productType: 'VOO' });
+    return {
+      id: `flight-${flight.id || index}`,
+      operator: 'Duffel', provider: 'Duffel', productType: 'FLIGHT', live: true, available: true,
+      destination: destination.name, country: destination.country,
+      hotel: `Voo ${origin?.iata || parsed.origin} → ${destination.iata}`,
+      board: 'Voo', nights: parsed.nights, rating: 0, freeCancellation: false, nonRefundable: false,
+      adults: parsed.adults, children: parsed.children, infants: parsed.infants, childAges: parsed.childAges, infantAges: parsed.infantAges,
+      origin: parsed.origin, checkin: parsed.checkin, checkout: parsed.checkout, image: '',
+      costPrice: pricing.costPrice, finalPrice: pricing.finalPrice, marginValue: pricing.marginValue,
+      flight, components: { flight: { componentId: 'flight-selected', provider: 'Duffel', offerId: flight.id, costPrice: pricing.costPrice, finalPrice: pricing.finalPrice, offer: flight } },
+      operatorReliability: 9, label: 'Voo disponível', score: Math.max(1, 100 - index)
+    };
+  }
+
+  router.post('/api/flights/search', async (req, res) => {
+    const limited = rateLimit(req, res, 'flight-search', 20, 60 * 1000);
+    if (limited) return limited;
+    const body = searchPayload(await ctx.parseBody(req));
+    const db = await readDb();
+    const parsed = searchOffers(body, db.margins).parsed;
+    const destination = resolveDestination(parsed.destination);
+    const origin = resolveOrigin(parsed.origin);
+    if (!destination || !origin) return json(res, 400, { ok: false, error: 'Escolha uma origem e um destino válidos.' });
+    if (!duffel?.isConfigured()) return json(res, 503, { ok: false, error: 'A pesquisa de voos ainda não está configurada neste ambiente.' });
+    const result = await cachedProviderCall('duffel-standalone', providerQueryKey(destination, origin, parsed), 60 * 1000, () => duffel.searchFlights({
+      origin: origin.iata, destination: destination.iata, departureDate: parsed.checkin, returnDate: parsed.checkout,
+      adults: parsed.adults, children: parsed.children, infants: parsed.infants, childAges: parsed.childAges, infantAges: parsed.infantAges, limit: 10
+    }));
+    const offers = (result.offers || []).map((f, i) => flightOnlyOffer(f, parsed, destination, origin, db.margins, i)).filter(Boolean);
+    return json(res, 200, { ok: true, parsed: { ...parsed, destination: destination.name }, results: attachOfferTokens(offers), count: offers.length, mode: result.mode || duffel.mode?.() || 'test' });
+  });
+
+  router.post('/api/experiences/search', async (req, res) => {
+    const limited = rateLimit(req, res, 'experience-search', 20, 60 * 1000);
+    if (limited) return limited;
+    const body = searchPayload(await ctx.parseBody(req));
+    const parsed = searchOffers(body, (await readDb()).margins).parsed;
+    const destination = resolveDestination(parsed.destination);
+    if (!destination) return json(res, 400, { ok: false, error: 'Escolha um destino válido para procurar experiências.' });
+    const db = await readDb();
+    const tasks = [];
+    if (hbx?.isConfigured('activities') && destination.hbxCode) tasks.push(['activities', hbx.searchActivities({ destinationCode: destination.hbxCode, from: parsed.checkin, to: parsed.checkout, adults: parsed.adults, children: parsed.children, infants: parsed.infants, childAges: parsed.childAges, infantAges: parsed.infantAges, limit: 12 })]);
+    if (travelIntelligence?.ticketmaster?.isConfigured?.() && destination.eventCity) tasks.push(['events', travelIntelligence.ticketmaster.searchEvents({ city: destination.eventCity, countryCode: destination.countryCode, startDate: parsed.checkin, endDate: parsed.checkout, limit: 12 })]);
+    const settled = await Promise.allSettled(tasks.map(x => x[1]));
+    const activities = []; const events = []; const providerStatus = [];
+    settled.forEach((r, i) => {
+      const name = tasks[i][0];
+      if (r.status === 'rejected') { providerStatus.push({ provider: name, ok: false, error: r.reason?.message || 'Indisponível' }); return; }
+      providerStatus.push({ provider: name, ok: true });
+      if (name === 'activities') {
+        for (const [index, a] of (r.value.activities || []).entries()) {
+          const base = Number(a.fromPrice || 0); const pricing = base > 0 ? applyMargin(base, destination.name, db.margins, { operator: 'HBX Activities', channel: 'ONLINE', productType: 'ACTIVITY' }) : { finalPrice: 0 };
+          activities.push({ id: a.code || `act-${index}`, name: a.name || 'Experiência', description: String(a.description || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 320), image: a.image || '', finalPrice: Number(pricing.finalPrice || 0), currency: a.currency || 'EUR', source: 'HBX Activities' });
+        }
+      } else if (name === 'events') events.push(...(r.value.events || []).map(e => ({ ...e, source: 'Ticketmaster' })));
+    });
+    return json(res, 200, { ok: true, parsed: { ...parsed, destination: destination.name }, activities, events, providerStatus });
+  });
+
+  router.post('/api/assisted-request', async (req, res) => {
+    const limited = rateLimit(req, res, 'assisted-request', 10, 60 * 60 * 1000);
+    if (limited) return limited;
+    const body = await ctx.parseBody(req);
+    const kind = String(body.kind || 'VIAGEM').toUpperCase().slice(0, 30);
+    const name = String(body.name || '').trim().slice(0, 120);
+    const email = String(body.email || '').trim().toLowerCase().slice(0, 254);
+    const phone = String(body.phone || '').trim().slice(0, 40);
+    if (!name || (!email && !phone)) return json(res, 400, { ok: false, error: 'Indique o nome e pelo menos email ou telefone.' });
+    const requestId = domain.id('lead');
+    await updateDb(d => {
+      ensureCollections(d);
+      d.leads.unshift({ id: requestId, createdAt: now(), source: 'WEBSITE_ASSISTED', kind, name, email, phone, destination: String(body.destination || '').slice(0, 150), dateStart: String(body.checkin || '').slice(0, 30), dateEnd: String(body.checkout || '').slice(0, 30), adults: Number(body.adults || 2), children: Number(body.children || 0), notes: String(body.notes || '').slice(0, 1500), status: 'NOVO' });
+      addOperatorLog(d, 'ASSISTED_REQUEST', { requestId, kind, destination: String(body.destination || '').slice(0, 150) });
+    });
+    return json(res, 200, { ok: true, requestId, message: 'Pedido registado. A equipa Boomviagens pode agora tratá-lo no backoffice.' });
   });
 
   // Enriquecimento LAZY: só é chamado quando o cliente abre a página da
@@ -485,7 +579,7 @@ module.exports = function registerPublicRoutes(router, ctx) {
           const base = Number(service.netAmount || service.totalAmount || 0);
           const pricing = applyMargin(base, destination?.name || offer.destination, db.margins, { operator: 'HBX Transfers', channel: 'ONLINE', productType: 'TRANSFER' });
           return safeTransferOption(service, pricing, index, signed);
-        }).filter(x => x.finalPrice > 0) }
+        }).filter(x => x.finalPrice > 0), unavailableReason: providers.transfers.data?.unavailableReason || '' }
       };
     }
 
@@ -596,7 +690,7 @@ module.exports = function registerPublicRoutes(router, ctx) {
   router.post('/api/price-calendar', async (req, res) => {
     const limited = rateLimit(req, res, 'price-calendar', 30, 60 * 1000);
     if (limited) return limited;
-    const allowDemo = String(process.env.ENABLE_DEMO_SEARCH || 'false').toLowerCase() === 'true';
+    const allowDemo = demoDataEnabled();
     if (!allowDemo) {
       return json(res, 200, { ok: true, available: false, days: [], message: 'O calendário de preços ficará disponível quando existir histórico real suficiente para este destino.' });
     }
@@ -622,6 +716,8 @@ module.exports = function registerPublicRoutes(router, ctx) {
     // stock devolve vazio em vez de Disneyland/Maldivas/Punta Cana aleatórios.
     const demoSearch = searchOffers(body, db.margins);
     const parsed = demoSearch.parsed;
+    const requestedSearchType = String(body.searchType || parsed.searchType || 'PACKAGE').toUpperCase();
+    const searchType = ['PACKAGE', 'HOTEL'].includes(requestedSearchType) ? requestedSearchType : 'PACKAGE';
     const destination = resolveDestination(parsed.destination);
     const origin = resolveOrigin(parsed.origin);
     if (!destination) {
@@ -659,7 +755,7 @@ module.exports = function registerPublicRoutes(router, ctx) {
 
     // Uma única consulta Duffel por pesquisa. Serve para construir soluções
     // voo+hotel; nunca fazemos uma chamada por cada hotel.
-    if (duffel?.isConfigured() && origin?.iata && destination.iata) {
+    if (searchType === 'PACKAGE' && duffel?.isConfigured() && origin?.iata && destination.iata) {
       tasks.push({
         id: 'duffel',
         // Ofertas aereas expiram rapidamente, por isso a cache Duffel e
@@ -679,7 +775,7 @@ module.exports = function registerPublicRoutes(router, ctx) {
       });
     }
 
-    if (tourdiezAdapter.isConfigured()) {
+    if (searchType === 'PACKAGE' && tourdiezAdapter.isConfigured()) {
       tasks.push({ id: 'tourdiez', promise: cachedProviderCall('tourdiez', queryKey, 2 * 60 * 1000, () => tourdiezAdapter.liveOffers(parsed, db.margins)) });
     }
 
@@ -713,13 +809,33 @@ module.exports = function registerPublicRoutes(router, ctx) {
 
     // Demos só aparecem se explicitamente ativadas e, mesmo assim, apenas
     // quando pertencem ao destino pesquisado. Nunca mais há fallback global.
-    const allowDemo = String(process.env.ENABLE_DEMO_SEARCH || 'false').toLowerCase() === 'true';
+    const allowDemo = demoDataEnabled();
     const demoOffers = allowDemo ? demoSearch.results.filter(o => destinationMatches(destination.name, o.destination)) : [];
 
     // Resultados em três famílias, prontos para novos bedbanks no futuro.
     // A UI pode filtrar por productType sem conhecer o fornecedor interno.
-    const results = rankOffers([...dynamicOffers, ...packageOffers, ...hotelOffers, ...demoOffers]
-      .map(o => ({ ...o, destination: destination.name, country: destination.country })));
+    const selectedOffers = searchType === 'HOTEL'
+      ? hotelOffers
+      : [...dynamicOffers, ...packageOffers, ...hotelOffers, ...demoOffers];
+    const results = rankOffers(selectedOffers.map(o => ({ ...o, destination: destination.name, country: destination.country })));
+
+    // Em evaluation/test o HBX pode devolver pouca disponibilidade apesar de
+    // existir um catálogo muito maior. Para uma apresentação útil mostramos
+    // alojamentos adicionais do Content API SEM PREÇO e claramente marcados
+    // como "disponibilidade a consultar". Nunca fabricamos preço/stock.
+    let catalogTeasers = [];
+    if (hbx?.isConfigured('hotels') && destination.hbxCode && hotelOffers.length < 6) {
+      try {
+        const catalog = await cachedProviderCall('hbx-catalog', `catalog:${destination.hbxCode}`, 6 * 60 * 60 * 1000, () => hbx.hotelCatalog({ destinationCode: destination.hbxCode, limit: 80 }));
+        const liveCodes = new Set(hotelOffers.map(x => String(x.hbx?.hotelCode || '')));
+        catalogTeasers = (catalog.hotels || []).filter(h => !liveCodes.has(String(h.hotelCode || ''))).slice(0, 12).map(h => ({
+          hotelCode: h.hotelCode, name: h.name, stars: h.stars, image: h.image, city: h.city, address: h.address,
+          description: h.description, availabilityStatus: 'TO_CONFIRM', destination: destination.name, country: destination.country
+        }));
+      } catch (err) {
+        providerStates.push({ id: 'hbx-content', ok: false, error: err.message || 'Catálogo HBX indisponível' });
+      }
+    }
 
     const operatorLogs = [];
     if (byId['hbx-hotels']) operatorLogs.push({ type: 'SEARCH_HBX', payload: { destination: destination.name, code: destination.hbxCode, hotels: hotelOffers.length } });
@@ -729,18 +845,19 @@ module.exports = function registerPublicRoutes(router, ctx) {
 
     return json(res, 200, {
       ok: true,
-      parsed: { ...parsed, destination: destination.name },
+      parsed: { ...parsed, destination: destination.name, searchType },
       results: attachOfferTokens(results),
+      catalogTeasers,
       providerSummary: {
         consulted: providerStates.length,
         available: providerStates.filter(x => x.ok).length,
         partial: providerStates.some(x => !x.ok)
       },
       productCounts: {
-        dynamic: dynamicOffers.length,
-        packages: packageOffers.length,
+        dynamic: searchType === 'PACKAGE' ? dynamicOffers.length : 0,
+        packages: searchType === 'PACKAGE' ? packageOffers.length : 0,
         hotels: hotelOffers.length,
-        demo: demoOffers.length
+        demo: searchType === 'PACKAGE' ? demoOffers.length : 0
       },
       operatorStatus: { source: results.some(x => x.live) ? 'verified_or_live' : 'no_live_stock' },
       message: results.length ? null : `Não encontrámos disponibilidade real para ${destination.name} nestas condições. Experimente outras datas; não mostramos destinos diferentes como substitutos.`

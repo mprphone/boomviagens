@@ -8,9 +8,10 @@
     "dev": "node server.js",
     "check": "node scripts/check-js.js",
     "test:integrations": "node scripts/test-integrations.js",
-    "test": "npm run check && npm run test:integrations",
+    "test": "npm run check && npm run test:integrations && npm run test:operational",
     "test:api": "node scripts/test-api.js",
-    "supabase:import": "node scripts/supabase-import-json.js"
+    "supabase:import": "node scripts/supabase-import-json.js",
+    "test:operational": "node scripts/test-operational-v4.js"
   },
   "keywords": [
     "viagens",

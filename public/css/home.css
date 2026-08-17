@@ -493,3 +493,7 @@
 @media (max-width: 480px) {
   .deal-card-media img { height: 190px; }
 }
+
+/* V4: inspiração editorial substitui preços fictícios quando não há uma
+   campanha real configurada. */
+.inspiration-card .deal-card-media{height:180px}.inspiration-card .deal-body{min-height:145px}.inspiration-bottom>span{max-width:145px;color:#64748b;line-height:1.2}.inspiration-bottom small{font-size:11px}
