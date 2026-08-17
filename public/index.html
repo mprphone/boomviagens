@@ -19,33 +19,21 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="brand"><img src="/logo.svg" alt="Boomviagens" /></div>
-    <nav class="main-nav">
-      <a href="#pesquisa" data-service="PACKAGE">Pacotes</a>
-      <a href="#pesquisa" data-service="HOTEL">Hotéis</a>
-      <a href="#pesquisa" data-service="FLIGHT">Voos</a>
-      <a href="#pesquisa" data-service="CRUISE">Cruzeiros</a>
-      <a href="#pesquisa" data-service="EXPERIENCE">Experiências</a>
-      <a href="#novidades">Destinos</a>
-      <a href="#novidades">Promoções</a>
-    </nav>
-    <div class="topbar-actions">
-      <a class="topbar-phone" href="tel:" id="topbarPhone">
-        <span class="topbar-phone-icon" aria-hidden="true">📞</span>
-        <span>
-          <strong id="topbarPhoneNumber">253 695 089</strong>
-          <small>Chamada para rede fixa nacional</small>
-        </span>
-      </a>
-      <a class="topbar-link" href="/conta/"><span aria-hidden="true">👤</span> A minha conta</a>
+    <div class="topbar-utility"><div class="topbar-utility-inner"><span>Agência de viagens · apoio humano antes, durante e depois</span><div><a href="tel:" id="topbarPhone"><strong id="topbarPhoneNumber">253 695 089</strong></a><a href="/conta/">A minha conta</a></div></div></div>
+    <div class="topbar-main">
+      <a class="brand" href="#pesquisa" aria-label="Boomviagens"><img src="/logo.svg" alt="Boomviagens" /></a>
+      <nav class="main-nav" aria-label="Navegação principal">
+        <a href="#pesquisa" data-service="PACKAGE">Pacotes</a><a href="#pesquisa" data-service="HOTEL">Hotéis</a><a href="#pesquisa" data-service="FLIGHT">Voos</a><a href="#pesquisa" data-service="CRUISE">Cruzeiros</a><a href="#pesquisa" data-service="EXPERIENCE">Experiências</a><a href="#novidades">Destinos</a><a href="#novidades">Promoções</a>
+      </nav>
+      <button class="mobile-menu-btn" id="mobileMenuBtn" type="button" aria-label="Abrir menu">☰</button>
     </div>
   </header>
 
   <main>
     <section class="hero" id="pesquisa">
       <div class="hero-heading">
-        <h1>Para onde vamos <em>a seguir?</em></h1>
-        <p class="hero-tagline">Encontre a sua viagem ao melhor preço ou diga-nos simplesmente o que procura.</p>
+        <h1>A sua próxima viagem começa <em>aqui.</em></h1>
+        <p class="hero-tagline">Compare voos, hotéis e experiências num só lugar — com apoio de uma agência real.</p>
       </div>
 
       <div class="search-card">
@@ -70,56 +58,24 @@
           <input type="hidden" name="searchType" id="searchTypeInput" value="PACKAGE" />
           <textarea name="prompt" id="promptInput" class="prompt-input" rows="2" placeholder="Ex: Praia em agosto, 2 adultos e 2 crianças, tudo incluído, até 3.500€, saída do Porto…"></textarea>
 
-          <div class="flight-search-panel" id="flightSearchPanel" hidden>
+          <div class="flight-search-panel flight-search-v7" id="flightSearchPanel" hidden>
             <input type="hidden" id="flightTripType" name="tripType" value="ROUND_TRIP" />
             <input type="hidden" id="multiCitySlicesInput" name="multiCitySlices" value="" />
-            <div class="flight-search-topline">
-              <div class="trip-type-switch" id="tripTypeSwitch">
-                <button type="button" data-trip-type="ROUND_TRIP" class="is-active">Ida e volta</button>
-                <button type="button" data-trip-type="ONE_WAY">Só ida</button>
-                <button type="button" data-trip-type="MULTI_CITY">Multi-cidade</button>
-              </div>
-              <label class="cabin-inline">
-                <span>Classe</span>
-                <select id="flightCabinClass" name="cabinClass">
-                  <option value="economy">Económica</option>
-                  <option value="premium_economy">Premium Economy</option>
-                  <option value="business">Executiva</option>
-                  <option value="first">Primeira</option>
-                </select>
-              </label>
+            <div class="flight-search-toolbar">
+              <div class="trip-type-switch" id="tripTypeSwitch"><button type="button" data-trip-type="ROUND_TRIP" class="is-active">Ida e volta</button><button type="button" data-trip-type="ONE_WAY">Só ida</button><button type="button" data-trip-type="MULTI_CITY">Multi-cidade</button></div>
+              <div class="flight-toolbar-options"><button type="button" class="flight-pax-compact" id="flightPaxTrigger"><span>Viajantes</span><strong id="flightPaxSummary">2 adultos</strong></button><label class="cabin-inline"><span>Classe</span><select id="flightCabinClass" name="cabinClass"><option value="economy">Económica</option><option value="premium_economy">Premium Economy</option><option value="business">Executiva</option><option value="first">Primeira</option></select></label></div>
             </div>
-
             <div class="flight-simple-row" id="flightSimpleRow">
-              <label class="flight-place-field" data-airport-field>
-                <small>De</small>
-                <input id="flightOriginText" name="originLabel" placeholder="Cidade ou aeroporto" autocomplete="off" />
-                <input id="flightOriginIata" name="originIata" type="hidden" />
-                <div class="airport-suggest" hidden></div>
-              </label>
+              <label class="flight-place-field" data-airport-field><small>Origem</small><input id="flightOriginText" name="originLabel" placeholder="Cidade ou aeroporto" autocomplete="off" /><input id="flightOriginIata" name="originIata" type="hidden" /><div class="airport-suggest" hidden></div></label>
               <button class="swap-airports" id="swapAirportsBtn" type="button" aria-label="Trocar origem e destino">⇄</button>
-              <label class="flight-place-field" data-airport-field>
-                <small>Para</small>
-                <input id="flightDestinationText" name="destinationLabel" placeholder="Cidade ou aeroporto" autocomplete="off" />
-                <input id="flightDestinationIata" name="destinationIata" type="hidden" />
-                <div class="airport-suggest" hidden></div>
-              </label>
-              <label class="flight-date-field"><small>Ida</small><input id="flightDepartureDate" name="flightCheckin" type="date" /></label>
-              <label class="flight-date-field" id="flightReturnField"><small>Volta</small><input id="flightReturnDate" name="flightCheckout" type="date" /></label>
-              <button type="button" class="flight-pax-field" id="flightPaxTrigger"><small>Viajantes</small><strong id="flightPaxSummary">2 adultos</strong></button>
+              <label class="flight-place-field" data-airport-field><small>Destino</small><input id="flightDestinationText" name="destinationLabel" placeholder="Cidade ou aeroporto" autocomplete="off" /><input id="flightDestinationIata" name="destinationIata" type="hidden" /><div class="airport-suggest" hidden></div></label>
+              <div class="flight-date-field"><small>Ida</small><input id="flightDepartureDate" name="flightCheckin" type="hidden" /><button type="button" class="date-display" data-date-target="flightDepartureDate"><strong>Escolher data</strong><span>▾</span></button></div>
+              <div class="flight-date-field" id="flightReturnField"><small>Volta</small><input id="flightReturnDate" name="flightCheckout" type="hidden" /><button type="button" class="date-display" data-date-target="flightReturnDate"><strong>Escolher data</strong><span>▾</span></button></div>
               <button class="btn flight-search-submit" id="flightSearchSubmit" type="button">Pesquisar voos</button>
             </div>
-
-            <div class="multicity-panel" id="multiCityPanel" hidden>
-              <div id="multiCityRows"></div>
-              <div class="multicity-actions">
-                <button type="button" class="ghost" id="addMultiCityLeg">+ Adicionar trajeto</button>
-                <button type="button" class="flight-pax-field" id="multiPaxTrigger"><small>Viajantes</small><strong id="multiPaxSummary">2 adultos</strong></button>
-                <button class="btn flight-search-submit" id="multiCitySearchSubmit" type="button">Pesquisar multi-cidade</button>
-              </div>
-            </div>
-            <p class="flight-search-error" id="flightWorldNoteError" aria-live="polite"></p>
-            <p class="flight-world-note">Pesquise por qualquer cidade ou aeroporto do mundo. Pode usar códigos IATA como JFK, LHR, DXB ou NRT.</p>
+            <div class="multicity-panel" id="multiCityPanel" hidden><div class="multicity-heading"><div><b>Construa o seu itinerário</b><span>Adicione até 6 trajetos. Pode chegar a uma cidade e regressar de outra.</span></div><button type="button" class="ghost" id="addMultiCityLeg">+ Adicionar trajeto</button></div><div id="multiCityRows"></div><div class="multicity-actions"><button type="button" class="flight-pax-compact" id="multiPaxTrigger"><span>Viajantes</span><strong id="multiPaxSummary">2 adultos</strong></button><button class="btn flight-search-submit" id="multiCitySearchSubmit" type="button">Pesquisar multi-cidade</button></div></div>
+            <div class="flight-search-footer"><p class="flight-search-error" id="flightWorldNoteError" aria-live="polite"></p><p class="flight-world-note">Pesquise qualquer cidade ou aeroporto. Para Londres, Nova Iorque ou Paris, pode escolher <b>todos os aeroportos</b> da cidade.</p></div>
+            <div class="flight-date-popover" id="flightDatePicker" hidden></div>
           </div>
 
           <div class="search-pills">

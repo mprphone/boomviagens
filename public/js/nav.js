@@ -35,3 +35,5 @@ document.querySelectorAll('a[data-destino]').forEach(link => {
 document.querySelectorAll('.main-nav a[href="#pesquisa"]:not([data-destino]):not([data-service])').forEach(link => {
   link.addEventListener('click', e => { e.preventDefault(); setSearchType('PACKAGE'); focusSearch(); });
 });
+
+const mobileMenuBtn=document.getElementById('mobileMenuBtn'); if(mobileMenuBtn) mobileMenuBtn.addEventListener('click',()=>document.querySelector('.main-nav')?.classList.toggle('is-open'));

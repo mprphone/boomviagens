@@ -338,10 +338,23 @@ async function loadAirportSuggestions(input, panel, hidden) {
       panel.innerHTML = '<div class="airport-suggest-empty">Nenhum aeroporto ou cidade encontrado.</div>';
       return;
     }
-    panel.innerHTML = places.map(p => `<button type="button" class="airport-option" data-iata="${esc(p.iataCode)}" data-label="${esc(airportLabel(p))}">
+    const expanded = [];
+    const seen = new Set();
+    for (const p of places) {
+      const cityCode = String(p.iataCityCode || (p.type === 'city' ? p.iataCode : '') || '').toUpperCase();
+      const airports = Array.isArray(p.airports) ? p.airports : [];
+      if (/^[A-Z]{3}$/.test(cityCode) && airports.length > 1 && !seen.has(`city:${cityCode}`)) {
+        expanded.push({ ...p, type:'city', iataCode:cityCode, name:p.cityName || p.name, _allAirports:true }); seen.add(`city:${cityCode}`);
+      } else if (p.type === 'city' && /^[A-Z]{3}$/.test(p.iataCode) && !seen.has(`city:${p.iataCode}`)) {
+        expanded.push({ ...p, _allAirports:true }); seen.add(`city:${p.iataCode}`);
+      }
+      if (/^[A-Z]{3}$/.test(p.iataCode) && p.type !== 'city' && !seen.has(`airport:${p.iataCode}`)) { expanded.push(p); seen.add(`airport:${p.iataCode}`); }
+      for (const a of airports) if (/^[A-Z]{3}$/.test(a.iataCode) && !seen.has(`airport:${a.iataCode}`)) { expanded.push({ ...a, type:'airport', countryCode:a.countryCode || p.countryCode }); seen.add(`airport:${a.iataCode}`); }
+    }
+    panel.innerHTML = expanded.slice(0,12).map((p,i) => `<button type="button" class="airport-option ${p._allAirports?'airport-city-group':''}" data-iata="${esc(p.iataCode)}" data-label="${esc(airportLabel(p))}">
       <span class="airport-code">${esc(p.iataCode)}</span>
-      <span class="airport-copy"><b>${esc(p.cityName || p.name)}</b><small>${esc(p.type === 'city' ? `Cidade · ${p.countryCode || ''}` : `${p.name || ''} · ${p.countryCode || ''}`)}</small></span>
-      <span class="airport-type">${p.type === 'city' ? 'Cidade' : 'Aeroporto'}</span>
+      <span class="airport-copy"><b>${esc(p._allAirports ? `${p.cityName || p.name} · Todos os aeroportos` : (p.name || p.cityName))}</b><small>${esc(p._allAirports ? `Área metropolitana · ${p.countryCode || ''}` : `${p.cityName || ''}${p.countryCode ? ` · ${p.countryCode}` : ''}`)}</small></span>
+      <span class="airport-type">${p._allAirports ? 'Todos' : 'Aeroporto'}</span>
     </button>`).join('');
   } catch (err) {
     panel.innerHTML = `<div class="airport-suggest-empty">${esc(err.message || 'Pesquisa temporariamente indisponível.')}</div>`;
@@ -378,6 +391,28 @@ document.addEventListener('click', e => {
   if (!e.target.closest('[data-airport-field]')) closeAirportSuggests();
 });
 
+function formatHumanDate(iso='') {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return 'Escolher data';
+  const d = new Date(`${iso}T12:00:00`);
+  return d.toLocaleDateString('pt-PT',{day:'2-digit',month:'short',year:'numeric'}).replace(/\./g,'');
+}
+let datePickerContext = null;
+let datePickerMonth = new Date(); datePickerMonth.setDate(1); datePickerMonth.setHours(12,0,0,0);
+function monthIso(year,month,day){ return `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`; }
+function renderDatePicker() {
+  const panel=$('#flightDatePicker'); if(!panel||!datePickerContext)return;
+  const todayIso=isoDateOffset(0);
+  const months=[0,1].map(offset=>{ const d=new Date(datePickerMonth.getFullYear(),datePickerMonth.getMonth()+offset,1,12); const y=d.getFullYear(),m=d.getMonth(); const first=(new Date(y,m,1).getDay()+6)%7; const count=new Date(y,m+1,0).getDate(); let cells=''; for(let i=0;i<first;i++)cells+='<span></span>'; for(let day=1;day<=count;day++){const iso=monthIso(y,m,day); const disabled=iso<todayIso; cells+=`<button type="button" data-pick-date="${iso}" ${disabled?'disabled':''}>${day}</button>`;} return `<div class="date-month"><h4>${d.toLocaleDateString('pt-PT',{month:'long',year:'numeric'})}</h4><div class="date-week"><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span><span>Dom</span></div><div class="date-grid">${cells}</div></div>`;}).join('');
+  panel.innerHTML=`<div class="date-picker-head"><button type="button" data-date-nav="-1">‹</button><b>Escolha a data</b><button type="button" data-date-nav="1">›</button></div><div class="date-months">${months}</div><div class="date-flex"><button type="button" data-flex-days="3">Datas flexíveis ±3 dias</button><button type="button" data-close-date>Fechar</button></div>`;
+  panel.hidden=false;
+  panel.querySelectorAll('[data-date-nav]').forEach(b=>b.onclick=()=>{datePickerMonth=new Date(datePickerMonth.getFullYear(),datePickerMonth.getMonth()+Number(b.dataset.dateNav),1,12);renderDatePicker();});
+  panel.querySelectorAll('[data-pick-date]').forEach(b=>b.onclick=()=>{ const iso=b.dataset.pickDate; const ctx=datePickerContext; ctx.input.value=iso; ctx.button.querySelector('strong').textContent=formatHumanDate(iso); panel.hidden=true; datePickerContext=null; if(ctx.input.id==='flightDepartureDate' && $('#flightReturnDate')?.value && $('#flightReturnDate').value<=iso){ const nd=new Date(`${iso}T12:00:00`); nd.setDate(nd.getDate()+7); $('#flightReturnDate').value=nd.toISOString().slice(0,10); const rb=document.querySelector('[data-date-target="flightReturnDate"] strong'); if(rb)rb.textContent=formatHumanDate($('#flightReturnDate').value); } });
+  panel.querySelector('[data-close-date]').onclick=()=>{panel.hidden=true;datePickerContext=null;};
+  panel.querySelector('[data-flex-days]').onclick=()=>{document.getElementById('flightWorldNoteError').textContent='Flexibilidade ±3 dias guardada como preferência. A pesquisa atual usa a data central.';panel.hidden=true;datePickerContext=null;};
+}
+function openDatePicker(input,button){ if(!input||!button)return; const base=input.value?new Date(`${input.value}T12:00:00`):new Date(); datePickerMonth=new Date(base.getFullYear(),base.getMonth(),1,12); datePickerContext={input,button}; renderDatePicker(); }
+function wireDateButtons(root=document){ root.querySelectorAll('.date-display').forEach(button=>{ if(button.dataset.dateWired)return; button.dataset.dateWired='1'; button.onclick=()=>{ let input; if(button.dataset.dateTarget) input=document.getElementById(button.dataset.dateTarget); else input=button.closest('.flight-date-field')?.querySelector('input[type="hidden"]'); openDatePicker(input,button); }; }); }
+
 let flightTripType = 'ROUND_TRIP';
 function setFlightTripType(type) {
   flightTripType = ['ROUND_TRIP','ONE_WAY','MULTI_CITY'].includes(type) ? type : 'ROUND_TRIP';
@@ -395,11 +430,12 @@ function setFlightTripType(type) {
 document.querySelectorAll('#tripTypeSwitch [data-trip-type]').forEach(btn => btn.addEventListener('click', () => setFlightTripType(btn.dataset.tripType)));
 
 function multiCityRowHtml(leg = {}, index = 0) {
+  const date = leg.departureDate || isoDateOffset(30 + index * 3);
   return `<div class="multicity-row" data-leg-index="${index}">
     <span class="multicity-number">${index + 1}</span>
-    <label class="flight-place-field" data-airport-field><small>De</small><input placeholder="Cidade ou aeroporto" value="${esc(leg.originLabel || '')}" autocomplete="off"><input type="hidden" value="${esc(leg.origin || '')}"><div class="airport-suggest" hidden></div></label>
-    <label class="flight-place-field" data-airport-field><small>Para</small><input placeholder="Cidade ou aeroporto" value="${esc(leg.destinationLabel || '')}" autocomplete="off"><input type="hidden" value="${esc(leg.destination || '')}"><div class="airport-suggest" hidden></div></label>
-    <label class="flight-date-field"><small>Data</small><input type="date" value="${esc(leg.departureDate || isoDateOffset(30 + index * 3))}" min="${isoDateOffset(1)}"></label>
+    <label class="flight-place-field" data-airport-field><small>Origem</small><input placeholder="Cidade ou aeroporto" value="${esc(leg.originLabel || '')}" autocomplete="off"><input type="hidden" value="${esc(leg.origin || '')}"><div class="airport-suggest" hidden></div></label>
+    <label class="flight-place-field" data-airport-field><small>Destino</small><input placeholder="Cidade ou aeroporto" value="${esc(leg.destinationLabel || '')}" autocomplete="off"><input type="hidden" value="${esc(leg.destination || '')}"><div class="airport-suggest" hidden></div></label>
+    <div class="flight-date-field multicity-date"><small>Data</small><input type="hidden" data-multicity-date value="${esc(date)}"><button type="button" class="date-display" data-multi-date><strong>${formatHumanDate(date)}</strong><span>▾</span></button></div>
     ${index >= 2 ? '<button type="button" class="remove-leg" aria-label="Remover trajeto">×</button>' : '<span class="remove-leg-placeholder"></span>'}
   </div>`;
 }
@@ -412,7 +448,7 @@ function readMultiCityRows() {
       origin: fields[0]?.querySelector('input[type="hidden"]')?.value || '',
       destinationLabel: fields[1]?.querySelector('input:not([type="hidden"])')?.value || '',
       destination: fields[1]?.querySelector('input[type="hidden"]')?.value || '',
-      departureDate: row.querySelector('input[type="date"]')?.value || ''
+      departureDate: row.querySelector('[data-multicity-date]')?.value || ''
     };
   });
 }
@@ -421,6 +457,7 @@ function renderMultiCityRows(legs) {
   const host = $('#multiCityRows'); if (!host) return;
   host.innerHTML = legs.slice(0,6).map(multiCityRowHtml).join('');
   wireAllAirportFields(host);
+  wireDateButtons(host);
   host.querySelectorAll('.remove-leg').forEach(btn => btn.addEventListener('click', () => {
     const current = readMultiCityRows(); const idx = Number(btn.closest('.multicity-row')?.dataset.legIndex || -1);
     if (idx >= 2) { current.splice(idx,1); renderMultiCityRows(current); }
@@ -497,8 +534,10 @@ wireAllAirportFields();
 setFlightTripType('ROUND_TRIP');
 
 const today = isoDateOffset(1);
-if ($('#flightDepartureDate')) { $('#flightDepartureDate').min=today; if(!$('#flightDepartureDate').value) $('#flightDepartureDate').value=isoDateOffset(30); }
-if ($('#flightReturnDate')) { $('#flightReturnDate').min=today; if(!$('#flightReturnDate').value) $('#flightReturnDate').value=isoDateOffset(37); }
+if ($('#flightDepartureDate') && !$('#flightDepartureDate').value) $('#flightDepartureDate').value=isoDateOffset(30);
+if ($('#flightReturnDate') && !$('#flightReturnDate').value) $('#flightReturnDate').value=isoDateOffset(37);
+wireDateButtons();
+document.querySelectorAll('[data-date-target]').forEach(button=>{ const input=document.getElementById(button.dataset.dateTarget); const strong=button.querySelector('strong'); if(input&&strong) strong.textContent=formatHumanDate(input.value); });
 const checkin = $('#checkinInput'); const checkout = $('#checkoutInput');
 if (checkin) { checkin.min = today; if (!checkin.value) checkin.value = isoDateOffset(30); }
 if (checkout) { checkout.min = checkin?.value || today; if (!checkout.value) checkout.value = isoDateOffset(37); }

@@ -512,7 +512,7 @@ module.exports = function registerPublicRoutes(router, ctx) {
       })) : [];
       if (slices.length < 2) return json(res, 400, { ok: false, error: 'Adicione pelo menos dois trajetos para uma viagem multi-cidade.' });
       const key = JSON.stringify({ slices, adults, children, infants, childAges, infantAges, cabinClass: raw.cabinClass || 'economy' });
-      result = await cachedProviderCall('duffel-multicity', key, 60 * 1000, () => duffel.searchFlightsMulti({ slices, adults, children, infants, childAges, infantAges, cabinClass: raw.cabinClass || 'economy', limit: 12 }));
+      result = await cachedProviderCall('duffel-multicity', key, 60 * 1000, () => duffel.searchFlightsMulti({ slices, adults, children, infants, childAges, infantAges, cabinClass: raw.cabinClass || 'economy', limit: 40 }));
       displayDestination = slices.map(x => `${x.origin}–${x.destination}`).join(' · ');
       parsed = { searchType: 'FLIGHT', tripType, slices, destination: displayDestination, origin: slices[0]?.origin || '', checkin: slices[0]?.departureDate || '', checkout: slices[slices.length-1]?.departureDate || '', adults, children, infants, childAges, infantAges };
     } else {
@@ -524,7 +524,7 @@ module.exports = function registerPublicRoutes(router, ctx) {
       const returnDate = tripType === 'ONE_WAY' ? '' : baseParsed.checkout;
       const key = JSON.stringify({ originCode, destinationCode, departureDate: baseParsed.checkin, returnDate, adults, children, infants, childAges, infantAges, cabinClass: raw.cabinClass || 'economy' });
       result = await cachedProviderCall('duffel-standalone', key, 60 * 1000, () => duffel.searchFlights({
-        origin: originCode, destination: destinationCode, departureDate: baseParsed.checkin, returnDate, adults, children, infants, childAges, infantAges, cabinClass: raw.cabinClass || 'economy', limit: 12
+        origin: originCode, destination: destinationCode, departureDate: baseParsed.checkin, returnDate, adults, children, infants, childAges, infantAges, cabinClass: raw.cabinClass || 'economy', limit: 40
       }));
       displayDestination = String(raw.destinationLabel || raw.destination || destinationCode);
       parsed = { ...baseParsed, searchType: 'FLIGHT', tripType, checkout: tripType === 'ONE_WAY' ? '' : baseParsed.checkout, destination: displayDestination, destinationIata: destinationCode, origin: String(raw.originLabel || raw.origin || originCode), originIata: originCode, adults, children, infants, childAges, infantAges };

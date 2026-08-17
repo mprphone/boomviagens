@@ -124,7 +124,7 @@ class DuffelClient {
       return !Number.isFinite(expiresMs) || expiresMs > nowMs;
     })
       .sort((a, b) => a.totalAmount - b.totalAmount)
-      .slice(0, Math.max(1, Math.min(10, Number(input.limit || 6))));
+      .slice(0, Math.max(1, Math.min(50, Number(input.limit || 30))));
     const result = { requestId: request.id || null, offers, mode: this.mode(), searchedAt: new Date().toISOString(), cached: false };
     // Ofertas Duffel são temporárias. Cache curto para não refazer a mesma
     // pesquisa a cada re-render, mas nunca por tempo suficiente para tratar
@@ -223,7 +223,7 @@ class DuffelClient {
       if (!o.expiresAt) return true;
       const expiresMs = new Date(o.expiresAt).getTime();
       return !Number.isFinite(expiresMs) || expiresMs > nowMs;
-    }).sort((a,b) => a.totalAmount - b.totalAmount).slice(0, Math.max(1, Math.min(15, Number(input.limit || 10))));
+    }).sort((a,b) => a.totalAmount - b.totalAmount).slice(0, Math.max(1, Math.min(50, Number(input.limit || 30))));
     const result = { requestId: request.id || null, offers, mode: this.mode(), searchedAt: new Date().toISOString(), cached: false };
     this.cache.set(cacheKey, result, 3 * 60 * 1000);
     return result;

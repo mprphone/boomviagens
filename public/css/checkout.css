@@ -418,3 +418,5 @@ input.is-valid { border-color: #4fae7d; }
   #checkoutModal .checkout-summary { position:static; order:-1; }
   .payment-methods-large, .prepayment-checks { grid-template-columns:1fr; }
 }
+
+.checkout-panel{max-width:1120px!important;border-radius:18px!important}.checkout-form{animation:checkoutIn .18s ease}.checkout-form h3{font-family:Manrope,Inter,sans-serif}.checkout-form input,.checkout-form select{min-height:43px}.checkout-form .btn.wide{min-height:48px;font-size:14px}.checkout-summary{position:sticky;top:20px}.stepper-step.is-done .stepper-dot{background:#13a268;color:#fff}.stepper-step.is-active .stepper-dot{box-shadow:0 0 0 4px rgba(0,133,185,.12)}@keyframes checkoutIn{from{opacity:.5;transform:translateY(5px)}to{opacity:1;transform:none}}

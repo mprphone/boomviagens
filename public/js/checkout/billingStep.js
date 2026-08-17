@@ -98,11 +98,11 @@ function wireStep1Form() {
   $('#verifyEmailBtn').onclick = () => requestEmailCode(emailInput.value.trim());
   $('#setPasswordBtn')?.addEventListener('click', setPassword);
 
-  form.addEventListener('submit', e => {
+  form.addEventListener('submit', async e => {
     e.preventDefault();
     const f = formToJson(form);
     $('#checkoutFormError').innerHTML = '';
-    if (!isEmailVerified() || f.email !== getBilling().email) {
+    if (!isEmailVerified() || String(f.email||'').trim().toLowerCase() !== String(getBilling().email||'').trim().toLowerCase()) {
       $('#checkoutFormError').innerHTML = '<p class="error">Confirme o código enviado para o seu email antes de continuar.</p>';
       return;
     }
@@ -113,9 +113,20 @@ function wireStep1Form() {
     setBilling({ name: f.name, email: f.email, phone: f.phone, nif: f.nif || '', address: f.address || '' });
     setBookerTravels(Boolean(form.elements.bookerTravels?.checked));
     if (form.elements.saveProfile?.checked) syncProfileFields(f);
-    setCheckoutStep(2);
-    setPassengerIndex(0);
-    renderPassengerStep();
+    const btn = $('#step1Continue');
+    const oldText = btn?.textContent || 'Continuar para passageiros';
+    if (btn) { btn.disabled = true; btn.textContent = 'A preparar passageiros…'; }
+    try {
+      setCheckoutStep(2);
+      setPassengerIndex(0);
+      await renderPassengerStep();
+      document.querySelector('#checkoutMain')?.scrollIntoView({ behavior:'smooth', block:'start' });
+    } catch (err) {
+      setCheckoutStep(1);
+      if (btn) { btn.disabled = false; btn.textContent = oldText; }
+      $('#checkoutFormError').innerHTML = `<p class="error">Não foi possível abrir os passageiros: ${esc(err.message || 'erro inesperado')}. Tente novamente.</p>`;
+      console.error('checkout passenger transition failed', err);
+    }
   });
 }
 

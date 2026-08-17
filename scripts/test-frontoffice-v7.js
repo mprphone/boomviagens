@@ -1,0 +1,13 @@
+const fs=require('fs'); const assert=require('assert');
+const html=fs.readFileSync('public/index.html','utf8');
+const hero=fs.readFileSync('public/js/heroSearch.js','utf8');
+const bill=fs.readFileSync('public/js/checkout/billingStep.js','utf8');
+const duffel=fs.readFileSync('src/integrations/duffelClient.js','utf8');
+assert(html.includes('data-trip-type="MULTI_CITY"'));
+assert(html.includes('data-date-target="flightDepartureDate"'));
+assert(!/id="flightDepartureDate"[^>]*type="date"/.test(html));
+assert(hero.includes('Todos os aeroportos'));
+assert(hero.includes('wireDateButtons'));
+assert(bill.includes('await renderPassengerStep()'));
+assert(duffel.includes('Math.min(50'));
+console.log('OK - V7 frontoffice: pesquisa global, multi-cidade, datepicker, airport groups e checkout 1->2');
