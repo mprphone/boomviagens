@@ -17,6 +17,7 @@ const STATUSES = Object.entries(STATUS_META).map(([value, meta]) => ({ value, la
 
 export function renderPropostasTab(panel, data, opportunityId, reload) {
   const proposals = data.proposals || [];
+  const canSeeFinance = Boolean(data.permissions?.canSeeFinance);
 
   panel.innerHTML = `
     <div class="tab-toolbar">
@@ -34,9 +35,9 @@ export function renderPropostasTab(panel, data, opportunityId, reload) {
           </div>
           ${p.services ? `<p>${esc(p.services)}</p>` : ''}
           <div class="summary-financial-grid complaint-amounts">
-            <div class="summary-financial-block"><span class="muted small">Custo</span><strong>${money(p.costValue)}</strong></div>
+            ${canSeeFinance ? `<div class="summary-financial-block"><span class="muted small">Custo</span><strong>${money(p.costValue)}</strong></div>` : ''}
             <div class="summary-financial-block"><span class="muted small">Venda</span><strong>${money(p.saleValue)}</strong></div>
-            <div class="summary-financial-block"><span class="muted small">Margem</span><strong>${money(margin)}</strong></div>
+            ${canSeeFinance ? `<div class="summary-financial-block"><span class="muted small">Margem</span><strong>${money(margin)}</strong></div>` : ''}
           </div>
         </div>`;
       }).join('') || '<p class="empty-note">Ainda sem propostas.</p>'}
@@ -53,7 +54,7 @@ export function renderPropostasTab(panel, data, opportunityId, reload) {
       <form class="proposal-form">
         <label class="service-line-notes">Serviços incluídos <textarea name="services" rows="3">${esc(proposal?.services || '')}</textarea></label>
         <div class="drawer-form-fields">
-          <label>Custo (€) <input type="number" name="costValue" min="0" step="0.01" value="${proposal?.costValue ?? ''}" /></label>
+          ${canSeeFinance ? `<label>Custo (€) <input type="number" name="costValue" min="0" step="0.01" value="${proposal?.costValue ?? ''}" /></label>` : ''}
           <label>Venda (€) <input type="number" name="saleValue" min="0" step="0.01" value="${proposal?.saleValue ?? ''}" /></label>
           <label>Estado <select name="status">${STATUSES.map(s => `<option value="${s.value}" ${(proposal?.status || 'RASCUNHO') === s.value ? 'selected' : ''}>${s.label}</option>`).join('')}</select></label>
         </div>
@@ -75,7 +76,7 @@ export function renderPropostasTab(panel, data, opportunityId, reload) {
           method: 'POST',
           body: JSON.stringify({
             id: proposal?.id, opportunityId, services: f.services.value,
-            costValue: f.costValue.value || undefined, saleValue: f.saleValue.value || undefined,
+            costValue: f.querySelector('[name=costValue]')?.value || undefined, saleValue: f.saleValue.value || undefined,
             status: f.status.value, notes: f.notes.value
           })
         });

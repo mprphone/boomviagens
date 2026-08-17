@@ -8,11 +8,11 @@ import { goHome } from '../router.js';
 import { setCheckoutStep, closeCheckoutModal } from './checkoutShell.js';
 
 let checkoutData = null;
-let paymentsMode = 'mock';
+let paymentsMode = 'disabled';
 
 export async function renderCheckoutStep3(data) {
   checkoutData = data;
-  try { paymentsMode = (await api('/api/config')).paymentsMode || 'mock'; } catch { paymentsMode = 'mock'; }
+  try { paymentsMode = (await api('/api/config')).paymentsMode || 'disabled'; } catch { paymentsMode = 'disabled'; }
   renderPaymentChoice(data);
 }
 
@@ -68,9 +68,13 @@ async function selectMethodAndContinue() {
 }
 
 function paymentInstructions(method, payment) {
-  if (method.includes('MB WAY')) return `<div class="payment-method-box"><div class="payment-method-icon">📱</div><div><b>MB WAY</b><p class="muted">${paymentsMode === 'mock' ? 'No ambiente de testes simulamos a confirmação.' : `Vai receber um pedido de ${money(payment.amount)} na app MB WAY.`}</p></div></div>`;
-  if (method.includes('Multibanco')) return `<div class="mb-slip"><div class="mb-slip-row"><span>Entidade</span><strong>12345</strong></div><div class="mb-slip-row"><span>Referência</span><strong>${payment.reference}</strong></div><div class="mb-slip-row"><span>Valor</span><strong>${money(payment.amount)}</strong></div></div>`;
-  return `<div class="payment-method-box"><div class="payment-method-icon">💳</div><div><b>Cartão</b><p class="muted">${paymentsMode === 'mock' ? 'No ambiente de testes a cobrança é simulada.' : 'Os dados do cartão são tratados pelo gateway e nunca pela Boomviagens.'}</p></div></div>`;
+  const mock = paymentsMode === 'mock';
+  if (method.includes('MB WAY')) return `<div class="payment-method-box"><div class="payment-method-icon">📱</div><div><b>MB WAY</b><p class="muted">${mock ? 'No ambiente de testes simulamos a confirmação.' : 'A referência/pedido real só será criado quando a sessão do gateway estiver ligada.'}</p></div></div>`;
+  if (method.includes('Multibanco')) {
+    if (!mock) return '<div class="payment-method-box"><div class="payment-method-icon">🏧</div><div><b>Multibanco</b><p class="muted">A entidade e referência reais serão mostradas apenas depois de serem criadas pelo gateway.</p></div></div>';
+    return `<div class="mb-slip"><div class="mb-slip-row"><span>Entidade de teste</span><strong>12345</strong></div><div class="mb-slip-row"><span>Referência de teste</span><strong>${esc(payment.reference)}</strong></div><div class="mb-slip-row"><span>Valor</span><strong>${money(payment.amount)}</strong></div></div>`;
+  }
+  return `<div class="payment-method-box"><div class="payment-method-icon">💳</div><div><b>Cartão</b><p class="muted">${mock ? 'No ambiente de testes a cobrança é simulada.' : 'A sessão de cartão será apresentada pelo gateway; a Boomviagens não deve receber os dados brutos do cartão.'}</p></div></div>`;
 }
 
 function renderPaymentGateway(data) {

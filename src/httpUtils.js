@@ -1,8 +1,20 @@
 // Utilitarios genericos de HTTP, sem nada especifico de nenhuma rota.
 
+function securityHeaders() {
+  const headers = {
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'SAMEORIGIN',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=(self)'
+  };
+  const live = String(process.env.VERCEL_ENV || '').toLowerCase() === 'production' || (!process.env.VERCEL && String(process.env.NODE_ENV || '').toLowerCase() === 'production');
+  if (live) headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains';
+  return headers;
+}
+
 function json(res, status, data) {
   const body = JSON.stringify(data, null, 2);
-  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+  res.writeHead(status, { ...securityHeaders(), 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
   res.end(body);
   // Sem isto, json(...) devolve undefined (falsy) mesmo depois de ja ter
   // enviado a resposta - qualquer chamador que faca `if (json(...))
@@ -64,4 +76,4 @@ function readRawBody(req) {
   });
 }
 
-module.exports = { json, unauthorized, parseCookies, parseBody, readRawBody, clientIp };
+module.exports = { json, unauthorized, parseCookies, parseBody, readRawBody, clientIp, securityHeaders };

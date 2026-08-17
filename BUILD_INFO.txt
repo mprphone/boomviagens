@@ -1,31 +1,19 @@
-Boomviagens — Travel Intelligence / Pricing V2 — 17/08/2026
+Boomviagens — Federated Search / Travel Builder — Auditoria V3
+Data: 2026-08-17
 
-Base recebida: 1708.zip
+Base: Boomviagens_1708_Federated_Search_Builder_v2.zip
 
-Implementado nesta entrega:
-- Duffel (voos, uso lazy no detalhe da viagem)
-- HBX Hotels / Activities / Transfers (clientes + API Lab; Hotels público aguarda Content sync)
-- OpenWeather (condições atuais)
-- Ticketmaster Discovery (eventos durante a viagem)
-- Google Places preparado mas OFF por omissão e só on-demand
-- sugestões de destino + passageiros ADT/CHD/INF com idades
-- resultados com filtros, comparar, guardar e partilhar
-- revisão de viagem com enriquecimento lazy
-- APIs públicas sem NET/margens/topologia de fornecedores
-- offerToken assina também dados da viagem para proteger quotas externas
-- Pricing V2 por destino/operador/canal/produto
-- margem alvo + mínima + cedência + rappel estimado informativo
-- API Lab com testes manuais e permissões
-- migration Supabase Pricing V2
-- upgrade automático de schema SQLite antigo
+Principais reforços V3:
+- pesquisa por destino estrita; sem fallback cruzado;
+- tokens cifrados e identidade/preço selados;
+- component binding entre voo/transfer/atividade e viagem;
+- HBX mapping/infants/CheckRate e Duffel revalidation;
+- Stripe delayed payments corrigidos;
+- pesquisa federada com cache curta/deduplicação;
+- ranking por preço + qualidade + flexibilidade;
+- zero preços demo na homepage/calendário quando demo está desligado;
+- permissões financeiras API-side (reservas, serviços, propostas, fornecedores, documentos);
+- proteção PII e login demo em produção;
+- static/URL hardening e testes expandidos.
 
-Validação nesta entrega:
-- npm test: PASS (sintaxe + integrações/pricing/passageiros)
-- leitura/migração SQLite local: PASS
-- não foram consumidas quotas reais das APIs externas durante a validação
-- smoke test HTTP completo não foi repetido neste ambiente porque as dependências npm não ficaram disponíveis no container; executar `npm install` + servidor + `npm run test:api` localmente.
-
-IMPORTANTE:
-- .env NÃO deve entrar no ZIP/Git.
-- executar docs/migrations/2026-08-17-pricing-v2.sql em Supabase existente.
-- ler docs/TRAVEL_INTELLIGENCE_2026-08-17.md e MELHORIAS_2026-08-17.md antes de produção.
+Ler: docs/AUDITORIA_V3_2026-08-17.md

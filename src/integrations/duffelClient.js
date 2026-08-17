@@ -116,7 +116,13 @@ class DuffelClient {
       json: payload
     });
     const request = data?.data || {};
-    const offers = (request.offers || []).map(normalizeOffer).filter(o => o.id && o.totalAmount > 0)
+    const nowMs = Date.now();
+    const offers = (request.offers || []).map(normalizeOffer).filter(o => {
+      if (!o.id || !(o.totalAmount > 0)) return false;
+      if (!o.expiresAt) return true;
+      const expiresMs = new Date(o.expiresAt).getTime();
+      return !Number.isFinite(expiresMs) || expiresMs > nowMs;
+    })
       .sort((a, b) => a.totalAmount - b.totalAmount)
       .slice(0, Math.max(1, Math.min(10, Number(input.limit || 6))));
     const result = { requestId: request.id || null, offers, mode: this.mode(), searchedAt: new Date().toISOString(), cached: false };
@@ -125,6 +131,34 @@ class DuffelClient {
     // uma cotação antiga como preço confirmado.
     this.cache.set(cacheKey, result, 5 * 60 * 1000);
     return result;
+  }
+
+  async getOffer(offerId, { returnAvailableServices = false } = {}) {
+    if (!this.isConfigured()) throw new Error('Duffel não configurada.');
+    const id = String(offerId || '').trim();
+    if (!/^off_[A-Za-z0-9_-]+$/.test(id)) throw new Error('Identificador de oferta Duffel inválido.');
+    const query = returnAvailableServices ? '?return_available_services=true' : '';
+    const { data } = await fetchJson(`${this.baseUrl}/air/offers/${encodeURIComponent(id)}${query}`, {
+      method: 'GET',
+      timeoutMs: 12000,
+      headers: {
+        Accept: 'application/json',
+        'Accept-Encoding': 'gzip',
+        'Duffel-Version': 'v2',
+        Authorization: `Bearer ${this.token}`
+      }
+    });
+    const offer = normalizeOffer(data?.data || {});
+    if (!offer.id || !(offer.totalAmount > 0)) throw new Error('A Duffel não devolveu uma oferta válida.');
+    if (offer.expiresAt) {
+      const expiresMs = new Date(offer.expiresAt).getTime();
+      if (Number.isFinite(expiresMs) && expiresMs <= Date.now()) {
+        const err = new Error('A oferta de voo expirou. Faça uma nova pesquisa.');
+        err.code = 'DUFFEL_OFFER_EXPIRED';
+        throw err;
+      }
+    }
+    return offer;
   }
 
   async testConnection() {

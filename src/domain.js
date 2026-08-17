@@ -482,7 +482,6 @@ function publicDeals(db, baseOffers, getOfferById) {
       nights: offer.nights,
       origin: index % 2 ? 'Porto' : 'Lisboa',
       price: priced.finalPrice || offer.base,
-      operator: offer.operator,
       image: offerImages[offer.id],
       tag: index < 3 ? 'Últimos lugares' : 'Novidade',
       rating: offer.rating,

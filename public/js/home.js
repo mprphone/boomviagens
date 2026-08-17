@@ -5,7 +5,7 @@
 // tipo de viagem" chamam data-destino/data-prompt (ver nav.js), nao
 // precisam de JS proprio.
 
-import { $, api, money } from './utils.js';
+import { $, api, money, esc, safeImageUrl, cssImageUrl } from './utils.js';
 import { computeHighlights } from './offers.js';
 
 let heroDeals = [];
@@ -18,7 +18,8 @@ let heroTimer = null;
 function renderHeroBackground(i) {
   const deal = heroDeals[i];
   if (!deal) return;
-  document.querySelector('.hero').style.setProperty('--hero-bg', `url("${deal.image}")`);
+  const image = cssImageUrl(deal.image);
+  if (image) document.querySelector('.hero').style.setProperty('--hero-bg', `url('${image}')`);
 }
 
 function restartHeroTimer() {
@@ -48,26 +49,27 @@ function stars(rating) {
   return '★'.repeat(Math.max(1, Math.min(5, Math.round(rating || 4))));
 }
 
-function dealCard(deal) {
+function dealCard(deal, index) {
+  const image = safeImageUrl(deal.image);
   return `
     <article class="deal-card">
       <div class="deal-card-media">
-        <img src="${deal.image}" alt="${deal.title}" loading="lazy" />
-        <span class="deal-tag">${deal.tag}</span>
+        ${image ? `<img src="${esc(image)}" alt="${esc(deal.title)}" loading="lazy" />` : '<div class="deal-image-placeholder" aria-hidden="true">✈️</div>'}
+        <span class="deal-tag">${esc(deal.tag || '')}</span>
         <button type="button" class="deal-favorite" aria-label="Guardar">♡</button>
       </div>
       <div class="deal-body">
-        <p class="deal-dest">${deal.title}</p>
-        <h3>${deal.hotel}</h3>
+        <p class="deal-dest">${esc(deal.title)}</p>
+        <h3>${esc(deal.hotel)}</h3>
         <div class="hotel-row-stars">${stars(deal.rating)}</div>
         <div class="deal-meta">
-          <span>✈ ${deal.origin}</span>
-          <span>${deal.nights} noites</span>
-          <span>${deal.board}</span>
+          <span>✈ ${esc(deal.origin)}</span>
+          <span>${Number(deal.nights || 0)} noites</span>
+          <span>${esc(deal.board)}</span>
         </div>
         <div class="deal-bottom">
           <span>desde <strong>${money(deal.price)}</strong><small>/ pessoa</small></span>
-          <button class="btn" onclick='searchDeal(${JSON.stringify(deal).replaceAll("'", "&apos;")})'>Ver oferta</button>
+          <button class="btn" data-home-deal-index="${index}">Ver oferta</button>
         </div>
       </div>
     </article>`;
@@ -80,10 +82,20 @@ export async function loadDeals() {
   try {
     const data = await api('/api/deals');
     initHero(data.deals);
-    target.innerHTML = data.deals.slice(0, 8).map(dealCard).join('');
+    const visibleDeals = data.deals.slice(0, 8);
+    if (!visibleDeals.length) {
+      target.innerHTML = `<div class="home-empty-deals"><b>Preços reais quando pesquisar</b><span>${esc(data.message || 'Escolha destino, datas e passageiros para consultarmos a disponibilidade atual.')}</span></div>`;
+      window.__boomHomeDeals = [];
+      renderRecommended([]);
+      loadAgencies();
+      return;
+    }
+    window.__boomHomeDeals = visibleDeals;
+    target.innerHTML = visibleDeals.map(dealCard).join('');
+    target.querySelectorAll('[data-home-deal-index]').forEach(btn => btn.addEventListener('click', () => searchDeal(visibleDeals[Number(btn.dataset.homeDealIndex)])));
     renderRecommended(data.deals);
   } catch (err) {
-    target.innerHTML = `<p class="error">${err.message}</p>`;
+    target.innerHTML = `<p class="error">${esc(err.message)}</p>`;
   }
   loadAgencies();
 }
@@ -106,22 +118,23 @@ function renderRecommended(deals) {
   const picks = computeHighlights(asResults, TYPICAL_BUDGET);
   if (picks.length < 2) { section.hidden = true; return; }
   section.hidden = false;
-  target.innerHTML = picks.map(p => `
+  target.innerHTML = picks.map((p, index) => `
     <article class="recommended-card">
-      <span class="highlight-ribbon">${RECOMMENDED_RIBBON[p.label] || p.label}</span>
-      <img src="${p.offer.image}" alt="${p.offer.hotel}" loading="lazy" />
+      <span class="highlight-ribbon">${esc(RECOMMENDED_RIBBON[p.label] || p.label)}</span>
+      ${safeImageUrl(p.offer.image) ? `<img src="${esc(safeImageUrl(p.offer.image))}" alt="${esc(p.offer.hotel)}" loading="lazy" />` : '<div class="deal-image-placeholder" aria-hidden="true">✈️</div>'}
       <div class="recommended-body">
-        <p class="deal-dest">${p.offer.title}</p>
-        <h3>${p.offer.hotel}</h3>
+        <p class="deal-dest">${esc(p.offer.title)}</p>
+        <h3>${esc(p.offer.hotel)}</h3>
         <div class="hotel-row-stars">${stars(p.offer.rating)}</div>
         <p class="recommended-why">Porque recomendamos esta viagem</p>
-        <ul class="highlight-reasons">${p.reasons.map(r => `<li>${r}</li>`).join('')}</ul>
+        <ul class="highlight-reasons">${p.reasons.map(r => `<li>${esc(r)}</li>`).join('')}</ul>
         <div class="deal-bottom">
           <span>desde <strong>${money(p.offer.price)}</strong><small>/ pessoa</small></span>
-          <button class="btn" onclick='searchDeal(${JSON.stringify(p.offer).replaceAll("'", "&apos;")})'>Ver oferta</button>
+          <button class="btn" data-recommended-index="${index}">Ver oferta</button>
         </div>
       </div>
     </article>`).join('');
+  target.querySelectorAll('[data-recommended-index]').forEach(btn => btn.addEventListener('click', () => searchDeal(picks[Number(btn.dataset.recommendedIndex)]?.offer)));
 }
 
 // 4 agencias: so aparecem se ja tiverem morada preenchida no backoffice
@@ -139,9 +152,9 @@ async function loadAgencies() {
     target.innerHTML = branches.map(b => `
       <div class="agency-card">
         <div class="agency-card-icon" aria-hidden="true">🏬</div>
-        <b>${b.name}</b>
-        <span class="muted small">${b.address || ''}</span>
-        ${b.phone ? `<a href="tel:${b.phone.replace(/\s+/g, '')}" class="agency-card-phone">📞 ${b.phone}</a>` : ''}
+        <b>${esc(b.name)}</b>
+        <span class="muted small">${esc(b.address || '')}</span>
+        ${b.phone ? `<a href="tel:${esc(String(b.phone).replace(/[^+\d]/g, ''))}" class="agency-card-phone">📞 ${esc(b.phone)}</a>` : ''}
       </div>`).join('');
   } catch {
     section.hidden = true;

@@ -163,3 +163,7 @@ npm run dev
 ```
 
 `npm test` não chama APIs externas. Para testar uma credencial real, usar o botão **Testar ligação** no API Lab do backoffice.
+
+## Auditoria V3
+
+Antes de qualquer deploy real, ler **`docs/AUDITORIA_V3_2026-08-17.md`**. A V3 é adequada a Preview/testes, mas ainda tem bloqueios explícitos para pagamentos e bookings automáticos reais.

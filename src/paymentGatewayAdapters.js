@@ -44,7 +44,7 @@ class PaymentGatewayAdapter {
 
 // Eventos que, uma vez o metadata.paymentId resolvido, valem como "dinheiro
 // recebido" - qualquer outro tipo e reconhecido (200) mas ignorado.
-const STRIPE_PAID_EVENT_TYPES = new Set(['checkout.session.completed', 'payment_intent.succeeded']);
+const STRIPE_PAID_EVENT_TYPES = new Set(['checkout.session.completed', 'checkout.session.async_payment_succeeded', 'payment_intent.succeeded']);
 
 class StripeGatewayAdapter extends PaymentGatewayAdapter {
   constructor(env = process.env) {
@@ -72,6 +72,13 @@ class StripeGatewayAdapter extends PaymentGatewayAdapter {
     }
     if (!STRIPE_PAID_EVENT_TYPES.has(event.type)) return { paymentId: null, eventId: event.id || null };
     const obj = event.data?.object || {};
+    // checkout.session.completed também pode chegar antes de métodos de
+    // pagamento diferidos ficarem efetivamente pagos. Só o tratamos como
+    // dinheiro recebido quando a própria Session diz payment_status=paid;
+    // o sucesso posterior entra por async_payment_succeeded.
+    if (event.type === 'checkout.session.completed' && String(obj.payment_status || '').toLowerCase() !== 'paid') {
+      return { paymentId: null, eventId: event.id || null };
+    }
     const amount = obj.amount_total ?? obj.amount_received ?? obj.amount ?? null;
     const currency = obj.currency || null;
     return { paymentId: obj.metadata?.paymentId || null, eventId: event.id || null, amountMinor: amount != null ? Number(amount) : null, currency: currency ? String(currency).toUpperCase() : null, livemode: Boolean(event.livemode) };

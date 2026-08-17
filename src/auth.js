@@ -82,6 +82,44 @@ function verifyToken(token) {
   }
 }
 
+// Tokens de negocio (ofertas, componentes e viagens partilhadas) podem
+// conter NET, rateKeys e referencias de fornecedor. Um token HMAC apenas
+// impede alteracoes: continua a ser Base64 legivel por qualquer browser.
+// Para estes casos usamos AES-256-GCM, que fornece confidencialidade +
+// autenticidade sem guardar estado no servidor. A chave e derivada do
+// mesmo SESSION_SECRET, mas com contexto proprio para nao reutilizar a
+// chave HMAC diretamente.
+const SEALED_TOKEN_KEY = crypto.createHash('sha256').update(`boomviagens:sealed:v1:${SESSION_SECRET}`).digest();
+
+function sealToken(payload) {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', SEALED_TOKEN_KEY, iv);
+  const plaintext = Buffer.from(JSON.stringify(payload), 'utf8');
+  const encrypted = Buffer.concat([cipher.update(plaintext), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return `v1.${iv.toString('base64url')}.${encrypted.toString('base64url')}.${tag.toString('base64url')}`;
+}
+
+function openToken(token) {
+  if (!token || typeof token !== 'string') return null;
+  const parts = token.split('.');
+  if (parts.length !== 4 || parts[0] !== 'v1') return null;
+  try {
+    const iv = Buffer.from(parts[1], 'base64url');
+    const encrypted = Buffer.from(parts[2], 'base64url');
+    const tag = Buffer.from(parts[3], 'base64url');
+    if (iv.length !== 12 || tag.length !== 16) return null;
+    const decipher = crypto.createDecipheriv('aes-256-gcm', SEALED_TOKEN_KEY, iv);
+    decipher.setAuthTag(tag);
+    const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
+    const payload = JSON.parse(decrypted.toString('utf8'));
+    if (!payload.exp || payload.exp < Date.now()) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
 function sessionUser(req) {
   const payload = verifyToken(parseCookies(req)[SESSION_COOKIE]);
   return payload && payload.scope === 'admin' ? payload.user : null;
@@ -159,6 +197,8 @@ module.exports = {
   hashLoginCode,
   signToken,
   verifyToken,
+  sealToken,
+  openToken,
   sessionUser,
   sessionStaff,
   setSessionCookie,

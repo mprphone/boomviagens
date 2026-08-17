@@ -2,7 +2,7 @@
 // interativa. A pesquisa base continua barata: APIs de enriquecimento como
 // Duffel/Weather/Ticketmaster só entram quando o cliente abre uma viagem.
 
-import { $, esc, money, dateRange, api, formToJson } from './utils.js';
+import { $, esc, money, dateRange, api, formToJson, safeImageUrl, cssImageUrl } from './utils.js';
 import { goHome, goToResults } from './router.js';
 import { applyRoomOption, computeHighlights } from './offers.js';
 import { showReview } from './review.js';
@@ -15,7 +15,10 @@ const RESULT_IMAGES = {
   'Disneyland Paris': 'https://images.unsplash.com/photo-1499856871958-5b9627545d1a?auto=format&fit=crop&w=900&q=80',
   'Madeira': 'https://images.unsplash.com/photo-1526392060635-9d6019884377?auto=format&fit=crop&w=900&q=80',
   'Gran Canaria': 'https://images.unsplash.com/photo-1500375592092-40eb2168fd21?auto=format&fit=crop&w=900&q=80',
-  'Tenerife': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=900&q=80'
+  'Tenerife': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=900&q=80',
+  'Atenas': 'https://images.unsplash.com/photo-1555993539-1732b0258235?auto=format&fit=crop&w=900&q=80',
+  'Paris': 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?auto=format&fit=crop&w=900&q=80',
+  'Roma': 'https://images.unsplash.com/photo-1552832230-c0197dd311b5?auto=format&fit=crop&w=900&q=80'
 };
 
 const KNOWN_ROOM_NAMES = {
@@ -24,7 +27,7 @@ const KNOWN_ROOM_NAMES = {
   'DOBLE STANDARD': 'Quarto duplo standard'
 };
 
-function resultImage(offer) { return RESULT_IMAGES[offer.destination] || RESULT_IMAGES['Punta Cana']; }
+function resultImage(offer) { const fallback = RESULT_IMAGES[offer?.destination] || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=900&q=80'; return safeImageUrl(offer?.image, fallback) || fallback; }
 function humanizeRoomName(raw) {
   const key = String(raw || '').trim().toUpperCase();
   if (!key) return '';
@@ -34,6 +37,9 @@ function humanizeRoomName(raw) {
 
 let currentSearchResults = [];
 let currentParsed = {};
+let currentSearchMessage = '';
+let currentProductFilter = 'ALL';
+let currentProductCounts = { dynamic: 0, packages: 0, hotels: 0 };
 let activeFilters = { stars: new Set(), boards: new Set(), freeCancellation: false, maxPrice: null, sort: 'recommended' };
 const compared = new Set();
 
@@ -70,13 +76,29 @@ window.shareResultTrip = async function(hotelIndex, button) {
 };
 
 function offerRateOptions(offer) {
-  return offer.roomOptions?.length ? offer.roomOptions : [{ idDistributions: null, roomName: '', mealPlanLabel: offer.board, freeCancellation: offer.freeCancellation, finalPrice: offer.finalPrice }];
+  return offer.roomOptions?.length ? offer.roomOptions : [{ idDistributions: null, roomName: '', mealPlanLabel: offer.board, freeCancellation: offer.freeCancellation, nonRefundable: offer.nonRefundable, freeCancellationUntil: offer.freeCancellationUntil, finalPrice: offer.finalPrice }];
 }
 
 function optionsWithIndex(offer) {
   return offerRateOptions(offer).map((o, i) => ({ ...o, __rateIndex: offer.roomOptions?.length ? i : null }));
 }
 function cheapestOption(offer) { return [...optionsWithIndex(offer)].sort((a, b) => a.finalPrice - b.finalPrice)[0]; }
+
+function productGroup(offer) {
+  if (offer.productType === 'DYNAMIC_PACKAGE') return 'DYNAMIC_PACKAGE';
+  if (offer.productType === 'PACKAGE' || offer.productType === 'PACOTE') return 'PACKAGE';
+  if (offer.productType === 'HOTEL') return 'HOTEL';
+  return 'OTHER';
+}
+function productResults() {
+  return currentProductFilter === 'ALL' ? currentSearchResults : currentSearchResults.filter(o => productGroup(o) === currentProductFilter);
+}
+function productTabLabel(type) {
+  if (type === 'DYNAMIC_PACKAGE') return '✈ Voo + hotel';
+  if (type === 'PACKAGE') return '🧳 Pacotes';
+  if (type === 'HOTEL') return '🏨 Só hotel';
+  return 'Todas';
+}
 
 function computeFilterOptions(results) {
   const stars = new Set(); const boards = new Set();
@@ -143,16 +165,20 @@ function rateLine(hotelIndex, rateIndex, option) {
   const name = [humanizeRoomName(option.roomName), option.mealPlanLabel].filter(Boolean).join(' · ');
   return `<div class="rate-line">
     <span class="rate-line-name">${esc(name || 'Tarifa disponível')}</span>
-    <span class="rate-line-tag ${option.freeCancellation ? 'is-flexible' : ''}">${option.freeCancellation ? '✓ Flexível' : 'Não reembolsável'}</span>
+    <span class="rate-line-tag ${option.freeCancellation ? 'is-flexible' : ''}">${option.freeCancellation ? '✓ Cancelamento flexível' : option.nonRefundable ? 'Não reembolsável' : 'Com condições de cancelamento'}</span>
     <span class="rate-line-price">${money(option.finalPrice)}</span>
     <button type="button" class="btn mini-action" onclick="reserveRate(${hotelIndex}, ${rateIndex})">Escolher</button>
   </div>`;
 }
 
 function sourceLabel(offer) {
+  if (offer.productType === 'DYNAMIC_PACKAGE') return 'Voo + hotel';
+  if (offer.productType === 'PACKAGE' || offer.productType === 'PACOTE') return 'Pacote';
+  if (offer.productType === 'HOTEL') return 'Só hotel';
   if (offer.live) return 'Preço atualizado';
-  return 'Preço estimado';
+  return 'Proposta';
 }
+
 
 function renderHotelRow(offer, hotelIndex) {
   const options = optionsWithIndex(offer);
@@ -164,7 +190,7 @@ function renderHotelRow(offer, hotelIndex) {
   const isCompared = compared.has(hotelIndex);
   const reasons = [offer.freeCancellation ? 'Cancelamento flexível' : null, /tudo inclu/i.test(offer.board || '') ? 'Tudo incluído' : null, Number(offer.rating || 0) >= 4.5 ? 'Excelente classificação' : null].filter(Boolean);
   return `<article class="hotel-row" data-index="${hotelIndex}">
-    <div class="hotel-row-media" style="background-image:url('${resultImage(offer)}')">
+    <div class="hotel-row-media" style="background-image:url('${cssImageUrl(resultImage(offer))}')">
       <button type="button" class="result-save" onclick="saveResultTrip(${hotelIndex}, this)" aria-label="Guardar viagem">♡ Guardar</button>
       <span class="result-source">${sourceLabel(offer)}</span>
     </div>
@@ -189,16 +215,31 @@ function renderHotelRow(offer, hotelIndex) {
 function renderToolbar(filteredCount) {
   const existing = document.getElementById('resultsToolbar');
   if (!existing) return;
-  existing.innerHTML = `<div><b>${filteredCount}</b> opções encontradas</div><label>Ordenar por <select id="resultsSort"><option value="recommended">Recomendadas</option><option value="price">Preço mais baixo</option><option value="rating">Melhor classificação</option><option value="flexible">Mais flexíveis</option></select></label>`;
+  const tabs = [
+    ['DYNAMIC_PACKAGE', currentProductCounts.dynamic || 0],
+    ['PACKAGE', currentProductCounts.packages || 0],
+    ['HOTEL', currentProductCounts.hotels || 0]
+  ].filter(([, count]) => count > 0);
+  const totalFamilies = tabs.length;
+  existing.innerHTML = `<div class="product-tabs-wrap"><div class="product-tabs">${totalFamilies > 1 ? `<button type="button" data-product="ALL" class="${currentProductFilter==='ALL'?'is-active':''}">Todas <span>${currentSearchResults.length}</span></button>` : ''}${tabs.map(([type,count])=>`<button type="button" data-product="${type}" class="${currentProductFilter===type?'is-active':''}">${productTabLabel(type)} <span>${count}</span></button>`).join('')}</div><small><b>${filteredCount}</b> opções nesta vista</small></div><label>Ordenar por <select id="resultsSort"><option value="recommended">Recomendadas</option><option value="price">Preço mais baixo</option><option value="rating">Melhor classificação</option><option value="flexible">Mais flexíveis</option></select></label>`;
+  existing.querySelectorAll('[data-product]').forEach(btn => btn.onclick = () => {
+    currentProductFilter = btn.dataset.product;
+    activeFilters = { stars: new Set(), boards: new Set(), freeCancellation: false, maxPrice: null, sort: activeFilters.sort };
+    const base = productResults();
+    if (base.length) renderFilters(base); else $('#resultsFilters').hidden = true;
+    renderResultsList();
+  });
   $('#resultsSort').value = activeFilters.sort;
   $('#resultsSort').onchange = e => { activeFilters.sort = e.target.value; renderResultsList(); };
 }
 
 function renderResultsList() {
-  const filtered = sortResults(currentSearchResults.filter(passesFilters));
-  $('#resultCount').textContent = filtered.length === currentSearchResults.length ? `${filtered.length} opções` : `${filtered.length} de ${currentSearchResults.length} opções`;
+  const base = productResults();
+  const filtered = sortResults(base.filter(passesFilters));
+  $('#resultCount').textContent = currentProductFilter === 'ALL' ? `${filtered.length} opções` : `${filtered.length} ${productTabLabel(currentProductFilter).replace(/^[^ ]+ /,'').toLowerCase()}`;
   renderToolbar(filtered.length);
-  $('#results').innerHTML = filtered.length ? filtered.map(r => renderHotelRow(r, currentSearchResults.indexOf(r))).join('') : '<div class="empty-search"><b>Não encontrámos opções com estes filtros.</b><span>Experimente aumentar o preço máximo ou remover um filtro.</span></div>';
+  renderHighlights(base, currentParsed.budget);
+  $('#results').innerHTML = filtered.length ? filtered.map(r => renderHotelRow(r, currentSearchResults.indexOf(r))).join('') : `<div class="empty-search"><b>${base.length ? 'Não encontrámos opções com estes filtros.' : 'Não encontrámos disponibilidade nesta categoria.'}</b><span>${esc(currentSearchMessage || (base.length ? 'Experimente aumentar o preço máximo ou remover um filtro.' : 'Veja outra categoria, altere as datas ou a origem. O destino pesquisado nunca é substituído por outro.'))}</span></div>`;
 }
 
 $('#results').addEventListener('click', e => {
@@ -213,8 +254,8 @@ $('#results').addEventListener('click', e => {
 function renderHighlights(results, budget) {
   const el = $('#resultsHighlights'); const picks = computeHighlights(results, budget);
   if (picks.length < 2) { el.innerHTML = ''; return; }
-  el.innerHTML = `<div class="highlight-head"><div><p class="eyebrow">Comece por aqui</p><h3>As opções que fazem mais sentido</h3></div><span>Selecionadas com base em preço, hotel e condições</span></div><div class="highlight-grid">${picks.map(p => `
-    <article class="highlight-card"><span class="highlight-ribbon">${p.ribbon} ${esc(p.label)}</span><div class="highlight-media" style="background-image:url('${resultImage(p.offer)}')"></div><h4>${esc(p.offer.hotel)}</h4><div class="hotel-row-stars">${'★'.repeat(Math.max(1, Math.min(5, Math.round(p.offer.rating || 4))))}</div><p class="muted small">${esc(p.offer.destination)}${p.offer.country ? ` · ${esc(p.offer.country)}` : ''}</p><ul class="highlight-reasons">${p.reasons.map(r => `<li>${esc(r)}</li>`).join('')}</ul><div class="highlight-bottom"><div><strong>${money(p.offer.finalPrice)}</strong><span class="highlight-score">Recomendação Boomviagens</span></div><button type="button" class="btn mini-action highlight-goto" data-hotel="${p.hotelIndex}">Ver opção</button></div></article>`).join('')}</div>`;
+  el.innerHTML = `<div class="highlight-head"><div><p class="eyebrow">Comece por aqui</p><h3>As opções que fazem mais sentido</h3></div><span>Selecionadas com base em preço, hotel e condições</span></div><div class="highlight-grid">${picks.map(p => { const globalIndex = currentSearchResults.indexOf(p.offer); return `
+    <article class="highlight-card"><span class="highlight-ribbon">${p.ribbon} ${esc(p.label)}</span><div class="highlight-media" style="background-image:url('${cssImageUrl(resultImage(p.offer))}')"></div><h4>${esc(p.offer.hotel)}</h4><div class="hotel-row-stars">${'★'.repeat(Math.max(1, Math.min(5, Math.round(p.offer.rating || 4))))}</div><p class="muted small">${esc(p.offer.destination)}${p.offer.country ? ` · ${esc(p.offer.country)}` : ''}</p><ul class="highlight-reasons">${p.reasons.map(r => `<li>${esc(r)}</li>`).join('')}</ul><div class="highlight-bottom"><div><strong>${money(p.offer.finalPrice)}</strong><span class="highlight-score">Recomendação Boomviagens</span></div><button type="button" class="btn mini-action highlight-goto" data-hotel="${globalIndex}">Ver opção</button></div></article>`; }).join('')}</div>`;
   el.querySelectorAll('.highlight-goto').forEach(btn => btn.addEventListener('click', () => goToHotelRow(btn.dataset.hotel)));
 }
 
@@ -256,24 +297,25 @@ function openCompareModal() {
   if (items.length < 2) return;
   let modal = document.getElementById('compareModal');
   if (!modal) { modal = document.createElement('div'); modal.id = 'compareModal'; modal.className = 'compare-modal'; document.body.appendChild(modal); }
-  modal.innerHTML = `<div class="compare-dialog"><div class="compare-dialog-head"><div><p class="eyebrow">Comparação lado a lado</p><h2>Qual combina melhor consigo?</h2></div><button type="button" id="closeCompareBtn">×</button></div><div class="compare-grid">${items.map(({ index, offer }) => { const rate = cheapestOption(offer); return `<article><img src="${resultImage(offer)}" alt=""/><h3>${esc(offer.hotel)}</h3><div class="hotel-row-stars">${'★'.repeat(Math.max(1, Math.min(5, Math.round(offer.rating || 4))))}</div><dl><div><dt>Preço</dt><dd>${money(rate?.finalPrice || offer.finalPrice)}</dd></div><div><dt>Regime</dt><dd>${esc(rate?.mealPlanLabel || offer.board)}</dd></div><div><dt>Cancelamento</dt><dd>${rate?.freeCancellation ? 'Flexível' : 'Restrito'}</dd></div><div><dt>Noites</dt><dd>${offer.nights}</dd></div></dl><button type="button" class="btn wide" onclick="reserveRate(${index}, ${rate?.__rateIndex ?? 'null'})">Ver esta viagem</button></article>`; }).join('')}</div></div>`;
+  modal.innerHTML = `<div class="compare-dialog"><div class="compare-dialog-head"><div><p class="eyebrow">Comparação lado a lado</p><h2>Qual combina melhor consigo?</h2></div><button type="button" id="closeCompareBtn">×</button></div><div class="compare-grid">${items.map(({ index, offer }) => { const rate = cheapestOption(offer); return `<article><img src="${esc(resultImage(offer))}" alt=""/><h3>${esc(offer.hotel)}</h3><div class="hotel-row-stars">${'★'.repeat(Math.max(1, Math.min(5, Math.round(offer.rating || 4))))}</div><dl><div><dt>Preço</dt><dd>${money(rate?.finalPrice || offer.finalPrice)}</dd></div><div><dt>Regime</dt><dd>${esc(rate?.mealPlanLabel || offer.board)}</dd></div><div><dt>Cancelamento</dt><dd>${rate?.freeCancellation ? 'Flexível' : 'Restrito'}</dd></div><div><dt>Noites</dt><dd>${offer.nights}</dd></div></dl><button type="button" class="btn wide" onclick="reserveRate(${index}, ${rate?.__rateIndex ?? 'null'})">Ver esta viagem</button></article>`; }).join('')}</div></div>`;
   modal.classList.add('is-open'); $('#closeCompareBtn').onclick = () => modal.classList.remove('is-open'); modal.onclick = e => { if (e.target === modal) modal.classList.remove('is-open'); };
 }
 
 function customerStatusText(status) {
-  if (status.source === 'verified') return 'Preço e disponibilidade atualizados para esta pesquisa.';
+  if (status.source === 'verified' || status.source === 'verified_or_live') return 'Consultámos os fornecedores disponíveis para este destino e organizámos as soluções por tipo de viagem.';
   if (status.source === 'requires_validation') return 'Algumas opções serão novamente validadas antes do pagamento.';
   return 'Compare, guarde e reveja as condições antes de reservar.';
 }
 
 function renderResultsPage(data) {
-  currentSearchResults = data.results; currentParsed = data.parsed; compared.clear(); renderCompareBar();
+  currentSearchResults = data.results; currentParsed = data.parsed; currentSearchMessage = data.message || ''; currentProductCounts = data.productCounts || { dynamic: 0, packages: 0, hotels: 0 }; compared.clear(); renderCompareBar();
+  currentProductFilter = currentProductCounts.dynamic ? 'DYNAMIC_PACKAGE' : currentProductCounts.packages ? 'PACKAGE' : currentProductCounts.hotels ? 'HOTEL' : 'ALL';
   activeFilters = { stars: new Set(), boards: new Set(), freeCancellation: false, maxPrice: null, sort: 'recommended' };
   const tripDates = dateRange(data.parsed.checkin, data.parsed.checkout);
   $('#resultsRecapTitle').textContent = data.parsed.destination;
   $('#resultsRecapDetails').textContent = `${tripDates ? tripDates + ' · ' : ''}${data.parsed.nights} noites · ${data.parsed.adults} adultos${data.parsed.children ? ` + ${data.parsed.children} crianças` : ''}${data.parsed.infants ? ` + ${data.parsed.infants} bebés` : ''} · saída ${data.parsed.origin}`;
   $('#parsedBox').innerHTML = `<div class="search-confidence"><span class="search-confidence-icon">✓</span><div><b>Pesquisa concluída</b><span>${esc(customerStatusText(data.operatorStatus || {}))}</span></div></div>`;
-  renderHighlights(data.results, data.parsed.budget); renderFilters(data.results); renderResultsList();
+  const initial = productResults(); if (initial.length) renderFilters(initial); else $('#resultsFilters').hidden = true; renderResultsList();
 }
 
 const SEARCH_STAGES = ['A consultar disponibilidade…', 'A organizar tarifas e condições…', 'A comparar preço e flexibilidade…', 'A ordenar as opções mais relevantes…', 'A preparar a sua viagem…'];

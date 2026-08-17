@@ -375,3 +375,16 @@
   .compare-dialog { padding:14px; }
   .compare-modal { padding:12px; }
 }
+
+/* V4 — famílias de produto: evita misturar o mesmo hotel como "só hotel"
+   e "voo + hotel" na mesma lista. */
+.results-toolbar { align-items:flex-end; }
+.product-tabs-wrap { display:flex; flex-direction:column; gap:6px; min-width:0; }
+.product-tabs-wrap > small { color:var(--muted); font-size:10.5px; }
+.product-tabs { display:flex; flex-wrap:wrap; gap:7px; }
+.product-tabs button { border:1px solid var(--line); border-radius:999px; padding:7px 11px; background:#fff; color:var(--ink-soft); font:inherit; font-size:11px; font-weight:800; cursor:pointer; }
+.product-tabs button span { margin-left:4px; border-radius:999px; padding:2px 5px; background:#f1f5f9; color:var(--muted); font-size:9px; }
+.product-tabs button:hover { border-color:#b8ccdc; }
+.product-tabs button.is-active { border-color:#88bed7; background:#ecf8fc; color:var(--blue-dark); }
+.product-tabs button.is-active span { background:#fff; color:var(--blue-dark); }
+@media (max-width:760px) { .results-toolbar { align-items:stretch; } .product-tabs { display:grid; grid-template-columns:1fr 1fr; } .product-tabs button { text-align:center; } }

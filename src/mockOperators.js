@@ -1,4 +1,5 @@
 const { applyMargin, computeScore, normalize } = require('./pricing');
+const { resolveDestination, destinationMatches } = require('./integrations/destinations');
 
 const baseOffers = [
   { id: 'tdz-puj-001', operator: 'TourDiez Demo', destination: 'Punta Cana', country: 'República Dominicana', hotel: 'Caribbean Bay Resort 5★', board: 'Tudo incluído', nights: 7, base: 1090, rating: 4.5, freeCancellation: true, themes: ['caraíbas', 'praia', 'família'], available: true, operatorReliability: 9 },
@@ -13,19 +14,13 @@ const baseOffers = [
 function smartParse(input = {}) {
   const prompt = normalize(input.prompt || '');
   const text = `${prompt} ${normalize(input.destination || '')}`;
-  const map = [
-    ['punta cana', 'Punta Cana'], ['dominicana', 'Punta Cana'], ['caraibas', 'Punta Cana'],
-    ['riviera maya', 'Riviera Maya'], ['mexico', 'Riviera Maya'], ['cancun', 'Riviera Maya'],
-    ['cabo verde', 'Sal'], ['sal', 'Sal'], ['boavista', 'Boa Vista'],
-    ['maldivas', 'Maldivas'], ['disney', 'Disneyland Paris'], ['paris', 'Disneyland Paris'],
-    ['madeira', 'Madeira'], ['funchal', 'Madeira']
-  ];
-  const promptMatch = map.find(([key]) => prompt.includes(key));
-  const fieldMatch = map.find(([key]) => normalize(input.destination || '').includes(key));
-  // Campo "Destino" explicito tem prioridade sobre o texto livre: se o
-  // utilizador preenche o campo mas deixa o prompt por omissao (ex.: ainda
-  // menciona "Caraibas"), a pesquisa deve respeitar o campo, nao o texto.
-  const destination = fieldMatch?.[1] || promptMatch?.[1] || input.destination || 'Punta Cana';
+  // Um único catálogo de destinos manda em toda a aplicação. Isto evita
+  // bugs como "Paris" ser convertido em Disneyland ou "Atenas" cair no
+  // destino demo por omissão. O resolvedor também reconhece aliases dentro
+  // de frases como "quero ir para Atenas".
+  const explicitDestination = resolveDestination(input.destination || '');
+  const promptDestination = !explicitDestination ? resolveDestination(input.prompt || '') : null;
+  const destination = explicitDestination?.name || promptDestination?.name || input.destination || '';
 
   const budgetMatch = (input.budget || prompt).toString().match(/(\d{3,5})(?:\s?€|\s?eur| euros)?/i);
   const budget = Number(input.budget || (budgetMatch ? budgetMatch[1] : 2500));
@@ -53,11 +48,18 @@ function searchOffers(input, margins) {
   const parsed = smartParse(input);
   const target = normalize(parsed.destination);
   const prompt = normalize(parsed.prompt || '');
+  const hasConcreteDestination = Boolean(resolveDestination(parsed.destination));
   let offers = baseOffers.filter(o => {
-    const hay = normalize(`${o.destination} ${o.country} ${o.hotel} ${o.themes.join(' ')}`);
-    return hay.includes(target) || target.includes(normalize(o.destination)) || o.themes.some(t => prompt.includes(normalize(t)));
+    // Com destino concreto, inventário é estrito: Paris nunca aceita
+    // Disneyland Paris só porque o nome contém a palavra Paris. Temas só
+    // servem para inspiração quando não existe destino reconhecido.
+    if (hasConcreteDestination) return destinationMatches(parsed.destination, o.destination);
+    return Boolean(prompt && o.themes.some(t => prompt.includes(normalize(t))));
   });
-  if (!offers.length) offers = baseOffers;
+  // Nunca transformar falta de stock num conjunto de destinos aleatórios.
+  // Se o utilizador procura Atenas e a demo não tem Atenas, devolvemos 0
+  // ofertas demo; as APIs reais/federadas tratam o resto da pesquisa.
+  if (!offers.length) offers = [];
 
   const paxFactor = Math.max(1, parsed.adults + parsed.children * 0.55 + parsed.infants * 0.15) / 2;
   const nightsFactor = parsed.nights / 7;

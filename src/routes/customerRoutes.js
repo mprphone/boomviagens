@@ -7,6 +7,7 @@
 // rota /api/customer/register ja substituiu.
 
 const crypto = require('crypto');
+const { isProductionDeployment } = require('../runtimeConfig');
 
 module.exports = function registerCustomerRoutes(router, ctx) {
   const { json, unauthorized, parseBody, readDb, updateDb, customerPayload, validateEmail, validatePassword, rateLimit, domain, cleanText, fileStorage, mailer } = ctx;
@@ -25,7 +26,10 @@ module.exports = function registerCustomerRoutes(router, ctx) {
     const db = ensureCollections(await readDb());
     const existing = db.customers.find(c => c.email === body.email);
     if (existing && sessionEmail !== body.email) {
-      return json(res, 200, { ok: true, customer: sanitizeCustomer(existing) });
+      // Resposta deliberadamente genérica: conhecer um email não pode dar
+      // acesso ao nome, telefone, NIF, morada ou passageiros desse cliente.
+      // O utilizador deve autenticar-se e usar /api/customer/profile.
+      return json(res, 200, { ok: true, existing: true, message: 'Se já existe uma conta com este email, entre para continuar.' });
     }
     const customer = await updateDb(d => {
       ensureCollections(d);
@@ -62,6 +66,9 @@ module.exports = function registerCustomerRoutes(router, ctx) {
     const challenge = signToken({ scope: 'customer-code', email: customerEmail, codeHash: hashLoginCode(code), exp: Date.now() + CUSTOMER_CODE_TTL_MS });
     const mail = loginCodeEmail({ email: customerEmail, code });
     const sent = await mailer.sendMail({ to: customerEmail, subject: mail.subject, body: mail.body });
+    if (isProductionDeployment(process.env) && sent.mode !== 'smtp') {
+      return json(res, 503, { ok: false, error: 'O login por código está temporariamente indisponível. O envio de email não está configurado.' });
+    }
     await updateDb(d => {
       ensureCollections(d);
       d.emails.unshift({ id: id('email'), createdAt: now(), to: customerEmail, status: sent.mode === 'smtp' ? 'ENVIADO' : 'GERADO_DEMO', ...mail });
@@ -74,7 +81,7 @@ module.exports = function registerCustomerRoutes(router, ctx) {
       ok: true,
       message: sent.mode === 'smtp' ? 'Codigo enviado por email.' : 'Codigo gerado. Em produção seria enviado por email.',
       challenge,
-      ...(sent.mode === 'mock' ? { demoCode: code } : {})
+      ...(!isProductionDeployment(process.env) && sent.mode === 'mock' ? { demoCode: code } : {})
     });
   });
 
@@ -315,6 +322,11 @@ module.exports = function registerCustomerRoutes(router, ctx) {
     const reservationId = cleanText(body.reservationId, 120);
     const type = cleanText(body.type, 20);
     if (!DOCUMENT_TYPES.includes(type)) return json(res, 400, { ok: false, error: 'Tipo de documento inválido' });
+    // O cliente não pode classificar um upload como fatura/recibo interno
+    // ou fotografia de ocorrência: isso poluiria o circuito financeiro e
+    // podia fazer um anexo comum aparecer em áreas reservadas à equipa.
+    const forbiddenCustomerTypes = new Set(['INVOICE_PURCHASE', 'INVOICE_SALE', 'RECEIPT', 'CREDIT_NOTE', 'OCCURRENCE_PHOTO']);
+    if (forbiddenCustomerTypes.has(type)) return json(res, 400, { ok: false, error: 'Tipo de documento não disponível para carregamento pelo cliente.' });
     const fileName = cleanText(body.fileName, 200);
     const passengerName = body.passengerName ? cleanText(body.passengerName, 200) : undefined;
     if (!fileName || !body.fileBase64) return json(res, 400, { ok: false, error: 'Ficheiro inválido' });

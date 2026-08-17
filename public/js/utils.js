@@ -9,6 +9,30 @@ export const $ = sel => document.querySelector(sel);
 // executa no browser de um admin autenticado assim que ele abrir o painel.
 export const esc = str => String(str ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 
+// URLs vindos de fornecedores externos nunca entram diretamente em src,
+// href ou CSS. Aceitamos apenas HTTPS (e HTTP só em localhost para
+// desenvolvimento), bloqueando esquemas como javascript:/data: e aspas
+// capazes de sair de um atributo/style.
+export function safeExternalUrl(value, fallback = '') {
+  try {
+    const u = new URL(String(value || ''), window.location.origin);
+    const localHttp = u.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(u.hostname);
+    if (u.protocol !== 'https:' && !localHttp) return fallback;
+    return u.href;
+  } catch { return fallback; }
+}
+
+export function safeImageUrl(value, fallback = '') {
+  return safeExternalUrl(value, fallback);
+}
+
+export function cssImageUrl(value, fallback = '') {
+  const url = safeImageUrl(value, fallback);
+  // URL fica dentro de url('...'); percent-encode dos caracteres que podem
+  // fechar a string/CSS antes de inserir no atributo style.
+  return String(url).replace(/'/g, '%27').replace(/\\/g, '%5C').replace(/\(/g, '%28').replace(/\)/g, '%29');
+}
+
 export const money = n => `${Number(n || 0).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 export const shortDate = iso => iso ? new Date(`${iso}T00:00:00`).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
 export const dateRange = (checkin, checkout) => (checkin && checkout) ? `${shortDate(checkin)} → ${shortDate(checkout)}` : '';

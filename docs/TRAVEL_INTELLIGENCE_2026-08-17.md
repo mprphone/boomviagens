@@ -189,7 +189,7 @@ O site público já não recebe em `/api/config`:
 - regras de margem;
 - estados comerciais internos das APIs.
 
-A API pública recebe apenas `features` necessárias à interface. Ofertas enviadas ao browser excluem NET, margem e referências do operador; estes dados viajam dentro do `offerToken` assinado e são recuperados no servidor no checkout.
+A API pública recebe apenas `features` necessárias à interface. Ofertas enviadas ao browser excluem NET, margem e referências do operador; estes dados viajam dentro do `offerToken` selado/cifrado e são recuperados no servidor no checkout.
 
 ## Base de dados / migration
 

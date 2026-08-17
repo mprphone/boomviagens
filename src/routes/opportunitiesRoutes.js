@@ -11,7 +11,19 @@ module.exports = function registerOpportunitiesRoutes(router, ctx) {
     opportunityStageLabel, opportunityTemperatureLabel, opportunityTagLabel, opportunityOriginLabel, nextActionTypeLabel, lossReasonLabel, proposalStatusLabel,
     opportunityHealth, sanitizeStaff, processNumber, opportunityNumber
   } = domain;
-  const { sessionUser } = ctx.auth;
+  const { sessionUser, sessionStaff } = ctx.auth;
+
+  function financeRole(req) { return ['FINANCEIRO', 'SUPERVISOR', 'ADMIN'].includes(sessionStaff(req)?.role || ''); }
+  function proposalView(req, proposal) {
+    if (financeRole(req) || !proposal) return proposal;
+    const copy = { ...proposal }; delete copy.costValue; return copy;
+  }
+  function reservationView(req, reservation) {
+    if (financeRole(req) || !reservation) return reservation;
+    const copy = { ...reservation, offer: reservation.offer ? { ...reservation.offer } : reservation.offer };
+    if (copy.offer) { delete copy.offer.costPrice; delete copy.offer.marginValue; delete copy.offer.marginPercent; delete copy.offer.marginRule; delete copy.offer.trace; }
+    return copy;
+  }
 
   function metaPayload() {
     return {
@@ -62,6 +74,7 @@ module.exports = function registerOpportunitiesRoutes(router, ctx) {
       summary,
       staff: db.staff.filter(s => s.active).map(sanitizeStaff),
       branches: db.branches.filter(b => b.active),
+      permissions: { canSeeFinance: financeRole(req) },
       ...metaPayload()
     });
   }, { admin: true });
@@ -80,10 +93,11 @@ module.exports = function registerOpportunitiesRoutes(router, ctx) {
       events: db.opportunityEvents.filter(e => e.opportunityId === opportunityId),
       tasks: db.tasks.filter(t => t.opportunityId === opportunityId),
       communications: db.contactLog.filter(c => c.opportunityId === opportunityId),
-      proposals: db.proposals.filter(p => p.opportunityId === opportunityId).sort((a, b) => b.version - a.version),
-      reservation: reservation ? { ...reservation, processNumber: processNumber(reservation) } : null,
+      proposals: db.proposals.filter(p => p.opportunityId === opportunityId).sort((a, b) => b.version - a.version).map(p => proposalView(req, p)),
+      reservation: reservation ? reservationView(req, { ...reservation, processNumber: processNumber(reservation) }) : null,
       staff: db.staff.filter(s => s.active).map(sanitizeStaff),
       branches: db.branches.filter(b => b.active),
+      permissions: { canSeeFinance: financeRole(req) },
       ...metaPayload()
     });
   }, { admin: true });
@@ -307,7 +321,7 @@ module.exports = function registerOpportunitiesRoutes(router, ctx) {
       audit(d, sessionUser(req), 'OPPORTUNITY_CONVERTED', { opportunityId, reservationId: reservation.id });
     });
 
-    return json(res, 200, { ok: true, reservation: { ...reservation, processNumber: processNumber(reservation) }, opportunityId });
+    return json(res, 200, { ok: true, reservation: reservationView(req, { ...reservation, processNumber: processNumber(reservation) }), opportunityId });
   }, { admin: true });
 
   // Propostas de uma oportunidade (id presente = editar; senao cria uma
@@ -328,7 +342,7 @@ module.exports = function registerOpportunitiesRoutes(router, ctx) {
         opportunityNumber: opportunity ? opportunityNumber(opportunity) : undefined
       };
     }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    return json(res, 200, { ok: true, proposals, ...metaPayload() });
+    return json(res, 200, { ok: true, proposals: proposals.map(p => proposalView(req, p)), permissions: { canSeeFinance: financeRole(req) }, ...metaPayload() });
   }, { admin: true });
 
   router.post('/api/admin/proposals', async (req, res) => {
@@ -345,10 +359,12 @@ module.exports = function registerOpportunitiesRoutes(router, ctx) {
     const updates = {
       status,
       services: cleanText(body.services, 4000),
-      costValue: body.costValue !== undefined && body.costValue !== '' ? numberInRange(body.costValue, 'Custo', 0, 10000000, 0) : undefined,
       saleValue: body.saleValue !== undefined && body.saleValue !== '' ? numberInRange(body.saleValue, 'Venda', 0, 10000000, 0) : undefined,
       notes: cleanText(body.notes, 2000)
     };
+    if (financeRole(req) && body.costValue !== undefined) {
+      updates.costValue = body.costValue !== '' ? numberInRange(body.costValue, 'Custo', 0, 10000000, 0) : undefined;
+    }
 
     let saved = null;
     await updateDb(d => {
@@ -366,6 +382,6 @@ module.exports = function registerOpportunitiesRoutes(router, ctx) {
       audit(d, sessionUser(req), proposalId ? 'PROPOSAL_UPDATED' : 'PROPOSAL_CREATED', { opportunityId, proposalId: proposal.id });
       saved = proposal;
     });
-    return json(res, 200, { ok: true, proposal: saved });
+    return json(res, 200, { ok: true, proposal: proposalView(req, saved) });
   }, { admin: true });
 };

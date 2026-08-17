@@ -82,8 +82,8 @@ $('#destinationSuggest')?.addEventListener('click', e => {
   calendarCache = null;
 });
 
-// Calendário de preços: usa a estimativa local do motor atual. Não faz uma
-// chamada a um fornecedor por cada dia mostrado.
+// Calendário de preços: só aparece quando o servidor dispõe de uma fonte
+// segura (ou em modo demo de desenvolvimento). Nunca inventa preços públicos.
 let calendarCache = null;
 
 async function loadPriceCalendar() {
@@ -98,13 +98,13 @@ async function loadPriceCalendar() {
     infantAges: form.infantAges?.value || ''
   };
   const key = JSON.stringify(params);
-  if (calendarCache?.key === key) return calendarCache.days;
+  if (calendarCache?.key === key) return calendarCache;
   try {
     const data = await api('/api/price-calendar', { method: 'POST', body: JSON.stringify(params) });
-    calendarCache = { key, days: data.days };
-    return data.days;
+    calendarCache = { key, days: data.days || [], available: data.available !== false, message: data.message || '', demo: Boolean(data.demo) };
+    return calendarCache;
   } catch {
-    return [];
+    return { key, days: [], available: false, message: 'Calendário temporariamente indisponível.' };
   }
 }
 
@@ -144,11 +144,15 @@ async function openCalendar() {
   positionPanelBelow(panel, $('#checkinInput'), true);
   panel.hidden = false;
   panel.innerHTML = '<p class="muted small">A calcular preços…</p>';
-  const days = await loadPriceCalendar();
-  const months = groupDaysByMonth(days).slice(0, 2);
+  const calendar = await loadPriceCalendar();
   const destino = $('#destinationInput').value || 'o destino escolhido';
+  if (!calendar.available || !calendar.days.length) {
+    panel.innerHTML = `<p class="muted small"><b>Escolha a data da viagem</b></p><p class="muted small">${esc(calendar.message || 'Ainda não temos histórico real suficiente para apresentar preços por dia.')}</p>`;
+    return;
+  }
+  const months = groupDaysByMonth(calendar.days).slice(0, 2);
   panel.innerHTML = `
-    <p class="muted small">Preços estimados para ${esc(destino)}. O preço final é confirmado na pesquisa.</p>
+    <p class="muted small">${calendar.demo ? 'Preços de demonstração' : 'Preços de referência'} para ${esc(destino)}. O preço final é confirmado na pesquisa.</p>
     <div class="cal-months">${months.map(renderCalendarMonth).join('')}</div>`;
 }
 

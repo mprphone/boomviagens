@@ -15,6 +15,37 @@ module.exports = function registerAdminRoutes(router, ctx) {
   } = domain;
   const { sessionUser, sessionStaff } = ctx.auth;
 
+  function financeRole(req) {
+    return ['FINANCEIRO', 'SUPERVISOR', 'ADMIN'].includes(sessionStaff(req)?.role || '');
+  }
+
+  // Algumas ofertas guardam NET/margem dentro de components/rates, nao so
+  // no topo. A API remove estes campos recursivamente para perfis que nao
+  // podem consultar informacao financeira interna.
+  const INTERNAL_FINANCE_KEYS = new Set([
+    'costPrice', 'net', 'netValue', 'marginRule', 'marginPercent', 'marginValue',
+    'targetPrice', 'minimumPrice', 'minimumMarginPercent', 'concessionAvailable',
+    'expectedRebateValue', 'expectedEconomicMargin', 'rebatePercent', 'trace'
+  ]);
+  function stripInternalFinance(value) {
+    if (Array.isArray(value)) return value.map(stripInternalFinance);
+    if (!value || typeof value !== 'object') return value;
+    const out = {};
+    for (const [key, val] of Object.entries(value)) {
+      if (INTERNAL_FINANCE_KEYS.has(key)) continue;
+      out[key] = stripInternalFinance(val);
+    }
+    return out;
+  }
+  function reservationViewFor(req, reservation) {
+    return financeRole(req) ? reservation : stripInternalFinance(reservation);
+  }
+  function companyViewFor(req, company = {}) {
+    if (financeRole(req)) return company;
+    const { name, brand, domain, email, phone, rnavt, address, marketCountry, currency } = company;
+    return { name, brand, domain, email, phone, rnavt, address, marketCountry, currency };
+  }
+
   // Impede que um duplo clique em "Aprovar no operador" chame
   // adapter.confirm() duas vezes para a mesma reserva - isso enviaria um
   // pedido de confirmacao a mais para o operador real, nao e so um
@@ -26,22 +57,14 @@ module.exports = function registerAdminRoutes(router, ctx) {
   router.get('/api/admin/dashboard', async (req, res) => {
     const db = ensureCollections(await readDb());
     const staff = sessionStaff(req);
-    const canSeeFinance = ['FINANCEIRO', 'SUPERVISOR', 'ADMIN'].includes(staff?.role);
+    const canSeeFinance = financeRole(req);
     const totalReservations = db.reservations.length;
     const confirmed = db.reservations.filter(r => r.status === 'CONFIRMED').length;
     const revenue = db.reservations.filter(r => r.status === 'CONFIRMED').reduce((sum, r) => sum + (r.offer?.finalPrice || 0), 0);
     const margin = db.reservations.filter(r => r.status === 'CONFIRMED').reduce((sum, r) => sum + (r.offer?.marginValue || 0), 0);
-    const publicReservation = r => {
-      if (canSeeFinance) return r;
-      const safeOffer = r.offer ? { ...r.offer } : r.offer;
-      if (safeOffer) {
-        delete safeOffer.costPrice; delete safeOffer.marginRule; delete safeOffer.marginPercent;
-        delete safeOffer.marginValue; delete safeOffer.minimumPrice; delete safeOffer.targetPrice;
-      }
-      return { ...r, offer: safeOffer };
-    };
+    const publicReservation = r => reservationViewFor(req, r);
     return json(res, 200, {
-      company: db.company,
+      company: companyViewFor(req, db.company),
       stats: { leads: db.leads.length, customers: db.customers.length, reservations: totalReservations, confirmed, revenue, ...(canSeeFinance ? { margin } : {}) },
       latest: {
         leads: db.leads.slice(0, 10),
@@ -104,7 +127,7 @@ module.exports = function registerAdminRoutes(router, ctx) {
 
     return json(res, 200, {
       ok: true,
-      company: db.company,
+      company: companyViewFor(req, db.company),
       kpis: {
         interessesHoje,
         propostasAguardamResposta,
@@ -174,7 +197,7 @@ module.exports = function registerAdminRoutes(router, ctx) {
     if (!reservation) return json(res, 404, { ok: false, error: 'Reserva nao encontrada' });
     const payment = db.payments.find(p => p.reservationId === reservation.id);
     if (!payment || payment.status !== 'PAID') return json(res, 409, { ok: false, error: 'A reserva ainda nao tem pagamento confirmado' });
-    if (reservation.status === 'CONFIRMED') return json(res, 200, { ok: true, reservation, payment, alreadyConfirmed: true });
+    if (reservation.status === 'CONFIRMED') return json(res, 200, { ok: true, reservation: reservationViewFor(req, reservation), payment, alreadyConfirmed: true });
 
     approvalsInProgress.add(reservationId);
     try {
@@ -210,11 +233,11 @@ module.exports = function registerAdminRoutes(router, ctx) {
         }
         resultPayload = { reservation: r, payment: p, confirmation, needsHumanReview: !canAutoConfirm };
       });
-      return json(res, 200, { ok: true, ...resultPayload });
+      return json(res, 200, { ok: true, ...resultPayload, reservation: reservationViewFor(req, resultPayload.reservation) });
     } finally {
       approvalsInProgress.delete(reservationId);
     }
-  }, { admin: true });
+  }, { admin: true, roles: ['OPERACIONAL', 'SUPERVISOR', 'ADMIN'] });
 
   router.get('/api/admin/reservations', async (req, res) => {
     const db = ensureCollections(await readDb());
@@ -232,7 +255,7 @@ module.exports = function registerAdminRoutes(router, ctx) {
         dueAmount: Math.max(0, (r.offer?.finalPrice || 0) - paidAmount)
       };
     });
-    return json(res, 200, { ok: true, reservations, statuses: RESERVATION_STATUSES.map(value => ({ value, label: statusLabel(value) })), branches: db.branches.filter(b => b.active) });
+    return json(res, 200, { ok: true, reservations: reservations.map(r => reservationViewFor(req, r)), statuses: RESERVATION_STATUSES.map(value => ({ value, label: statusLabel(value) })), branches: db.branches.filter(b => b.active) });
   }, { admin: true });
 
   router.post('/api/admin/reservations/update', async (req, res) => {
@@ -281,8 +304,8 @@ module.exports = function registerAdminRoutes(router, ctx) {
       audit(d, sessionUser(req), 'RESERVATION_STATUS_UPDATED', { reservationId: r.id, from: previousStatus, to: status });
       resultPayload = { reservation: r };
     });
-    return json(res, 200, { ok: true, ...resultPayload });
-  }, { admin: true });
+    return json(res, 200, { ok: true, reservation: reservationViewFor(req, resultPayload.reservation) });
+  }, { admin: true, roles: ['OPERACIONAL', 'SUPERVISOR', 'ADMIN'] });
 
   // So registo/classificacao interna - a fatura real e emitida em software
   // certificado pela AT (ex.: OptiTravel). Aqui so se guarda o numero/data
@@ -373,22 +396,21 @@ module.exports = function registerAdminRoutes(router, ctx) {
     const complaints = db.complaints.filter(c => c.reservationId === reservationId);
     const payments = db.payments.filter(p => p.reservationId === reservationId);
     const documents = db.documents.filter(d => d.reservationId === reservationId);
-    const documentsWithUrls = await Promise.all(documents.map(async d => ({ ...d, signedUrl: await fileStorage.signedUrl(d.storagePath) })));
     const communications = db.contactLog.filter(c => c.reservationId === reservationId);
 
     const staff = sessionStaff(req);
-    const canSeeInternalFinance = staff && ['FINANCEIRO', 'SUPERVISOR', 'ADMIN'].includes(staff.role);
-    const reservationView = { ...reservation, processNumber: processNumber(reservation), missingDocuments: missingDocumentsFor(reservation, db.documents) };
-    if (!canSeeInternalFinance && reservationView.offer) {
-      reservationView.offer = { ...reservationView.offer };
-      delete reservationView.offer.costPrice;
-      delete reservationView.offer.marginValue;
-      delete reservationView.offer.marginPercent;
-      delete reservationView.offer.trace;
-    }
+    const canSeeInternalFinance = financeRole(req);
+    // Faturas de compra e outros documentos estritamente financeiros nao
+    // devem ficar acessiveis a perfis Comercial/Operacional apenas porque
+    // conhecem o id do processo. O filtro e feito na API, nao so no UI.
+    const visibleDocuments = canSeeInternalFinance
+      ? documents
+      : documents.filter(d => d.type !== 'INVOICE_PURCHASE');
+    const documentsWithUrls = await Promise.all(visibleDocuments.map(async d => ({ ...d, signedUrl: await fileStorage.signedUrl(d.storagePath) })));
+    const reservationView = reservationViewFor(req, { ...reservation, processNumber: processNumber(reservation), missingDocuments: missingDocumentsFor(reservation, db.documents) });
     const serviceLinesView = canSeeInternalFinance ? serviceLines : serviceLines.map(line => {
       const copy = { ...line };
-      delete copy.netValue; delete copy.paidAmount; delete copy.payments; delete copy.paidAt;
+      delete copy.netValue; delete copy.paidAmount; delete copy.payments; delete copy.paidAt; delete copy.vatRegime; delete copy.refundableAmount; delete copy.discountPercent;
       return copy;
     });
     const totals = computeServiceTotals(serviceLines);
@@ -437,6 +459,15 @@ module.exports = function registerAdminRoutes(router, ctx) {
     // completa) - um hotel nao pode ficar "Check-in feito", so um voo.
     const validStatuses = serviceStatusesForType(type);
     const status = validStatuses.includes(body.status) ? body.status : 'NAO_CONFIRMADO';
+    const staff = sessionStaff(req);
+    const role = staff?.role || '';
+    const canEditInternalFinance = ['FINANCEIRO', 'SUPERVISOR', 'ADMIN'].includes(role);
+    const canEditPvp = ['COMERCIAL', 'FINANCEIRO', 'SUPERVISOR', 'ADMIN'].includes(role);
+
+    // Campos operacionais podem ser tratados por qualquer colaborador com
+    // acesso ao processo. NET, desconto fiscal/comercial e regime de IVA
+    // sao internos e ficam sempre protegidos na API. PVP pode ser ajustado
+    // por Comercial/Financeiro/Gestao, mas nao por Operacional.
     const updates = {
       type, description, status,
       supplierName: cleanText(body.supplierName, 150),
@@ -445,27 +476,27 @@ module.exports = function registerAdminRoutes(router, ctx) {
       quantity: numberInRange(body.quantity, 'Quantidade', 0.01, 999, 1),
       dateStart: cleanText(body.dateStart, 30),
       dateEnd: cleanText(body.dateEnd, 30),
-      netValue: numberInRange(body.netValue, 'Custo (NET)', 0, 1000000, 0),
-      pvpValue: numberInRange(body.pvpValue, 'Venda (PVP)', 0, 1000000, 0),
-      discountPercent: numberInRange(body.discountPercent, 'Desconto', 0, 100, 0),
       optionDeadline: cleanText(body.optionDeadline, 30),
       cancellationTerms: cleanText(body.cancellationTerms, 1000),
-      // vatRegime opcional - quando nao definido, a linha usa o regime do
-      // processo (reservation.vatRegime) como valor por omissao (ver
-      // servicosCalculoSubTab.js#vatBadge). paid/paidAt deixaram de se
-      // gravar aqui: sao calculados a partir do ledger real de pagamentos
-      // (ver domain.js#enrichServiceLinesWithPayments e a rota
-      // /reservations/services/payments).
-      vatRegime: VAT_REGIMES.includes(body.vatRegime) ? body.vatRegime : undefined,
       notes: cleanText(body.notes, 1000)
     };
+    if (canEditInternalFinance) {
+      updates.netValue = numberInRange(body.netValue, 'Custo (NET)', 0, 1000000, 0);
+      updates.discountPercent = numberInRange(body.discountPercent, 'Desconto', 0, 100, 0);
+      // vatRegime opcional - quando nao definido, a linha usa o regime do
+      // processo como valor por omissao.
+      updates.vatRegime = VAT_REGIMES.includes(body.vatRegime) ? body.vatRegime : undefined;
+    }
+    if (canEditPvp) updates.pvpValue = numberInRange(body.pvpValue, 'Venda (PVP)', 0, 1000000, 0);
     // So faz sentido preencher os campos de cancelamento quando a linha
     // fica com estado CANCELADO - evita lixo em linhas normais.
     // refundedAmount/refundedAt deixaram de se gravar aqui: um reembolso
     // real passa a ser um movimento proprio (ver rota /reservations/refunds).
     if (status === 'CANCELADO') {
       updates.cancelReason = cleanText(body.cancelReason, 500);
-      updates.refundableAmount = body.refundableAmount !== undefined ? numberInRange(body.refundableAmount, 'Valor reembolsável', 0, 1000000, 0) : undefined;
+      if (canEditInternalFinance && body.refundableAmount !== undefined) {
+        updates.refundableAmount = numberInRange(body.refundableAmount, 'Valor reembolsável', 0, 1000000, 0);
+      }
     }
 
     const db = ensureCollections(await readDb());
@@ -493,7 +524,16 @@ module.exports = function registerAdminRoutes(router, ctx) {
       audit(d, sessionUser(req), lineId ? 'SERVICE_LINE_UPDATED' : 'SERVICE_LINE_CREATED', { reservationId, lineId: line.id });
       resultLine = line;
     });
-    return json(res, 200, { ok: true, serviceLine: resultLine });
+    // Nunca devolve custo/IVA/pagamentos internos a perfis que nao os
+    // podem ver, mesmo depois de uma escrita bem sucedida.
+    const resultView = { ...resultLine };
+    if (!canEditInternalFinance) {
+      delete resultView.netValue;
+      delete resultView.vatRegime;
+      delete resultView.refundableAmount;
+      delete resultView.discountPercent;
+    }
+    return json(res, 200, { ok: true, serviceLine: resultView });
   }, { admin: true });
 
   router.post('/api/admin/reservations/services/delete', async (req, res) => {
@@ -503,19 +543,19 @@ module.exports = function registerAdminRoutes(router, ctx) {
     const db = ensureCollections(await readDb());
     const line = db.serviceLines.find(s => s.id === lineId && s.reservationId === reservationId);
     if (!line) return json(res, 404, { ok: false, error: 'Linha de serviço não encontrada' });
+    const hasFinancialHistory = db.serviceLinePayments.some(p => p.serviceLineId === lineId) || db.refunds.some(r => r.serviceLineId === lineId);
+    if (hasFinancialHistory) {
+      return json(res, 409, { ok: false, error: 'Este serviço já tem movimentos financeiros. Cancele/anule a linha em vez de a eliminar.' });
+    }
 
     await updateDb(d => {
       ensureCollections(d);
       d.serviceLines = d.serviceLines.filter(s => s.id !== lineId);
-      // Cascade local do lado de pagamentos - no Supabase ja cai por FK
-      // (on delete cascade), aqui evita ficarem pagamentos orfaos em
-      // memoria a apontar para uma linha que ja nao existe.
-      d.serviceLinePayments = d.serviceLinePayments.filter(p => p.serviceLineId !== lineId);
       d.reservationEvents.unshift({ id: id('evt'), createdAt: now(), reservationId, actor: sessionUser(req), type: 'SERVICE_REMOVED', description: `${serviceTypeLabel(line.type)}: ${line.description}` });
       audit(d, sessionUser(req), 'SERVICE_LINE_DELETED', { reservationId, lineId });
     });
     return json(res, 200, { ok: true });
-  }, { admin: true });
+  }, { admin: true, roles: ['OPERACIONAL', 'SUPERVISOR', 'ADMIN'] });
 
   // Pagamento a fornecedor em tranches (separador Financeiro > Serviços e
   // Reservas > gaveta de uma linha): registo append-only, uma linha pode
@@ -749,12 +789,13 @@ module.exports = function registerAdminRoutes(router, ctx) {
 
   router.get('/api/admin/suppliers', async (req, res) => {
     const db = ensureCollections(await readDb());
+    const canSeeFinance = financeRole(req);
     const suppliers = db.suppliers.map(s => {
       const purchases = db.reservations.filter(r => matchesSupplier(r, s.name));
       return {
         ...s,
         purchasesCount: purchases.length,
-        totalCost: Number(purchases.reduce((sum, r) => sum + (Number(r.offer?.costPrice) || 0), 0).toFixed(2))
+        ...(canSeeFinance ? { totalCost: Number(purchases.reduce((sum, r) => sum + (Number(r.offer?.costPrice) || 0), 0).toFixed(2)) } : {})
       };
     });
     return json(res, 200, { ok: true, suppliers, types: SUPPLIER_TYPES });
@@ -776,8 +817,8 @@ module.exports = function registerAdminRoutes(router, ctx) {
     const db = ensureCollections(await readDb());
     const supplier = db.suppliers.find(s => s.id === supplierId);
     if (!supplier) return json(res, 404, { ok: false, error: 'Fornecedor nao encontrado' });
-    const purchases = db.reservations.filter(r => matchesSupplier(r, supplier.name));
-    const documents = db.documents.filter(d => d.supplierId === supplierId);
+    const purchases = db.reservations.filter(r => matchesSupplier(r, supplier.name)).map(r => reservationViewFor(req, r));
+    const documents = db.documents.filter(d => d.supplierId === supplierId && (financeRole(req) || d.type !== 'INVOICE_PURCHASE'));
     const documentsWithUrls = await Promise.all(documents.map(async d => ({ ...d, signedUrl: await fileStorage.signedUrl(d.storagePath) })));
     return json(res, 200, { ok: true, supplier, purchases, documents: documentsWithUrls });
   }, { admin: true });
@@ -804,7 +845,7 @@ module.exports = function registerAdminRoutes(router, ctx) {
       return supplier;
     });
     return json(res, 200, { ok: true, supplier: saved });
-  }, { admin: true });
+  }, { admin: true, roles: ['FINANCEIRO', 'SUPERVISOR', 'ADMIN'] });
 
   // Documento pode ficar ligado a uma reserva, a um cliente (ex.: passaporte
   // de um familiar, reutilizavel em reservas futuras) ou a um fornecedor
@@ -822,6 +863,9 @@ module.exports = function registerAdminRoutes(router, ctx) {
     const complaintId = cleanText(body.complaintId, 120);
     const type = cleanText(body.type, 20);
     if (!DOCUMENT_TYPES.includes(type)) return json(res, 400, { ok: false, error: 'Tipo de documento invalido' });
+    if ((type === 'INVOICE_PURCHASE' || CUSTOMER_FINANCIAL_DOC_TYPES.includes(type)) && !financeRole(req)) {
+      return json(res, 403, { ok: false, error: 'Este tipo de documento é reservado ao perfil Financeiro.' });
+    }
     const fileName = cleanText(body.fileName, 200);
     const passengerName = body.passengerName ? cleanText(body.passengerName, 200) : undefined;
     if (!fileName || !body.fileBase64) return json(res, 400, { ok: false, error: 'Ficheiro invalido' });
@@ -900,6 +944,7 @@ module.exports = function registerAdminRoutes(router, ctx) {
     if (reservationId) documents = db.documents.filter(d => d.reservationId === reservationId);
     else if (customerEmail) documents = db.documents.filter(d => d.customerEmail === customerEmail);
     else documents = db.documents.filter(d => d.supplierId === supplierId);
+    if (!financeRole(req)) documents = documents.filter(d => d.type !== 'INVOICE_PURCHASE');
     const withUrls = await Promise.all(documents.map(async d => ({ ...d, signedUrl: await fileStorage.signedUrl(d.storagePath) })));
     return json(res, 200, { ok: true, documents: withUrls });
   }, { admin: true });
@@ -910,6 +955,9 @@ module.exports = function registerAdminRoutes(router, ctx) {
     const db = ensureCollections(await readDb());
     const document = db.documents.find(d => d.id === documentId);
     if (!document) return json(res, 404, { ok: false, error: 'Documento nao encontrado' });
+    if ((document.type === 'INVOICE_PURCHASE' || CUSTOMER_FINANCIAL_DOC_TYPES.includes(document.type)) && !financeRole(req)) {
+      return json(res, 403, { ok: false, error: 'Documento financeiro: operação reservada ao perfil Financeiro.' });
+    }
 
     try {
       await fileStorage.deleteFile(document.storagePath);

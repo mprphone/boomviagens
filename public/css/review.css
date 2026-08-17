@@ -146,3 +146,43 @@
   .event-grid, .place-chips { grid-template-columns:1fr; }
   .intel-section-head { flex-direction:column; }
 }
+
+/* V4 — construtor de componentes (voo, transfer, atividades). */
+.builder-progress { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:7px; padding:11px; border:1px solid var(--line); border-radius:14px; background:#fff; }
+.builder-progress span { display:flex; align-items:center; justify-content:center; min-height:34px; border-radius:9px; background:#f5f7fa; color:var(--muted); font-size:10.5px; font-weight:800; text-align:center; }
+.builder-progress span.is-active { background:#eef6ff; color:var(--blue-dark); box-shadow:inset 0 0 0 1px #c9def3; }
+.builder-progress span.is-done { background:#eaf8f1; color:#107652; }
+.selected-flight-legs { display:flex; flex-direction:column; gap:5px; margin-top:8px; color:var(--ink-soft); font-size:12px; }
+.flight-option.is-selected { box-shadow:inset 0 0 0 1px #9fd0ba; }
+.flight-price .mini-action { margin-top:8px; min-width:108px; }
+.flight-price .mini-action:disabled { opacity:.72; cursor:default; }
+.extra-option-grid { display:flex; flex-direction:column; gap:9px; margin-top:13px; }
+.extra-option-card { display:grid; grid-template-columns:46px minmax(0,1fr) 130px; gap:12px; align-items:center; border:1px solid var(--line-soft); border-radius:14px; padding:13px; background:#fbfdff; }
+.extra-option-card.is-selected { border-color:#a9d7c1; background:#f8fffb; }
+.extra-option-icon { display:grid; place-items:center; width:42px; height:42px; border-radius:12px; background:#eef5ff; font-size:20px; }
+.extra-kicker { display:block; margin-bottom:3px; color:var(--green); font-size:9.5px; font-weight:850; text-transform:uppercase; letter-spacing:.05em; }
+.extra-option-card h4 { margin:0 0 3px; font-size:13.5px; }
+.extra-option-card p, .extra-option-card small { margin:0; color:var(--muted); font-size:10.5px; }
+.extra-option-price { display:flex; flex-direction:column; align-items:flex-end; gap:7px; }
+.extra-option-price strong { font-family:var(--font-display); font-size:17px; }
+.activity-option-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:11px; margin-top:13px; }
+.activity-option-card { overflow:hidden; border:1px solid var(--line-soft); border-radius:14px; background:#fff; }
+.activity-option-card.is-selected { border-color:#a9d7c1; box-shadow:inset 0 0 0 1px #d5eee2; }
+.activity-option-card img, .activity-placeholder { width:100%; height:112px; object-fit:cover; }
+.activity-placeholder { display:grid; place-items:center; background:#f1f5f9; font-size:28px; }
+.activity-option-body { padding:11px; }
+.activity-option-body h4 { margin:3px 0 4px; min-height:34px; font-size:13px; line-height:1.3; }
+.activity-option-body p { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; min-height:45px; margin:0 0 10px; color:var(--muted); font-size:10px; line-height:1.45; }
+.activity-option-body > div { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.activity-option-body strong { font-size:12px; }
+
+@media (max-width: 900px) {
+  .builder-progress { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .activity-option-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media (max-width: 600px) {
+  .builder-progress { grid-template-columns:1fr 1fr; }
+  .extra-option-card { grid-template-columns:42px 1fr; }
+  .extra-option-price { grid-column:1/-1; flex-direction:row; justify-content:space-between; align-items:center; }
+  .activity-option-grid { grid-template-columns:1fr; }
+}

@@ -230,6 +230,8 @@ class TourDiezAdapter extends OperatorAdapter {
       const offer = {
         id: `tdz-live-${this.tag(block, 'code') || index + 1}`,
         operator: 'TourDiez',
+        provider: 'TourDiez',
+        productType: 'PACKAGE',
         destination,
         country: this.tag(block, 'country') || '',
         hotel,

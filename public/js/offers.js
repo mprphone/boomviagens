@@ -8,6 +8,8 @@ export function applyRoomOption(offer, option) {
   offer.finalPrice = option.finalPrice;
   offer.board = option.mealPlanLabel;
   offer.freeCancellation = option.freeCancellation;
+  offer.nonRefundable = Boolean(option.nonRefundable);
+  offer.freeCancellationUntil = option.freeCancellationUntil || null;
   // Cada opcao de quarto tem o seu proprio preco, logo o seu proprio
   // offerToken assinado no servidor (ver publicRoutes.js) - trocar de
   // quarto tem de trocar tambem o token, senao o checkout via verificar

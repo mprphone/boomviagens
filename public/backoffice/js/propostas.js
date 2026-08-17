@@ -11,6 +11,7 @@ const STATUS_META = {
 };
 
 let allProposals = [];
+let canSeeFinance = false;
 
 export async function renderPropostas() {
   const el = $('#view-propostas');
@@ -32,6 +33,7 @@ async function loadProposals() {
   try {
     const data = await api('/api/admin/proposals');
     allProposals = data.proposals;
+    canSeeFinance = Boolean(data.permissions?.canSeeFinance);
     renderList();
   } catch (err) {
     $('#proposalsList').innerHTML = `<p class="error">${esc(err.message)}</p>`;
@@ -55,7 +57,7 @@ function renderList() {
   $('#proposalsList').innerHTML = `
     <div class="bo-table-wrap">
       <table class="bo-table">
-        <thead><tr><th>Cliente</th><th>Destino</th><th>Versão</th><th>Estado</th><th>Custo</th><th>Venda</th><th>Margem</th></tr></thead>
+        <thead><tr><th>Cliente</th><th>Destino</th><th>Versão</th><th>Estado</th>${canSeeFinance ? '<th>Custo</th>' : ''}<th>Venda</th>${canSeeFinance ? '<th>Margem</th>' : ''}</tr></thead>
         <tbody>
           ${filtered.map(p => {
             const meta = STATUS_META[p.status] || STATUS_META.RASCUNHO;
@@ -66,9 +68,9 @@ function renderList() {
               <td>${esc(p.opportunityDestination || '—')}</td>
               <td>V${p.version}</td>
               <td><span class="pill ${meta.pill}">${meta.label}</span></td>
-              <td>${money(p.costValue)}</td>
+              ${canSeeFinance ? `<td>${money(p.costValue)}</td>` : ''}
               <td>${money(p.saleValue)}</td>
-              <td>${money(margin)}</td>
+              ${canSeeFinance ? `<td>${money(margin)}</td>` : ''}
             </tr>`;
           }).join('')}
         </tbody>

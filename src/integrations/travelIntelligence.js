@@ -20,9 +20,9 @@ class TravelIntelligenceService {
     const hbxSuites = this.hbx?.configuredSuites?.() || {};
     return [
       { id: 'duffel', name: 'Duffel', category: 'Voos', configured: Boolean(this.duffel?.isConfigured()), enabled: Boolean(this.duffel?.isConfigured()), mode: this.duffel?.mode?.() || 'off', publicUse: 'Detalhe da viagem' },
-      { id: 'hbx-hotels', name: 'HBX Hotels', category: 'Hotéis', configured: Boolean(hbxSuites.hotels), enabled: Boolean(hbxSuites.hotels), mode: this.hbx?.mode || 'off', publicUse: 'Preparado; aguarda sincronização de conteúdo' },
-      { id: 'hbx-activities', name: 'HBX Activities', category: 'Atividades', configured: Boolean(hbxSuites.activities), enabled: Boolean(hbxSuites.activities), mode: this.hbx?.mode || 'off', publicUse: 'Laboratório / integração progressiva' },
-      { id: 'hbx-transfers', name: 'HBX Transfers', category: 'Transfers', configured: Boolean(hbxSuites.transfers), enabled: Boolean(hbxSuites.transfers), mode: this.hbx?.mode || 'off', publicUse: 'Laboratório / integração progressiva' },
+      { id: 'hbx-hotels', name: 'HBX Hotels', category: 'Hotéis', configured: Boolean(hbxSuites.hotels), enabled: Boolean(hbxSuites.hotels), mode: this.hbx?.mode || 'off', publicUse: 'Pesquisa federada (portfolio em cache + disponibilidade)' },
+      { id: 'hbx-activities', name: 'HBX Activities', category: 'Atividades', configured: Boolean(hbxSuites.activities), enabled: Boolean(hbxSuites.activities), mode: this.hbx?.mode || 'off', publicUse: 'Construtor da viagem' },
+      { id: 'hbx-transfers', name: 'HBX Transfers', category: 'Transfers', configured: Boolean(hbxSuites.transfers), enabled: Boolean(hbxSuites.transfers), mode: this.hbx?.mode || 'off', publicUse: 'Construtor da viagem' },
       { id: 'openweather', name: 'OpenWeather', category: 'Clima', configured: Boolean(this.weather?.isConfigured()), enabled: Boolean(this.weather?.isConfigured()), mode: 'live-data', publicUse: 'Detalhe da viagem' },
       { id: 'ticketmaster', name: 'Ticketmaster Discovery', category: 'Eventos', configured: Boolean(this.ticketmaster?.isConfigured()), enabled: Boolean(this.ticketmaster?.isConfigured()), mode: 'public-api', publicUse: 'Detalhe da viagem' },
       { id: 'google-places', name: 'Google Places', category: 'Explorar zona', configured: Boolean(this.googlePlaces?.isConfigured()), enabled: Boolean(this.googlePlaces?.isEnabled()), mode: this.googlePlaces?.isEnabled() ? 'on-demand' : 'off', publicUse: this.googlePlaces?.isEnabled() ? 'Só por ação explícita' : 'Desligado por controlo de custos' }
@@ -62,6 +62,45 @@ class TravelIntelligenceService {
         limit: 6
       });
     }
+    if (this.hbx?.isConfigured('activities') && destination?.hbxCode && offer.checkin && offer.checkout) {
+      tasks.activities = this.hbx.searchActivities({
+        destinationCode: destination.hbxCode,
+        from: offer.checkin,
+        to: offer.checkout,
+        adults: offer.adults || 1,
+        children: offer.children || 0,
+        infants: offer.infants || 0,
+        childAges: offer.childAges || [],
+        infantAges: offer.infantAges || [],
+        limit: 8
+      });
+    }
+    if (this.hbx?.isConfigured('transfers') && destination?.iata && offer.checkin && offer.checkout) {
+      // Transfers usa códigos ATLAS próprios; o código do Hotel Booking API
+      // não é intercambiável. Fazemos a ponte por GIATA só para o hotel que
+      // o cliente abriu, evitando varrer o catálogo de transfers.
+      const giataCode = offer.hbx?.giataCode || offer.components?.hotel?.giataCode || '';
+      const knownAtlas = offer.hbx?.atlasCode || offer.components?.hotel?.atlasCode || '';
+      if (knownAtlas || giataCode) {
+        tasks.transfers = (async () => {
+          const mapping = knownAtlas ? { atlasCode: knownAtlas } : await this.hbx.transferHotelByGiata(giataCode);
+          if (!mapping?.atlasCode) return { services: [], unavailableReason: 'Hotel sem correspondência ATLAS para transfers.' };
+          const outbound = offer.flight?.slices?.[0]?.arrivalAt || `${offer.checkin}T12:00:00`;
+          const inboundDeparture = offer.flight?.slices?.[1]?.departureAt || `${offer.checkout}T10:00:00`;
+          return this.hbx.searchTransfers({
+            airportIata: destination.iata,
+            hotelCode: mapping.atlasCode,
+            checkIn: offer.checkin,
+            checkOut: offer.checkout,
+            outbound,
+            inbound: inboundDeparture,
+            adults: offer.adults || 1,
+            children: offer.children || 0,
+            infants: offer.infants || 0
+          });
+        })();
+      }
+    }
     if (options.exploreGoogle && this.googlePlaces?.isEnabled() && destination) {
       tasks.places = this.googlePlaces.textSearch(`principais atrações em ${destination.name}, ${destination.country}`);
     }
@@ -70,12 +109,12 @@ class TravelIntelligenceService {
     const settled = await Promise.allSettled(Object.values(tasks));
     const providers = Object.fromEntries(names.map((name, i) => [name, providerResult(name, settled[i])]));
     return {
-      destination: destination ? { name: destination.name, country: destination.country, iata: destination.iata, lat: destination.lat, lon: destination.lon } : null,
+      destination: destination ? { name: destination.name, country: destination.country, iata: destination.iata, hbxCode: destination.hbxCode, lat: destination.lat, lon: destination.lon } : null,
       origin: origin || null,
       providers,
       warnings,
       generatedAt: new Date().toISOString(),
-      note: 'Os voos são cotações independentes e não alteram automaticamente o preço do alojamento/pacote selecionado. O clima mostrado é a condição atual, não uma previsão para datas distantes.'
+      note: 'Voos, transfers e atividades são consultados por fornecedor e revalidados antes de qualquer reserva. O clima mostrado é a condição atual, não uma previsão para datas distantes.'
     };
   }
 
