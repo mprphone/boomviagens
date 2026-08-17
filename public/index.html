@@ -7,7 +7,7 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/base.css" />
   <link rel="stylesheet" href="/css/header.css" />
   <link rel="stylesheet" href="/css/hero-search.css" />
@@ -16,24 +16,27 @@
   <link rel="stylesheet" href="/css/review.css" />
   <link rel="stylesheet" href="/css/checkout.css" />
   <link rel="stylesheet" href="/css/shared.css" />
+  <link rel="stylesheet" href="/css/polish.css" />
 </head>
 <body>
   <header class="topbar">
-    <div class="topbar-utility"><div class="topbar-utility-inner"><span>Agência de viagens · apoio humano antes, durante e depois</span><div><a href="tel:" id="topbarPhone"><strong id="topbarPhoneNumber">253 695 089</strong></a><a href="/conta/">A minha conta</a></div></div></div>
+    <div class="topbar-utility"><div class="topbar-utility-inner"><span>Agência de viagens portuguesa · apoio antes, durante e depois</span><div><a href="tel:" id="topbarPhone"><strong id="topbarPhoneNumber">253 695 089</strong></a><a href="#ajuda">Ajuda</a><button type="button" class="utility-control" aria-label="Moeda">EUR</button><button type="button" class="utility-control" aria-label="Idioma">PT</button></div></div></div>
     <div class="topbar-main">
       <a class="brand" href="#pesquisa" aria-label="Boomviagens"><img src="/logo.svg" alt="Boomviagens" /></a>
       <nav class="main-nav" aria-label="Navegação principal">
         <a href="#pesquisa" data-service="PACKAGE">Pacotes</a><a href="#pesquisa" data-service="HOTEL">Hotéis</a><a href="#pesquisa" data-service="FLIGHT">Voos</a><a href="#pesquisa" data-service="CRUISE">Cruzeiros</a><a href="#pesquisa" data-service="EXPERIENCE">Experiências</a><a href="#novidades">Destinos</a><a href="#novidades">Promoções</a>
       </nav>
-      <button class="mobile-menu-btn" id="mobileMenuBtn" type="button" aria-label="Abrir menu">☰</button>
+      <a class="account-link" href="/conta/" aria-label="A minha conta"><span class="account-mark" aria-hidden="true"></span><span>A minha conta</span></a>
+      <button class="mobile-menu-btn" id="mobileMenuBtn" type="button" aria-label="Abrir menu"><span></span><span></span><span></span></button>
     </div>
   </header>
 
   <main>
     <section class="hero" id="pesquisa">
       <div class="hero-heading">
-        <h1>A sua próxima viagem começa <em>aqui.</em></h1>
-        <p class="hero-tagline">Compare voos, hotéis e experiências num só lugar — com apoio de uma agência real.</p>
+        <p class="hero-kicker">Viaje melhor, com apoio de quem sabe</p>
+        <h1>A sua próxima viagem<br />começa <em>aqui.</em></h1>
+        <p class="hero-tagline">Compare voos, hotéis, pacotes e experiências num só lugar.</p>
       </div>
 
       <div class="search-card">
@@ -107,7 +110,7 @@
               <input name="infantAges" id="infantAgesInput" type="hidden" value="" />
             </div>
             <input type="hidden" name="nights" id="nightsInput" value="7" />
-            <button class="btn search-submit" type="submit">🔍 Pesquisar</button>
+            <button class="btn search-submit" type="submit">Pesquisar</button>
           </div>
 
           <div class="search-trust-line">
