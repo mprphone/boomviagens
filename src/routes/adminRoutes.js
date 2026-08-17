@@ -25,16 +25,30 @@ module.exports = function registerAdminRoutes(router, ctx) {
 
   router.get('/api/admin/dashboard', async (req, res) => {
     const db = ensureCollections(await readDb());
+    const staff = sessionStaff(req);
+    const canSeeFinance = ['FINANCEIRO', 'SUPERVISOR', 'ADMIN'].includes(staff?.role);
     const totalReservations = db.reservations.length;
     const confirmed = db.reservations.filter(r => r.status === 'CONFIRMED').length;
     const revenue = db.reservations.filter(r => r.status === 'CONFIRMED').reduce((sum, r) => sum + (r.offer?.finalPrice || 0), 0);
     const margin = db.reservations.filter(r => r.status === 'CONFIRMED').reduce((sum, r) => sum + (r.offer?.marginValue || 0), 0);
+    const publicReservation = r => {
+      if (canSeeFinance) return r;
+      const safeOffer = r.offer ? { ...r.offer } : r.offer;
+      if (safeOffer) {
+        delete safeOffer.costPrice; delete safeOffer.marginRule; delete safeOffer.marginPercent;
+        delete safeOffer.marginValue; delete safeOffer.minimumPrice; delete safeOffer.targetPrice;
+      }
+      return { ...r, offer: safeOffer };
+    };
     return json(res, 200, {
       company: db.company,
-      stats: { leads: db.leads.length, customers: db.customers.length, reservations: totalReservations, confirmed, revenue, margin },
-      latest: { leads: db.leads.slice(0, 10), reservations: db.reservations.slice(0, 10), payments: db.payments.slice(0, 10), emails: db.emails.slice(0, 10), logs: db.operatorLogs.slice(0, 10), audit: db.auditLogs.slice(0, 10) },
-      margins: db.margins,
-      operators: operators.list(),
+      stats: { leads: db.leads.length, customers: db.customers.length, reservations: totalReservations, confirmed, revenue, ...(canSeeFinance ? { margin } : {}) },
+      latest: {
+        leads: db.leads.slice(0, 10),
+        reservations: db.reservations.slice(0, 10).map(publicReservation),
+        payments: db.payments.slice(0, 10),
+        emails: db.emails.slice(0, 10)
+      },
       statuses: RESERVATION_STATUSES.map(value => ({ value, label: statusLabel(value) }))
     });
   }, { admin: true });
@@ -106,7 +120,7 @@ module.exports = function registerAdminRoutes(router, ctx) {
 
   router.get('/api/admin/margins', async (req, res) => {
     return json(res, 200, { margins: (await readDb()).margins });
-  }, { admin: true });
+  }, { admin: true, roles: ['FINANCEIRO', 'SUPERVISOR', 'ADMIN'] });
 
   router.post('/api/admin/margins', async (req, res) => {
     const body = await parseBody(req);
@@ -116,7 +130,12 @@ module.exports = function registerAdminRoutes(router, ctx) {
         id: cleanText(body.id || id('margin'), 80),
         name: cleanText(body.name || 'Nova margem', 120),
         match: cleanText(body.match || '*', 500),
-        percent: numberInRange(body.percent, 'Percentagem', 0, 80, 7),
+        operator: cleanText(body.operator || '*', 120),
+        channel: cleanText(body.channel || '*', 80),
+        productType: cleanText(body.productType || '*', 80),
+        percent: numberInRange(body.percent, 'Markup alvo', 0, 80, 7),
+        minimumPercent: numberInRange(body.minimumPercent, 'Markup minimo', 0, 80, 0),
+        rebatePercent: numberInRange(body.rebatePercent, 'Rappel estimado', 0, 30, 0),
         min: numberInRange(body.min, 'Margem minima', 0, 10000, 50),
         roundTo: numberInRange(body.roundTo, 'Arredondamento', 1, 1000, 5),
         active: body.active !== false
@@ -127,7 +146,22 @@ module.exports = function registerAdminRoutes(router, ctx) {
       return margin;
     });
     return json(res, 200, { ok: true, margin: saved });
-  }, { admin: true });
+  }, { admin: true, roles: ['FINANCEIRO', 'SUPERVISOR', 'ADMIN'] });
+
+  router.post('/api/admin/pricing/preview', async (req, res) => {
+    const body = await parseBody(req);
+    const db = ensureCollections(await readDb());
+    const baseCost = numberInRange(body.baseCost, 'NET', 0.01, 1000000, 1000);
+    const destination = cleanText(body.destination || '', 120);
+    const context = {
+      operator: cleanText(body.operator || '', 120),
+      channel: cleanText(body.channel || 'ONLINE', 80),
+      productType: cleanText(body.productType || 'ALOJAMENTO', 80),
+      concessionPercent: numberInRange(body.concessionPercent, 'Cedencia', 0, 80, 0)
+    };
+    const pricing = ctx.applyMargin(baseCost, destination, db.margins, context);
+    return json(res, 200, { ok: true, pricing, context });
+  }, { admin: true, roles: ['FINANCEIRO', 'SUPERVISOR', 'ADMIN'] });
 
   router.post('/api/admin/reservations/approve', async (req, res) => {
     const body = await parseBody(req);
@@ -1269,6 +1303,40 @@ module.exports = function registerAdminRoutes(router, ctx) {
     return json(res, 200, { ok: true, lead: saved });
   }, { admin: true });
 
+  router.get('/api/admin/operators', async (req, res) => {
+    const db = ensureCollections(await readDb());
+    return json(res, 200, {
+      ok: true,
+      operators: operators.list(),
+      logs: db.operatorLogs.slice(0, 20),
+      audit: db.auditLogs.slice(0, 20)
+    });
+  }, { admin: true, roles: ['SUPERVISOR', 'ADMIN'] });
+
+  router.get('/api/admin/integrations', async (req, res) => {
+    return json(res, 200, { ok: true, integrations: ctx.travelIntelligence.status() });
+  }, { admin: true, roles: ['SUPERVISOR', 'ADMIN'] });
+
+  // Testes manuais apenas: nenhuma destas chamadas corre ao abrir o
+  // backoffice. Isto é especialmente importante para HBX evaluation (quota
+  // reduzida) e Google Places (custo variável).
+  router.post('/api/admin/integrations/test', async (req, res) => {
+    const body = await parseBody(req);
+    const integrationId = cleanText(body.id, 60);
+    const integration = ctx.travelIntelligence.status().find(x => x.id === integrationId);
+    if (!integration) return json(res, 404, { ok: false, error: 'Integração desconhecida' });
+    if (!integration.configured) return json(res, 400, { ok: false, error: `${integration.name} ainda não tem credenciais configuradas.` });
+    if (integrationId === 'google-places' && !integration.enabled) return json(res, 400, { ok: false, error: 'Google Places está configurado mas desligado. Ative GOOGLE_PLACES_ENABLED=true apenas quando quiser testar custos/uso.' });
+    try {
+      const result = await ctx.travelIntelligence.testProvider(integrationId);
+      await updateDb(db => addOperatorLog(db, 'INTEGRATION_TEST_OK', { integrationId, at: now() }));
+      return json(res, 200, { ok: true, integration: integrationId, result });
+    } catch (e) {
+      await updateDb(db => addOperatorLog(db, 'INTEGRATION_TEST_ERROR', { integrationId, error: e.message, at: now() }));
+      return json(res, 200, { ok: true, integration: integrationId, testOk: false, error: e.message });
+    }
+  }, { admin: true, roles: ['SUPERVISOR', 'ADMIN'] });
+
   router.post('/api/admin/operator/tourdiez/test', async (req, res) => {
     const body = await parseBody(req);
     const { tourdiezAdapter } = ctx;
@@ -1298,5 +1366,5 @@ module.exports = function registerAdminRoutes(router, ctx) {
       await updateDb(db => addOperatorLog(db, 'TEST_ERROR', { error: e.message, params: testParams }));
       return json(res, 200, { ok: true, configured: tourdiezAdapter.isConfigured(), tourdiezOk: false, params: testParams, error: e.message });
     }
-  }, { admin: true });
+  }, { admin: true, roles: ['SUPERVISOR', 'ADMIN'] });
 };

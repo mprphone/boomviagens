@@ -13,7 +13,7 @@ export function setCheckoutStep(step) {
 
 export function renderCheckoutSummary(offer) {
   const trip = dateRange(offer.checkin, offer.checkout);
-  const pax = `${offer.adults || 1} adulto${(offer.adults || 1) > 1 ? 's' : ''}${offer.children ? ` + ${offer.children} criança${offer.children > 1 ? 's' : ''}` : ''}`;
+  const pax = `${offer.adults || 1} adulto${(offer.adults || 1) > 1 ? 's' : ''}${offer.children ? ` + ${offer.children} criança${offer.children > 1 ? 's' : ''}` : ''}${offer.infants ? ` + ${offer.infants} bebé${offer.infants > 1 ? 's' : ''}` : ''}`;
   $('#checkoutSummary').innerHTML = `
     <div class="checkout-summary-head">
       <div>

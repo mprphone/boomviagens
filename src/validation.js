@@ -51,15 +51,27 @@ function nif(value) {
   return cleaned;
 }
 
+function parseAgeList(value, count, min, max, fallback) {
+  const raw = Array.isArray(value) ? value : String(value || '').split(',');
+  const parsed = raw.map(Number).filter(Number.isFinite).map(v => Math.max(min, Math.min(max, Math.round(v))));
+  return Array.from({ length: count }, (_, i) => Number.isFinite(parsed[i]) ? parsed[i] : fallback);
+}
+
 function searchPayload(body = {}) {
+  const adults = numberInRange(body.adults, 'Adultos', 1, 12, 2);
+  const children = numberInRange(body.children, 'Criancas', 0, 12, 0);
+  const infants = numberInRange(body.infants, 'Bebes', 0, 8, 0);
   return {
     prompt: optionalText(body.prompt, 1000),
     destination: optionalText(body.destination, 120),
     origin: optionalText(body.origin, 80),
     checkin: optionalText(body.checkin, 30),
     nights: numberInRange(body.nights, 'Noites', 1, 60, 7),
-    adults: numberInRange(body.adults, 'Adultos', 1, 12, 2),
-    children: numberInRange(body.children, 'Criancas', 0, 12, 0),
+    adults,
+    children,
+    infants,
+    childAges: parseAgeList(body.childAges, children, 2, 11, 8),
+    infantAges: parseAgeList(body.infantAges, infants, 0, 1, 1),
     budget: numberInRange(body.budget, 'Orcamento', 1, 100000, 2500),
     name: optionalText(body.name, 120),
     email: email(body.email || 'cliente@exemplo.pt', false),
@@ -126,6 +138,7 @@ function validatePassengerForTrip(body = {}, expectedType = 'ADT', returnDate = 
   if (expectedType === 'ADT' && age < 12) throw new Error('Passageiro adulto com idade inferior a 12 anos na data da viagem');
   if (expectedType === 'CHD' && age >= 12) throw new Error('Passageiro crianca tera 12 ou mais anos na data da viagem');
   if (expectedType === 'CHD' && age < 2) throw new Error('Passageiro com menos de 2 anos deve ser pesquisado como bebe');
+  if (expectedType === 'INF' && age >= 2) throw new Error('Passageiro bebe tera 2 ou mais anos na data da viagem e deve ser pesquisado como crianca');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(p.documentExpiry)) throw new Error('Validade do documento invalida');
   const expiry = new Date(`${p.documentExpiry}T00:00:00Z`);
   const ret = new Date(`${returnDate}T00:00:00Z`);

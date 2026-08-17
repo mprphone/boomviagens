@@ -59,7 +59,7 @@
         </div>
 
         <form id="searchForm">
-          <textarea name="prompt" id="promptInput" class="prompt-input" rows="2" placeholder="Ex: Praia em agosto, 2 adultos e 2 crianças, tudo incluído, até 3.500€, saída do Porto…">Quero 7 noites nas Caraibas em agosto, tudo incluido, para 2 adultos, ate 2500 euros, saida do Porto.</textarea>
+          <textarea name="prompt" id="promptInput" class="prompt-input" rows="2" placeholder="Ex: Praia em agosto, 2 adultos e 2 crianças, tudo incluído, até 3.500€, saída do Porto…"></textarea>
 
           <div class="search-pills">
             <label class="pill-field pill-destination">
@@ -80,14 +80,17 @@
               <span class="pax-chevron">⌄</span>
               <input name="adults" id="adultsInput" type="hidden" value="2" />
               <input name="children" id="childrenInput" type="hidden" value="0" />
+              <input name="infants" id="infantsInput" type="hidden" value="0" />
+              <input name="childAges" id="childAgesInput" type="hidden" value="" />
+              <input name="infantAges" id="infantAgesInput" type="hidden" value="" />
             </div>
             <input type="hidden" name="nights" id="nightsInput" value="7" />
             <button class="btn search-submit" type="submit">🔍 Pesquisar</button>
           </div>
 
           <div class="search-trust-line">
-            <span>✓ Melhor preço garantido</span>
-            <span>✓ Pagamento 100% seguro</span>
+            <span>✓ Comparamos preço e condições</span>
+            <span>✓ Pagamento seguro</span>
             <span>✓ Apoio humano sempre que precisar</span>
           </div>
         </form>
@@ -175,7 +178,7 @@
       <section class="trust-strip">
         <div class="trust-strip-item">
           <span class="trust-strip-icon" aria-hidden="true">🧭</span>
-          <div><b>Melhor preço garantido</b><span>Encontramos a melhor oferta</span></div>
+          <div><b>Preço e condições comparados</b><span>Mostramos o que realmente está incluído</span></div>
         </div>
         <div class="trust-strip-item">
           <span class="trust-strip-icon" aria-hidden="true">🔒</span>
@@ -226,7 +229,10 @@
       <div id="resultsHighlights" class="highlight-strip"></div>
       <div class="results-layout">
         <aside class="results-filters" id="resultsFilters" hidden></aside>
-        <div id="results" class="results-list"></div>
+        <div class="results-main-column">
+          <div id="resultsToolbar" class="results-toolbar"></div>
+          <div id="results" class="results-list"></div>
+        </div>
       </div>
     </section>
 
@@ -293,7 +299,10 @@
     <div class="pax-panel-head"><b>Viajantes</b><button type="button" id="paxPanelClose" aria-label="Fechar">×</button></div>
     <div class="pax-row"><div><b>Adultos</b><small>12 anos ou mais na data da viagem</small></div><div class="counter"><button type="button" data-pax="adults" data-delta="-1">−</button><strong id="adultsCount">2</strong><button type="button" data-pax="adults" data-delta="1">+</button></div></div>
     <div class="pax-row"><div><b>Crianças</b><small>2–11 anos na data da viagem</small></div><div class="counter"><button type="button" data-pax="children" data-delta="-1">−</button><strong id="childrenCount">0</strong><button type="button" data-pax="children" data-delta="1">+</button></div></div>
-    <p class="pax-help">No checkout validamos a data de nascimento de cada passageiro. Bebés com menos de 2 anos exigem tarifa própria e não serão classificados como crianças.</p>
+    <div id="childAgesBox" class="pax-age-box" hidden></div>
+    <div class="pax-row"><div><b>Bebés</b><small>0–1 ano na data da viagem</small></div><div class="counter"><button type="button" data-pax="infants" data-delta="-1">−</button><strong id="infantsCount">0</strong><button type="button" data-pax="infants" data-delta="1">+</button></div></div>
+    <div id="infantAgesBox" class="pax-age-box" hidden></div>
+    <p class="pax-help">As idades são usadas já na pesquisa para pedir tarifas corretas. No checkout confirmamos a data de nascimento e a categoria de cada passageiro.</p>
     <button type="button" class="btn wide" id="paxApplyBtn">Aplicar</button>
   </div>
   <div class="calendar-panel" id="calendarPanel" hidden></div>
@@ -304,7 +313,7 @@
         <span class="assistant-head-icon">💬</span>
         <div>
           <b>Assistente Boom</b>
-          <span>Respostas automáticas, sem IA externa</span>
+          <span>Ajuda para escolher e preparar a sua viagem</span>
         </div>
         <button type="button" class="chat-close" id="chatCloseBtn" aria-label="Fechar">&times;</button>
       </div>

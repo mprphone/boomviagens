@@ -138,7 +138,14 @@ class TourDiezAdapter extends OperatorAdapter {
       checkout,
       nights,
       adults: Number(parsed.adults || 2),
-      children: Number(parsed.children || 0),
+      // A TourDiez usa 'children' + idades para todos os menores. No nosso
+      // modelo distinguimos CHD/INF para validar melhor o checkout, por isso
+      // reunimos ambos apenas na chamada ao operador.
+      children: Number(parsed.children || 0) + Number(parsed.infants || 0),
+      childAges: [
+        ...(Array.isArray(parsed.childAges) ? parsed.childAges : []),
+        ...(Array.isArray(parsed.infantAges) ? parsed.infantAges : [])
+      ].slice(0, 2),
       retrieveCancelPolicies: true
     };
     if (process.env.TOURDIEZ_DEFAULT_ACCOMMODATIONS) params.accomodationsCode = process.env.TOURDIEZ_DEFAULT_ACCOMMODATIONS;
@@ -187,7 +194,7 @@ class TourDiezAdapter extends OperatorAdapter {
     const options = source.map(distXml => {
       const rawPrice = this.findNumber(distXml, ['pvp', 'price', 'amount', 'total', 'totalPrice', 'finalPrice']);
       if (!rawPrice) return null;
-      const priced = applyMargin(rawPrice, destination, margins);
+      const priced = applyMargin(rawPrice, destination, margins, { operator: 'TourDiez', channel: 'ONLINE', productType: 'ALOJAMENTO' });
       const mealPlan = this.tag(distXml, 'mealPlan');
       const roomName = this.tag(distXml, 'name') || 'Quarto standard';
       return {
@@ -230,6 +237,9 @@ class TourDiezAdapter extends OperatorAdapter {
         nights: Number(parsed.nights || 7),
         adults: Number(parsed.adults || 2),
         children: Number(parsed.children || 0),
+        infants: Number(parsed.infants || 0),
+        childAges: Array.isArray(parsed.childAges) ? parsed.childAges : [],
+        infantAges: Array.isArray(parsed.infantAges) ? parsed.infantAges : [],
         origin: parsed.origin || 'Lisboa',
         checkin: parsed.checkin || '',
         checkout: parsed.checkout || '',

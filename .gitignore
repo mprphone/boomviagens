@@ -4,6 +4,7 @@
 node_modules/
 npm-debug.log*
 data/*.tmp
+data/db.json
 data/*.sqlite
 data/*.sqlite-*
 *.local

@@ -346,3 +346,17 @@ main { width: 100%; }
 .counter button { width:32px; height:32px; border:1px solid var(--line); border-radius:999px; background:#fff; color:var(--blue-dark); font-size:18px; cursor:pointer; }
 .counter strong { min-width:20px; text-align:center; }
 .pax-help { margin:12px 0; color:var(--muted); font-size:11.5px; line-height:1.45; }
+
+/* Pesquisa assistida V3 */
+.suggest-item { width:100%; display:flex; align-items:center; gap:10px; border:0; border-bottom:1px solid var(--line-soft); padding:10px 12px; background:#fff; text-align:left; color:var(--ink); font:inherit; cursor:pointer; }
+.suggest-item:hover { background:#f7fafc; }
+.suggest-item:last-child { border-bottom:0; }
+.suggest-item > span:last-child { display:flex; flex-direction:column; gap:1px; }
+.suggest-item small { color:var(--muted); font-size:10.5px; }
+.suggest-icon { width:24px; text-align:center; }
+.pax-age-box { margin:-2px 0 12px; border-radius:10px; padding:10px 12px; background:#f7fafc; }
+.pax-age-box[hidden] { display:none; }
+.pax-age-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:7px; }
+.pax-age-grid label { display:flex; flex-direction:column; gap:4px; color:var(--ink-soft); font-size:10.5px; font-weight:700; }
+.pax-age-grid select { width:100%; padding:8px; border:1px solid var(--line); border-radius:8px; background:#fff; }
+@media (max-width:520px) { .pax-age-grid { grid-template-columns:1fr; } }

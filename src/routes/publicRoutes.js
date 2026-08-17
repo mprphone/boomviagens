@@ -6,7 +6,7 @@
 const OFFER_TOKEN_TTL_MS = 30 * 60 * 1000;
 
 module.exports = function registerPublicRoutes(router, ctx) {
-  const { json, readDb, updateDb, operators, tourdiezAdapter, searchOffers, baseOffers, getOfferById, searchPayload, normalize, rateLimit, domain } = ctx;
+  const { json, readDb, updateDb, tourdiezAdapter, searchOffers, baseOffers, getOfferById, searchPayload, normalize, rateLimit, domain, travelIntelligence } = ctx;
   const { publicDeals, ensureCollections, addOperatorLog, now } = domain;
   const { signToken } = ctx.auth;
 
@@ -20,19 +20,68 @@ module.exports = function registerPublicRoutes(router, ctx) {
       scope: 'offer',
       costPrice: offer.costPrice,
       finalPrice: offer.finalPrice,
+      operator: offer.operator || null,
       tourdiez: offer.tourdiez || null,
+      // Campos de viagem também ficam assinados. As APIs de enriquecimento
+      // usam estes valores, nunca destino/datas/pax arbitrários enviados pelo
+      // browser, reduzindo abuso de quotas externas.
+      destination: offer.destination || '',
+      origin: offer.origin || '',
+      checkin: offer.checkin || '',
+      checkout: offer.checkout || '',
+      adults: Number(offer.adults || 1),
+      children: Number(offer.children || 0),
+      infants: Number(offer.infants || 0),
+      childAges: Array.isArray(offer.childAges) ? offer.childAges : [],
+      infantAges: Array.isArray(offer.infantAges) ? offer.infantAges : [],
       exp: Date.now() + OFFER_TOKEN_TTL_MS
     });
   }
 
+  function publicOfferFields(offer = {}) {
+    const copy = { ...offer };
+    // Nunca expor NET/margem/trace do fornecedor no browser. O checkout
+    // recupera os valores financeiros do offerToken assinado no servidor.
+    delete copy.costPrice;
+    delete copy.marginRule;
+    delete copy.marginPercent;
+    delete copy.marginValue;
+    delete copy.trace;
+    delete copy.operator;
+    delete copy.tourdiez;
+    delete copy.operatorRefs;
+    delete copy.operatorData;
+    delete copy.targetPrice;
+    delete copy.minimumPrice;
+    delete copy.minimumMarginPercent;
+    delete copy.concessionAvailable;
+    return copy;
+  }
+
   function attachOfferTokens(results) {
-    return results.map(offer => ({
-      ...offer,
-      offerToken: signOffer(offer),
-      roomOptions: Array.isArray(offer.roomOptions)
-        ? offer.roomOptions.map(opt => ({ ...opt, offerToken: signOffer(opt) }))
-        : offer.roomOptions
-    }));
+    return results.map(offer => {
+      const parentToken = signOffer(offer);
+      const publicOffer = publicOfferFields(offer);
+      return {
+        ...publicOffer,
+        offerToken: parentToken,
+        roomOptions: Array.isArray(offer.roomOptions)
+          ? offer.roomOptions.map(opt => {
+              const signedOption = {
+                ...offer,
+                ...opt,
+                operator: offer.operator,
+                tourdiez: offer.tourdiez ? {
+                  ...offer.tourdiez,
+                  idDistributions: opt.idDistributions || offer.tourdiez.idDistributions,
+                  code: opt.roomCode || offer.tourdiez.code
+                } : null
+              };
+              return { ...publicOfferFields(opt), offerToken: signOffer(signedOption) };
+            })
+          : offer.roomOptions
+      };
+    });
   }
 
   router.get('/api/health', async (req, res) => {
@@ -44,12 +93,77 @@ module.exports = function registerPublicRoutes(router, ctx) {
     // So agencias com morada preenchida (nunca uma agencia recem-criada e
     // ainda vazia) - ver seccao "4 agencias" da homepage.
     const branches = db.branches.filter(b => b.active && b.address).map(b => ({ name: b.name, address: b.address, phone: b.phone }));
-    return json(res, 200, { company: db.company, margins: db.margins, branches, paymentsMode: process.env.PAYMENTS_MODE || 'mock', operators: operators.list(), tourdiezConfigured: operators.list().some(o => o.name === 'TourDiez' && o.configured), paymentGateways: ctx.paymentGateways.list() });
+    const integrationStatus = travelIntelligence.status();
+    return json(res, 200, {
+      company: db.company,
+      branches,
+      paymentsMode: process.env.PAYMENTS_MODE || 'mock',
+      // O site público conhece capacidades, não nomes/estado comercial dos
+      // fornecedores. A topologia completa só existe no API Lab do backoffice.
+      features: {
+        exploreZone: integrationStatus.some(x => x.id === 'google-places' && x.enabled),
+        travelIntelligence: true
+      }
+    });
   });
 
   router.get('/api/deals', async (req, res) => {
     const db = await readDb();
     return json(res, 200, { ok: true, deals: publicDeals(db, baseOffers, getOfferById) });
+  });
+
+  // Sugestões de destino vêm do servidor para o frontend não ficar preso a
+  // uma lista hardcoded. Incluem o aeroporto de referência usado pelo motor
+  // de voos, mas nunca credenciais de fornecedores.
+  router.get('/api/destinations/suggest', async (req, res, url) => {
+    const limited = rateLimit(req, res, 'destinations-suggest', 120, 60 * 1000);
+    if (limited) return limited;
+    const q = String(url.searchParams.get('q') || '').slice(0, 80);
+    return json(res, 200, { ok: true, destinations: travelIntelligence.suggest(q, 10) });
+  });
+
+  // Enriquecimento LAZY: só é chamado quando o cliente abre a página da
+  // viagem. Assim, percorrer milhares de hotéis não dispara milhares de
+  // chamadas a APIs externas. Uma falha de Duffel/Weather/Ticketmaster não
+  // impede o cliente de continuar a reservar o produto principal.
+  router.post('/api/travel-intelligence', async (req, res) => {
+    const limited = rateLimit(req, res, 'travel-intelligence', 8, 60 * 1000);
+    if (limited) return limited;
+    const body = await ctx.parseBody(req);
+    const signed = ctx.auth.verifyToken(body.offer?.offerToken || body.offerToken || '');
+    if (!signed || signed.scope !== 'offer') return json(res, 400, { ok: false, error: 'Atualize a pesquisa para consultar novamente esta viagem.' });
+    const offer = {
+      destination: String(signed.destination || '').slice(0, 100),
+      origin: String(signed.origin || '').slice(0, 30),
+      checkin: /^\d{4}-\d{2}-\d{2}$/.test(String(signed.checkin || '')) ? signed.checkin : '',
+      checkout: /^\d{4}-\d{2}-\d{2}$/.test(String(signed.checkout || '')) ? signed.checkout : '',
+      adults: Math.max(1, Math.min(8, Number(signed.adults || 1))),
+      children: Math.max(0, Math.min(8, Number(signed.children || 0))),
+      infants: Math.max(0, Math.min(8, Number(signed.infants || 0))),
+      childAges: (Array.isArray(signed.childAges) ? signed.childAges : []).map(Number).filter(Number.isFinite).slice(0, 8),
+      infantAges: (Array.isArray(signed.infantAges) ? signed.infantAges : []).map(Number).filter(Number.isFinite).slice(0, 8)
+    };
+    const data = await travelIntelligence.enrichTrip(offer, { exploreGoogle: false });
+    return json(res, 200, { ok: true, ...data });
+  });
+
+  // Google Places fica deliberadamente fora do carregamento automático.
+  // Só há custo quando o utilizador pede explicitamente para explorar a zona
+  // e a integração estiver ativada por GOOGLE_PLACES_ENABLED=true.
+  router.post('/api/explore-zone', async (req, res) => {
+    const limited = rateLimit(req, res, 'explore-zone', 4, 60 * 1000);
+    if (limited) return limited;
+    const body = await ctx.parseBody(req);
+    const signed = ctx.auth.verifyToken(body.offerToken || '');
+    if (!signed || signed.scope !== 'offer') return json(res, 400, { ok: false, error: 'Atualize a pesquisa para explorar esta zona.' });
+    const destination = String(signed.destination || '').slice(0, 100);
+    try {
+      const result = await travelIntelligence.exploreZone(destination);
+      return json(res, 200, { ok: true, ...result });
+    } catch (err) {
+      const status = /desligad|configurad/i.test(err.message) ? 503 : 502;
+      return json(res, status, { ok: false, error: err.message });
+    }
   });
 
   // Calendario de precos por dia no campo Data (like gurudasviagens.pt).
@@ -80,7 +194,7 @@ module.exports = function registerPublicRoutes(router, ctx) {
     const demoSearch = searchOffers(body, db.margins);
     const parsed = demoSearch.parsed;
     let results = demoSearch.results;
-    let operatorStatus = { source: 'demo', message: 'Resultados demo usados.' };
+    let operatorStatus = { source: 'estimated' };
     let operatorLog = null;
     if (tourdiezAdapter.isConfigured()) {
       try {
@@ -96,18 +210,15 @@ module.exports = function registerPublicRoutes(router, ctx) {
         const relatedMatch = live.offers.length && searchedDest && foundDest && (searchedDest.includes(foundDest) || foundDest.includes(searchedDest));
         if (relatedMatch) {
           results = live.offers;
-          operatorStatus = { source: 'tourdiez', message: 'Precos reais TourDiez.' };
+          operatorStatus = { source: 'verified' };
         } else if (live.offers.length) {
-          operatorStatus = {
-            source: 'demo_fallback',
-            message: `A TourDiez nao tem disponibilidade real para "${parsed.destination}" neste momento (o operador so confirma stock de teste em ${live.offers[0].destination}); a mostrar alternativas demo para o destino pedido.`
-          };
+          operatorStatus = { source: 'requires_validation' };
         } else {
-          operatorStatus = { source: 'demo_fallback', message: 'TourDiez respondeu sem precos convertiveis; a mostrar alternativas demo.' };
+          operatorStatus = { source: 'requires_validation' };
         }
       } catch (e) {
         operatorLog = { type: 'SEARCH_TOURDIEZ_ERROR', payload: { error: e.message, destination: parsed.destination } };
-        operatorStatus = { source: 'demo_fallback', message: 'TourDiez indisponivel neste momento; a mostrar alternativas demo.', error: e.message };
+        operatorStatus = { source: 'requires_validation' };
       }
     }
     // Uma pesquisa, por si so, nao e um interesse - a maioria e so

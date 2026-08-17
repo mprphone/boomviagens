@@ -10,7 +10,7 @@ A versão deste pacote inclui site público, Área de Cliente, backoffice contex
 
 ## Executar localmente
 
-Requisitos: Node.js 18+.
+Requisitos: Node.js 22.5+ (o modo SQLite usa `node:sqlite`).
 
 ```bash
 cp .env.example .env
@@ -133,3 +133,33 @@ O menu lateral adapta-se à área escolhida em vez de apresentar toda a aplicaç
 - correções de segurança;
 - melhorias do backoffice;
 - lista explícita de P0 ainda pendentes antes de live.
+
+## Travel Intelligence — 17/08/2026
+
+Esta versão acrescenta uma camada de enriquecimento controlado para **Duffel, HBX Hotels/Activities/Transfers, OpenWeather, Ticketmaster e Google Places**.
+
+Princípio principal: a pesquisa normal continua leve. Voos/clima/eventos só são consultados quando o cliente abre uma viagem; Google Places continua desligado por omissão e só pode ser chamado por ação explícita em **Explorar a zona**.
+
+O backoffice inclui **API Lab** para testar integrações manualmente sem consumir quota ao abrir a página.
+
+Também foi introduzido **Pricing V2**: markup sobre NET por operador/canal/produto/destino, margem mínima, cedência controlada e rappel/override estimado separado da margem direta.
+
+Ver detalhes em `docs/TRAVEL_INTELLIGENCE_2026-08-17.md`.
+
+### Supabase já existente
+
+Antes de usar as novas regras de pricing numa base já criada, executar:
+
+```text
+docs/migrations/2026-08-17-pricing-v2.sql
+```
+
+### Verificação local
+
+```bash
+npm install
+npm test
+npm run dev
+```
+
+`npm test` não chama APIs externas. Para testar uma credencial real, usar o botão **Testar ligação** no API Lab do backoffice.

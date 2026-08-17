@@ -31,6 +31,9 @@ function smartParse(input = {}) {
   const budget = Number(input.budget || (budgetMatch ? budgetMatch[1] : 2500));
   const adults = Number(input.adults || (prompt.match(/(\d+)\s*adult/)?.[1]) || 2);
   const children = Number(input.children || (prompt.match(/(\d+)\s*crian/)?.[1]) || 0);
+  const infants = Number(input.infants || (prompt.match(/(\d+)\s*(bebe|bebé)/)?.[1]) || 0);
+  const childAges = Array.isArray(input.childAges) ? input.childAges : String(input.childAges || '').split(',').map(Number).filter(Number.isFinite);
+  const infantAges = Array.isArray(input.infantAges) ? input.infantAges : String(input.infantAges || '').split(',').map(Number).filter(Number.isFinite);
   const nights = Number(input.nights || (prompt.match(/(\d+)\s*(noite|noites|dias)/)?.[1]) || 7);
   const origin = input.origin || (text.includes('porto') ? 'Porto' : 'Lisboa');
   const board = input.board || (text.includes('tudo incluido') || text.includes('all inclusive') ? 'Tudo incluído' : 'Qualquer regime');
@@ -43,7 +46,7 @@ function smartParse(input = {}) {
     : null;
   const checkin = validCheckin || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const checkout = new Date(new Date(`${checkin}T00:00:00Z`).getTime() + nights * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  return { destination, budget, adults, children, nights, origin, board, checkin, checkout, prompt: input.prompt || '' };
+  return { destination, budget, adults, children, infants, childAges, infantAges, nights, origin, board, checkin, checkout, prompt: input.prompt || '' };
 }
 
 function searchOffers(input, margins) {
@@ -56,15 +59,15 @@ function searchOffers(input, margins) {
   });
   if (!offers.length) offers = baseOffers;
 
-  const paxFactor = Math.max(1, parsed.adults + parsed.children * 0.55) / 2;
+  const paxFactor = Math.max(1, parsed.adults + parsed.children * 0.55 + parsed.infants * 0.15) / 2;
   const nightsFactor = parsed.nights / 7;
   const results = offers.map((o, index) => {
     const originAdj = parsed.origin === 'Porto' ? 35 : 0;
     const childAdj = parsed.children ? -40 : 0;
     const dynamicAdj = (index % 3) * 22;
     const cost = Math.max(120, (o.base + originAdj + childAdj + dynamicAdj) * paxFactor * nightsFactor);
-    const priced = applyMargin(cost, o.destination, margins);
-    const result = { ...o, ...priced, nights: parsed.nights, adults: parsed.adults, children: parsed.children, origin: parsed.origin, checkin: parsed.checkin, checkout: parsed.checkout };
+    const priced = applyMargin(cost, o.destination, margins, { operator: o.operator, channel: 'ONLINE', productType: 'PACOTE' });
+    const result = { ...o, ...priced, nights: parsed.nights, adults: parsed.adults, children: parsed.children, infants: parsed.infants, childAges: parsed.childAges, infantAges: parsed.infantAges, origin: parsed.origin, checkin: parsed.checkin, checkout: parsed.checkout };
     result.score = computeScore(result, parsed);
     result.label = index === 0 ? 'Recomendado Boom' : result.finalPrice <= parsed.budget ? 'Dentro do orçamento' : 'Acima do orçamento';
     result.trace = `Operador: ${o.operator}; regra margem: ${result.marginRule}; custo ${result.costPrice}€; margem ${result.marginValue}€`;
@@ -78,7 +81,7 @@ function searchOffers(input, margins) {
 function getOfferById(id, margins) {
   const found = baseOffers.find(o => o.id === id);
   if (!found) return null;
-  const priced = applyMargin(found.base, found.destination, margins);
+  const priced = applyMargin(found.base, found.destination, margins, { operator: found.operator, channel: 'ONLINE', productType: 'PACOTE' });
   const item = { ...found, ...priced };
   item.score = computeScore(item, { budget: item.finalPrice });
   return item;

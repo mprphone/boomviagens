@@ -26,7 +26,9 @@ CREATE TABLE IF NOT EXISTS company_settings (
   commission_included INTEGER, confirmation_mode TEXT, default_margin_percent REAL
 );
 CREATE TABLE IF NOT EXISTS margins (
-  id TEXT PRIMARY KEY, name TEXT, match_rule TEXT, percent REAL, min_value REAL,
+  id TEXT PRIMARY KEY, name TEXT, match_rule TEXT,
+  operator_name TEXT NOT NULL DEFAULT '*', channel TEXT NOT NULL DEFAULT '*', product_type TEXT NOT NULL DEFAULT '*',
+  percent REAL, minimum_percent REAL NOT NULL DEFAULT 0, rebate_percent REAL NOT NULL DEFAULT 0, min_value REAL,
   round_to REAL, active INTEGER
 );
 CREATE TABLE IF NOT EXISTS customers (
@@ -183,11 +185,68 @@ const DEFAULT_MARGINS = [
 
 let db = null;
 
+function ensureLegacyColumnsBeforeIndexes(conn) {
+  // Versões antigas do ficheiro SQLite podem já ter uma tabela mas não as
+  // colunas que os CREATE INDEX atuais usam. CREATE TABLE IF NOT EXISTS não
+  // faz migrations; acrescentamos primeiro as colunas compatíveis e só depois
+  // executamos o SCHEMA completo. Tudo é idempotente.
+  const upgrades = {
+    margins: {
+      operator_name: "TEXT NOT NULL DEFAULT '*'",
+      channel: "TEXT NOT NULL DEFAULT '*'",
+      product_type: "TEXT NOT NULL DEFAULT '*'",
+      minimum_percent: 'REAL NOT NULL DEFAULT 0',
+      rebate_percent: 'REAL NOT NULL DEFAULT 0'
+    },
+    customers: {
+      phone2: 'TEXT', nif: 'TEXT', address: 'TEXT', postal_code: 'TEXT', city: 'TEXT',
+      birthdate: 'TEXT', nationality: 'TEXT', travel_scope: 'TEXT', password_hash: 'TEXT',
+      preferences: 'TEXT', alerts: 'TEXT'
+    },
+    reservations: {
+      vat_regime: 'TEXT', invoice_number: 'TEXT', invoice_date: 'TEXT', invoice_system: 'TEXT',
+      post_trip_ok: 'INTEGER', post_trip_notes: 'TEXT', commercial_staff_id: 'TEXT',
+      operational_staff_id: 'TEXT', financial_staff_id: 'TEXT', branch_id: 'TEXT', origin: 'TEXT',
+      margin_confirmed: 'REAL', margin_confirmed_at: 'TEXT', margin_final: 'REAL', margin_final_at: 'TEXT'
+    },
+    documents: {
+      customer_email: 'TEXT', supplier_id: 'TEXT', service_line_id: 'TEXT', event_id: 'TEXT',
+      complaint_id: 'TEXT', payment_id: 'TEXT', document_number: 'TEXT', document_date: 'TEXT',
+      amount: 'REAL', expiry_date: 'TEXT', issuing_country: 'TEXT'
+    }
+  };
+
+  const tableExists = name => Boolean(conn.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(name));
+  for (const [table, columns] of Object.entries(upgrades)) {
+    if (!tableExists(table)) continue;
+    const existing = new Set(conn.prepare(`PRAGMA table_info(${table})`).all().map(row => row.name));
+    for (const [column, type] of Object.entries(columns)) {
+      if (!existing.has(column)) conn.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+    }
+  }
+}
+
+function ensureSchemaUpgrades(conn) {
+  // CREATE TABLE IF NOT EXISTS não acrescenta colunas a bases SQLite já
+  // existentes. Mantemos upgrades pequenos/idempotentes para Pricing V2.
+  const columns = new Set(conn.prepare('PRAGMA table_info(margins)').all().map(row => row.name));
+  const additions = [
+    ['operator_name', "TEXT NOT NULL DEFAULT '*'"],
+    ['channel', "TEXT NOT NULL DEFAULT '*'"],
+    ['product_type', "TEXT NOT NULL DEFAULT '*'"],
+    ['minimum_percent', 'REAL NOT NULL DEFAULT 0'],
+    ['rebate_percent', 'REAL NOT NULL DEFAULT 0']
+  ];
+  for (const [name, type] of additions) {
+    if (!columns.has(name)) conn.exec(`ALTER TABLE margins ADD COLUMN ${name} ${type}`);
+  }
+}
+
 function seedIfEmpty(conn) {
   const { count } = conn.prepare('SELECT COUNT(*) AS count FROM margins').get();
   if (count > 0) return;
-  const insMargin = conn.prepare('INSERT INTO margins (id, name, match_rule, percent, min_value, round_to, active) VALUES (?,?,?,?,?,?,?)');
-  for (const m of DEFAULT_MARGINS) insMargin.run(m.id, m.name, m.match, m.percent, m.min, m.roundTo, m.active ? 1 : 0);
+  const insMargin = conn.prepare('INSERT INTO margins (id, name, match_rule, operator_name, channel, product_type, percent, minimum_percent, rebate_percent, min_value, round_to, active) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)');
+  for (const m of DEFAULT_MARGINS) insMargin.run(m.id, m.name, m.match, m.operator || '*', m.channel || '*', m.productType || '*', m.percent, m.minimumPercent || 0, m.rebatePercent || 0, m.min, m.roundTo, m.active ? 1 : 0);
   // Agencia por omissao (ver auditoria/multiagencia) - mesmo id fixo usado
   // na migracao Supabase (branch-sede), para dados sem agencia ficarem
   // sempre atribuidos a ela.
@@ -203,7 +262,9 @@ function getDb() {
   if (db) return db;
   fs.mkdirSync(path.dirname(SQLITE_PATH), { recursive: true });
   db = new DatabaseSync(SQLITE_PATH);
+  ensureLegacyColumnsBeforeIndexes(db);
   db.exec(SCHEMA);
+  ensureSchemaUpgrades(db);
   seedIfEmpty(db);
   return db;
 }
@@ -223,7 +284,12 @@ function rowToCompany(row) {
 }
 
 function rowToMargin(row) {
-  return { id: row.id, name: row.name, match: row.match_rule, percent: Number(row.percent), min: Number(row.min_value), roundTo: Number(row.round_to), active: Boolean(row.active) };
+  return {
+    id: row.id, name: row.name, match: row.match_rule,
+    operator: row.operator_name || '*', channel: row.channel || '*', productType: row.product_type || '*',
+    percent: Number(row.percent), minimumPercent: Number(row.minimum_percent || 0), rebatePercent: Number(row.rebate_percent || 0),
+    min: Number(row.min_value), roundTo: Number(row.round_to), active: Boolean(row.active)
+  };
 }
 
 function rowToCustomer(row) {
@@ -431,8 +497,8 @@ function writeDbSqlite(dbState) {
     const tables = ['margins', 'branches', 'staff', 'customers', 'leads', 'opportunities', 'opportunity_events', 'proposals', 'reservations', 'payments', 'emails', 'operator_logs', 'audit_logs', 'idempotency_keys', 'documents', 'contact_log', 'complaints', 'suppliers', 'reservation_service_lines', 'service_line_payments', 'refunds', 'reservation_events', 'tasks'];
     for (const t of tables) conn.exec(`DELETE FROM ${t}`);
 
-    const insMargin = conn.prepare('INSERT INTO margins (id, name, match_rule, percent, min_value, round_to, active) VALUES (?,?,?,?,?,?,?)');
-    for (const m of dbState.margins || []) insMargin.run(m.id, m.name, m.match || '*', m.percent ?? 5, m.min ?? 0, m.roundTo ?? 5, m.active !== false ? 1 : 0);
+    const insMargin = conn.prepare('INSERT INTO margins (id, name, match_rule, operator_name, channel, product_type, percent, minimum_percent, rebate_percent, min_value, round_to, active) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)');
+    for (const m of dbState.margins || []) insMargin.run(m.id, m.name, m.match || '*', m.operator || '*', m.channel || '*', m.productType || '*', m.percent ?? 5, m.minimumPercent ?? 0, m.rebatePercent ?? 0, m.min ?? 0, m.roundTo ?? 5, m.active !== false ? 1 : 0);
 
     const insBranch = conn.prepare('INSERT INTO branches (id, created_at, updated_at, name, code, active) VALUES (?,?,?,?,?,?)');
     for (const b of dbState.branches || []) insBranch.run(b.id, b.createdAt, b.updatedAt || null, b.name, b.code || null, b.active !== false ? 1 : 0);

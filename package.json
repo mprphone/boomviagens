@@ -1,25 +1,29 @@
 {
   "name": "boomviagens-operacional",
   "version": "1.0.0",
-  "description": "Site operacional de reservas inteligentes para boomviagens.pt com motor de margens, CRM, pagamentos mock, chat e adapter TourDiez.",
+  "description": "Boomviagens: pesquisa, reservas, backoffice e Travel Intelligence com integrações externas controladas.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
+    "check": "node --check server.js && node --check src/pricing.js && node --check src/validation.js && node --check src/operatorAdapters.js && node --check src/storage.js && node --check src/storageSqlite.js && node --check src/routes/publicRoutes.js && node --check src/routes/checkoutRoutes.js && node --check src/routes/adminRoutes.js && node --check src/integrations/travelIntelligence.js && node --check public/js/results.js && node --check public/js/review.js && node --check public/js/heroSearch.js && node --check public/backoffice/js/system.js",
+    "test:integrations": "node scripts/test-integrations.js",
+    "test": "npm run check && npm run test:integrations",
     "test:api": "node scripts/test-api.js",
     "supabase:import": "node scripts/supabase-import-json.js"
   },
   "keywords": [
     "viagens",
     "reservas",
-    "tourdiezt",
+    "tourdiez",
+    "travel-intelligence",
     "crm",
     "boomviagens"
   ],
   "author": "MPR / Boomviagens",
   "license": "UNLICENSED",
   "engines": {
-    "node": ">=18"
+    "node": ">=22.5.0"
   },
   "dependencies": {
     "dotenv": "^17.4.2",

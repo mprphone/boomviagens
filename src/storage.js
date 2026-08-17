@@ -3,6 +3,7 @@ const path = require('path');
 const { readDbSqlite, writeDbSqlite, updateDbSqlite, SQLITE_PATH } = require('./storageSqlite');
 
 const DB_PATH = path.join(__dirname, '..', 'data', 'db.json');
+const DB_EXAMPLE_PATH = path.join(__dirname, '..', 'data', 'db.example.json');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -26,7 +27,14 @@ if (process.env.DB_MODE === 'supabase' && !supabaseConfigured) {
 // ---------------------------------------------------------------------------
 
 function readDbLocal() {
-  if (!fs.existsSync(DB_PATH)) throw new Error(`DB nÃ£o encontrada: ${DB_PATH}`);
+  // O ficheiro runtime não deve viajar em Git/ZIP: pode conter clientes,
+  // logs e referências internas. Num clone novo, inicia a partir do template
+  // sanitizado e mantém db.json apenas localmente.
+  if (!fs.existsSync(DB_PATH)) {
+    if (!fs.existsSync(DB_EXAMPLE_PATH)) throw new Error(`Template de DB não encontrado: ${DB_EXAMPLE_PATH}`);
+    fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+    fs.copyFileSync(DB_EXAMPLE_PATH, DB_PATH);
+  }
   return JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
 }
 
@@ -145,7 +153,12 @@ function rowToMargin(row) {
     id: row.id,
     name: row.name,
     match: row.match_rule,
+    operator: row.operator_name || '*',
+    channel: row.channel || '*',
+    productType: row.product_type || '*',
     percent: Number(row.percent),
+    minimumPercent: Number(row.minimum_percent || 0),
+    rebatePercent: Number(row.rebate_percent || 0),
     min: Number(row.min_value),
     roundTo: Number(row.round_to),
     active: row.active
@@ -157,7 +170,12 @@ function marginToRow(m) {
     id: m.id,
     name: m.name,
     match_rule: m.match || '*',
+    operator_name: m.operator || '*',
+    channel: m.channel || '*',
+    product_type: m.productType || '*',
     percent: m.percent ?? 5,
+    minimum_percent: m.minimumPercent ?? 0,
+    rebate_percent: m.rebatePercent ?? 0,
     min_value: m.min ?? 0,
     round_to: m.roundTo ?? 5,
     active: m.active !== false

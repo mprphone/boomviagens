@@ -37,7 +37,7 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
       if (!signed || signed.scope !== 'offer') {
         return json(res, 400, { ok: false, error: 'Esta oferta expirou ou é inválida - faça a pesquisa novamente.' });
       }
-      offer = { ...offer, costPrice: signed.costPrice, finalPrice: signed.finalPrice, tourdiez: signed.tourdiez || undefined };
+      offer = { ...offer, costPrice: signed.costPrice, finalPrice: signed.finalPrice, operator: signed.operator || offer.operator, tourdiez: signed.tourdiez || undefined };
     }
 
     // applyMargin() nunca produz um finalPrice abaixo do costPrice (a
@@ -53,11 +53,13 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
     const customer = customerPayload(body.customer || { name: body.name || 'Cliente Teste', email: body.email || 'cliente@exemplo.pt', phone: body.phone || '' });
     const rawPassengers = Array.isArray(body.passengers) && body.passengers.length ? body.passengers : customer.passengers;
     const adults = Number(offer.adults || 1);
-    const expectedCount = adults + Number(offer.children || 0);
+    const children = Number(offer.children || 0);
+    const infants = Number(offer.infants || 0);
+    const expectedCount = adults + children + infants;
     if (rawPassengers.length !== expectedCount) return json(res, 400, { ok: false, error: `Esperados ${expectedCount} passageiro(s); recebidos ${rawPassengers.length}.` });
     let passengers;
     try {
-      passengers = rawPassengers.map((p, i) => validatePassengerForTrip(p, i < adults ? 'ADT' : 'CHD', offer.checkout));
+      passengers = rawPassengers.map((p, i) => validatePassengerForTrip(p, i < adults ? 'ADT' : i < adults + children ? 'CHD' : 'INF', offer.checkout));
       const docs = passengers.map(p => p.documentNumber.trim().toLowerCase());
       if (new Set(docs).size !== docs.length) throw new Error('O mesmo documento nao pode ser usado por dois passageiros');
     } catch (err) {

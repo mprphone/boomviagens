@@ -148,7 +148,7 @@ Este pacote corrige muitos problemas, mas não pretende esconder os itens que co
 4. **Rate-limit partilhado** (Supabase/Redis/Upstash), em vez de memória local da função.
 5. **Modelo fiscal definitivo** de adiantamentos/fatura/recibos/notas de crédito validado para a agência.
 6. **Refunds reais** ligados a gateway + NC + conta do processo.
-7. **Migrations da BD**: o schema SQL de documentação está atrás do código atual; não usar um dump manual antigo para criar produção.
+7. **Migrations da BD**: o schema desta entrega foi atualizado e existe migration de Pricing V2; em produção manter migrations versionadas e executar `docs/migrations/2026-08-17-pricing-v2.sql` numa base Supabase já existente.
 8. **Testes automáticos de concorrência/webhooks duplicados/falhas de operador** antes de live.
 
 ## Próxima fase funcional recomendada
@@ -160,3 +160,27 @@ Este pacote corrige muitos problemas, mas não pretende esconder os itens que co
 - scheduler real para “O Meu Dia”, opções a expirar, documentos, check-ins e reclamações.
 - self-service do cliente: upgrades, extras, alterações, cancelamentos, check-in e reclamações acompanhadas.
 
+
+---
+
+# Fase adicional — Travel Intelligence / Pricing V2 (17/08/2026)
+
+Foi acrescentada uma nova camada de integração e experiência de pesquisa/revisão, documentada em `docs/TRAVEL_INTELLIGENCE_2026-08-17.md`.
+
+Principais alterações desta fase:
+
+- Duffel para alternativas de voo no detalhe da viagem;
+- HBX Hotels/Activities/Transfers com API Lab e ativação progressiva;
+- OpenWeather para contexto atual do destino;
+- Ticketmaster para eventos nas datas da viagem;
+- Google Places preparado mas desligado por omissão e apenas on-demand;
+- proteção de quotas através de `offerToken` assinado + rate-limit + cache;
+- pesquisa com adultos/crianças/bebés e idades;
+- comparação, guardar, partilhar, filtros e revisão mais interativa;
+- Pricing V2 por operador/canal/produto/destino;
+- cedência automática limitada por margem mínima;
+- rappel/override estimado separado e nunca usado automaticamente para quebrar o preço mínimo;
+- regras de margem deixam de ser expostas publicamente;
+- API Lab e pricing protegidos por perfil;
+- migration Supabase `docs/migrations/2026-08-17-pricing-v2.sql`;
+- upgrade automático de schemas SQLite antigos.

@@ -1,39 +1,30 @@
-// Formulario de pesquisa inteligente: sugestao de destinos enquanto se
-// escreve e o calendario de precos por dia no campo Data.
+// Pesquisa principal: destino assistido pelo servidor, calendário de preços
+// e passageiros com idades. O objetivo é pedir informação suficiente para
+// obter tarifas corretas sem transformar a pesquisa num formulário pesado.
 
 import { $, esc, api } from './utils.js';
 
-// Duas abas sobre o mesmo #searchForm (nao dois formularios): "Pesquisa
-// rapida" mostra os campos estruturados, "Ajuda-me a encontrar" mostra o
-// texto livre. Os dois conjuntos de campos ficam sempre no DOM - so a
-// visibilidade muda - por isso o motor de pesquisa (que ja aceita os
-// dois em conjunto, ver smartParse em src/mockOperators.js) continua a
-// receber tudo o que foi preenchido, seja qual for a aba usada por
-// ultimo.
 document.querySelectorAll('.search-tab').forEach(tab => {
   tab.addEventListener('click', () => {
-    document.querySelectorAll('.search-tab').forEach(t => { t.classList.toggle('is-active', t === tab); t.setAttribute('aria-selected', t === tab ? 'true' : 'false'); });
+    document.querySelectorAll('.search-tab').forEach(t => {
+      t.classList.toggle('is-active', t === tab);
+      t.setAttribute('aria-selected', t === tab ? 'true' : 'false');
+    });
     $('#searchForm').classList.toggle('mode-ai', tab.dataset.mode === 'ai');
   });
 });
 
-// Destinos que o motor de pesquisa reconhece (ver smartParse em
-// src/mockOperators.js) - a sugestao so mostra o que realmente vai dar
-// resultados relevantes, nao uma lista generica desligada dos dados.
-const KNOWN_DESTINATIONS = [
-  { name: 'Punta Cana', icon: '🏝️' },
-  { name: 'Riviera Maya', icon: '🌊' },
-  { name: 'Sal', icon: '🏖️' },
-  { name: 'Boa Vista', icon: '🏖️' },
-  { name: 'Maldivas', icon: '🌴' },
-  { name: 'Disneyland Paris', icon: '🎢' },
-  { name: 'Madeira', icon: '🌋' },
-  { name: 'Torremolinos', icon: '🏨' }
+const DESTINATION_FALLBACK = [
+  { name: 'Punta Cana', country: 'República Dominicana', icon: '🏝️' },
+  { name: 'Riviera Maya', country: 'México', icon: '🌊' },
+  { name: 'Sal', country: 'Cabo Verde', icon: '🏖️' },
+  { name: 'Maldivas', country: 'Maldivas', icon: '🌴' },
+  { name: 'Disneyland Paris', country: 'França', icon: '🎢' },
+  { name: 'Madeira', country: 'Portugal', icon: '🌋' }
 ];
+let destinationTimer = null;
+let destinationRequestSeq = 0;
 
-// Os paineis usam position:fixed (nao absolute) porque o hero tem
-// overflow:hidden e altura limitada - um dropdown "absolute" dentro dele
-// fica cortado. Calculamos a posicao a partir do input real.
 function positionPanelBelow(panel, input, alignRight) {
   const rect = input.getBoundingClientRect();
   panel.style.top = `${rect.bottom + 6}px`;
@@ -46,18 +37,42 @@ function positionPanelBelow(panel, input, alignRight) {
   }
 }
 
-function renderDestinationSuggestions(query) {
+function localDestinationSuggestions(query) {
+  const q = String(query || '').trim().toLowerCase();
+  return DESTINATION_FALLBACK.filter(d => !q || `${d.name} ${d.country}`.toLowerCase().includes(q));
+}
+
+function paintDestinationSuggestions(items) {
   const panel = $('#destinationSuggest');
   if (!panel) return;
-  const q = query.trim().toLowerCase();
-  const matches = KNOWN_DESTINATIONS.filter(d => !q || d.name.toLowerCase().includes(q));
-  if (!matches.length) { panel.hidden = true; return; }
+  if (!items?.length) { panel.hidden = true; return; }
   positionPanelBelow(panel, $('#destinationInput'), false);
-  panel.innerHTML = matches.map(d => `<button type="button" class="suggest-item" data-value="${d.name}"><span>${d.icon}</span>${d.name}</button>`).join('');
+  panel.innerHTML = items.map(d => `
+    <button type="button" class="suggest-item" data-value="${esc(d.name)}">
+      <span class="suggest-icon">${esc(d.icon || '📍')}</span>
+      <span><b>${esc(d.name)}</b>${d.country ? `<small>${esc(d.country)}${d.iata ? ` · ${esc(d.iata)}` : ''}</small>` : ''}</span>
+    </button>`).join('');
   panel.hidden = false;
 }
 
-$('#destinationInput')?.addEventListener('input', e => renderDestinationSuggestions(e.target.value));
+async function renderDestinationSuggestions(query) {
+  const seq = ++destinationRequestSeq;
+  try {
+    const data = await api(`/api/destinations/suggest?q=${encodeURIComponent(String(query || '').slice(0, 80))}`);
+    if (seq !== destinationRequestSeq) return;
+    paintDestinationSuggestions(data.destinations || []);
+  } catch {
+    if (seq !== destinationRequestSeq) return;
+    paintDestinationSuggestions(localDestinationSuggestions(query));
+  }
+}
+
+function queueDestinationSuggestions(query) {
+  clearTimeout(destinationTimer);
+  destinationTimer = setTimeout(() => renderDestinationSuggestions(query), 160);
+}
+
+$('#destinationInput')?.addEventListener('input', e => queueDestinationSuggestions(e.target.value));
 $('#destinationInput')?.addEventListener('focus', e => renderDestinationSuggestions(e.target.value));
 $('#destinationSuggest')?.addEventListener('click', e => {
   const btn = e.target.closest('.suggest-item');
@@ -67,9 +82,8 @@ $('#destinationSuggest')?.addEventListener('click', e => {
   calendarCache = null;
 });
 
-// Calendario de precos por dia (campo Data) - preco estimado pelo mesmo
-// motor que a pesquisa demo usa, para nao ter de bater na API real da
-// TourDiez 60 vezes de cada vez que se abre o calendario.
+// Calendário de preços: usa a estimativa local do motor atual. Não faz uma
+// chamada a um fornecedor por cada dia mostrado.
 let calendarCache = null;
 
 async function loadPriceCalendar() {
@@ -78,7 +92,10 @@ async function loadPriceCalendar() {
     destination: form.destination.value,
     nights: form.nights.value,
     adults: form.adults.value,
-    children: form.children.value
+    children: form.children.value,
+    infants: form.infants?.value || 0,
+    childAges: form.childAges?.value || '',
+    infantAges: form.infantAges?.value || ''
   };
   const key = JSON.stringify(params);
   if (calendarCache?.key === key) return calendarCache.days;
@@ -126,12 +143,12 @@ async function openCalendar() {
   $('#destinationSuggest').hidden = true;
   positionPanelBelow(panel, $('#checkinInput'), true);
   panel.hidden = false;
-  panel.innerHTML = '<p class="muted small">A calcular precos...</p>';
+  panel.innerHTML = '<p class="muted small">A calcular preços…</p>';
   const days = await loadPriceCalendar();
   const months = groupDaysByMonth(days).slice(0, 2);
   const destino = $('#destinationInput').value || 'o destino escolhido';
   panel.innerHTML = `
-    <p class="muted small">Precos estimados para ${esc(destino)}. O preco final e confirmado na pesquisa.</p>
+    <p class="muted small">Preços estimados para ${esc(destino)}. O preço final é confirmado na pesquisa.</p>
     <div class="cal-months">${months.map(renderCalendarMonth).join('')}</div>`;
 }
 
@@ -147,31 +164,53 @@ $('#nightsInput')?.addEventListener('change', () => { calendarCache = null; });
 document.addEventListener('click', e => {
   const destinationInput = $('#destinationInput');
   const destinationPanel = $('#destinationSuggest');
-  if (destinationInput && destinationPanel && e.target !== destinationInput && !destinationPanel.contains(e.target)) {
-    destinationPanel.hidden = true;
-  }
+  if (destinationInput && destinationPanel && e.target !== destinationInput && !destinationPanel.contains(e.target)) destinationPanel.hidden = true;
   const checkinInput = $('#checkinInput');
   const calendarPanel = $('#calendarPanel');
-  if (checkinInput && calendarPanel && e.target !== checkinInput && !calendarPanel.contains(e.target)) {
-    calendarPanel.hidden = true;
-  }
+  if (checkinInput && calendarPanel && e.target !== checkinInput && !calendarPanel.contains(e.target)) calendarPanel.hidden = true;
 });
 
-// Seletor de viajantes mais legivel do que dois campos numericos pequenos.
-// As idades detalhadas sao validadas no checkout, onde o operador realmente
-// precisa delas para classificar o passageiro.
+function parseAgeInput(id, count, fallback) {
+  const raw = String($(id)?.value || '').split(',').map(x => Number(x)).filter(Number.isFinite);
+  return Array.from({ length: count }, (_, i) => Number.isFinite(raw[i]) ? raw[i] : fallback);
+}
+
+function renderAgeSelectors() {
+  const children = Number($('#childrenInput')?.value || 0);
+  const infants = Number($('#infantsInput')?.value || 0);
+  const childAges = parseAgeInput('#childAgesInput', children, 8).map(x => Math.max(2, Math.min(11, x)));
+  const infantAges = parseAgeInput('#infantAgesInput', infants, 1).map(x => Math.max(0, Math.min(1, x)));
+
+  const childBox = $('#childAgesBox');
+  if (childBox) {
+    childBox.hidden = !children;
+    childBox.innerHTML = children ? `<span class="field-label">Idades das crianças na data da viagem</span><div class="pax-age-grid">${childAges.map((age, i) => `<label>Criança ${i + 1}<select data-child-age="${i}">${Array.from({ length: 10 }, (_, j) => j + 2).map(v => `<option value="${v}" ${v === age ? 'selected' : ''}>${v} anos</option>`).join('')}</select></label>`).join('')}</div>` : '';
+  }
+  const infantBox = $('#infantAgesBox');
+  if (infantBox) {
+    infantBox.hidden = !infants;
+    infantBox.innerHTML = infants ? `<span class="field-label">Idades dos bebés na data da viagem</span><div class="pax-age-grid">${infantAges.map((age, i) => `<label>Bebé ${i + 1}<select data-infant-age="${i}"><option value="0" ${age === 0 ? 'selected' : ''}>Menos de 1 ano</option><option value="1" ${age === 1 ? 'selected' : ''}>1 ano</option></select></label>`).join('')}</div>` : '';
+  }
+  $('#childAgesInput').value = childAges.join(',');
+  $('#infantAgesInput').value = infantAges.join(',');
+}
+
 function paxSummaryText() {
   const adults = Number($('#adultsInput')?.value || 1);
   const children = Number($('#childrenInput')?.value || 0);
-  return `${adults} adulto${adults === 1 ? '' : 's'}${children ? ` · ${children} criança${children === 1 ? '' : 's'}` : ''}`;
+  const infants = Number($('#infantsInput')?.value || 0);
+  return `${adults} adulto${adults === 1 ? '' : 's'}${children ? ` · ${children} criança${children === 1 ? '' : 's'}` : ''}${infants ? ` · ${infants} bebé${infants === 1 ? '' : 's'}` : ''}`;
 }
 
 function syncPaxUi() {
   const adults = Number($('#adultsInput')?.value || 1);
   const children = Number($('#childrenInput')?.value || 0);
+  const infants = Number($('#infantsInput')?.value || 0);
   if ($('#adultsCount')) $('#adultsCount').textContent = adults;
   if ($('#childrenCount')) $('#childrenCount').textContent = children;
+  if ($('#infantsCount')) $('#infantsCount').textContent = infants;
   if ($('#paxSummary')) $('#paxSummary').textContent = paxSummaryText();
+  renderAgeSelectors();
   calendarCache = null;
 }
 
@@ -188,10 +227,27 @@ $('#paxTrigger')?.addEventListener('click', openPaxPanel);
 $('#paxTrigger')?.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPaxPanel(); } });
 $('#paxPanelClose')?.addEventListener('click', () => { $('#paxPanel').hidden = true; });
 $('#paxApplyBtn')?.addEventListener('click', () => { syncPaxUi(); $('#paxPanel').hidden = true; });
+$('#paxPanel')?.addEventListener('change', e => {
+  if (e.target.matches('[data-child-age]')) {
+    const children = Number($('#childrenInput').value || 0);
+    const ages = parseAgeInput('#childAgesInput', children, 8);
+    ages[Number(e.target.dataset.childAge)] = Number(e.target.value);
+    $('#childAgesInput').value = ages.join(',');
+    calendarCache = null;
+  }
+  if (e.target.matches('[data-infant-age]')) {
+    const infants = Number($('#infantsInput').value || 0);
+    const ages = parseAgeInput('#infantAgesInput', infants, 1);
+    ages[Number(e.target.dataset.infantAge)] = Number(e.target.value);
+    $('#infantAgesInput').value = ages.join(',');
+    calendarCache = null;
+  }
+});
 $('#paxPanel')?.addEventListener('click', e => {
   const btn = e.target.closest('[data-pax]');
   if (!btn) return;
-  const input = btn.dataset.pax === 'adults' ? $('#adultsInput') : $('#childrenInput');
+  const id = btn.dataset.pax === 'adults' ? '#adultsInput' : btn.dataset.pax === 'children' ? '#childrenInput' : '#infantsInput';
+  const input = $(id);
   const min = btn.dataset.pax === 'adults' ? 1 : 0;
   const max = 8;
   input.value = Math.min(max, Math.max(min, Number(input.value || min) + Number(btn.dataset.delta || 0)));

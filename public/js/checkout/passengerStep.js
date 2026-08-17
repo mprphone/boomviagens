@@ -57,6 +57,7 @@ function validatePassenger(data, { expectedType, returnDate, allPassengers, inde
   if (age !== null && expectedType === 'ADT' && age < 12) errors.birthdate = `Este passageiro terá ${age} ano${age === 1 ? '' : 's'} na viagem e não pode estar num lugar de adulto.`;
   if (age !== null && expectedType === 'CHD' && age >= 12) errors.birthdate = `Este passageiro terá ${age} anos na viagem e deve ser pesquisado como adulto.`;
   if (age !== null && expectedType === 'CHD' && age < 2) errors.birthdate = 'Este passageiro terá menos de 2 anos. Deve ser pesquisado como bebé para obter tarifa e condições corretas.';
+  if (age !== null && expectedType === 'INF' && age >= 2) errors.birthdate = `Este passageiro terá ${age} anos na viagem e deve ser pesquisado como criança.`;
   if (!data.nationality.trim()) errors.nationality = 'Indique a nacionalidade do passageiro.';
   if (!data.documentType) errors.documentType = 'Escolha o documento que será usado na viagem.';
   if (!data.documentNumber.trim()) errors.documentNumber = 'Indique o número do documento.';
@@ -98,10 +99,11 @@ export async function renderPassengerStep() {
   const offer = getCurrentOffer();
   const adults = Number(offer.adults || 1);
   const children = Number(offer.children || 0);
-  const total = adults + children;
+  const infants = Number(offer.infants || 0);
+  const total = adults + children + infants;
   const index = Math.min(getPassengerIndex(), Math.max(0, total - 1));
-  const expectedType = index < adults ? 'ADT' : 'CHD';
-  const label = expectedType === 'ADT' ? `Adulto ${index + 1}` : `Criança ${index - adults + 1}`;
+  const expectedType = index < adults ? 'ADT' : index < adults + children ? 'CHD' : 'INF';
+  const label = expectedType === 'ADT' ? `Adulto ${index + 1}` : expectedType === 'CHD' ? `Criança ${index - adults + 1}` : `Bebé ${index - adults - children + 1}`;
   const isLast = index === total - 1;
 
   const passengers = getPassengers();
@@ -207,8 +209,10 @@ async function submitCheckout(form) {
   btn.disabled = true; btn.textContent = 'A validar e guardar...';
   const billing = getBilling();
   const adults = Number(currentOffer.adults || 1);
-  const total = adults + Number(currentOffer.children || 0);
-  const passengerPayloads = getPassengers().slice(0, total).map((p, i) => ({ ...p, type: i < adults ? 'ADT' : 'CHD' }));
+  const children = Number(currentOffer.children || 0);
+  const infants = Number(currentOffer.infants || 0);
+  const total = adults + children + infants;
+  const passengerPayloads = getPassengers().slice(0, total).map((p, i) => ({ ...p, type: i < adults ? 'ADT' : i < adults + children ? 'CHD' : 'INF' }));
   try {
     const data = await api('/api/checkout', {
       method: 'POST',

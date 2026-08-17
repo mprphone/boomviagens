@@ -27,7 +27,12 @@ create table if not exists public.margins (
   id text primary key,
   name text not null,
   match_rule text not null default '*',
+  operator_name text not null default '*',
+  channel text not null default '*',
+  product_type text not null default '*',
   percent numeric(5,2) not null default 5,
+  minimum_percent numeric(5,2) not null default 0,
+  rebate_percent numeric(5,2) not null default 0,
   min_value numeric(12,2) not null default 0,
   round_to numeric(8,2) not null default 5,
   active boolean not null default true,
@@ -473,19 +478,8 @@ alter table public.reservation_service_lines enable row level security;
 alter table public.reservation_events enable row level security;
 alter table public.tasks enable row level security;
 
--- Dados publicos que podem ser lidos pelo site sem expor clientes/reservas.
-create or replace view public.public_margins
-with (security_invoker = true)
-as
-select id, name, match_rule, percent, min_value, round_to, active
-from public.margins
-where active = true;
-
-alter view public.public_margins set (security_invoker = true);
-
--- Grants para acesso via PostgREST. RLS continua a proteger as linhas.
-grant usage on schema public to anon, authenticated, service_role;
-grant select on public.public_margins to anon, authenticated;
+-- As regras de margem são internas. O site público recebe apenas PVP já calculado;
+-- NET/margem nunca são expostos a anon/authenticated.
 grant all on all tables in schema public to service_role;
 
 -- Bucket privado para documentos de reservas. O acesso deve ser feito pelo servidor

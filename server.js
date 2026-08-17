@@ -14,11 +14,17 @@ const { OperatorRegistry, TourDiezAdapter } = require('./src/operatorAdapters');
 const { cleanText, searchPayload, customerPayload, passengerPayload, validatePassengerForTrip, paymentMethod, numberInRange, email: validateEmail, password: validatePassword } = require('./src/validation');
 const fileStorage = require('./src/fileStorage');
 const mailer = require('./src/mailer');
-const { normalize } = require('./src/pricing');
+const { normalize, applyMargin } = require('./src/pricing');
 const { FacturalusaClient } = require('./src/facturalusaClient');
 const createInvoicing = require('./src/invoicing');
 const createPaymentConfirmation = require('./src/paymentConfirmation');
 const { StripeGatewayAdapter, EasyPayGatewayAdapter, PaymentGatewayRegistry } = require('./src/paymentGatewayAdapters');
+const { DuffelClient } = require('./src/integrations/duffelClient');
+const { HbxClient } = require('./src/integrations/hbxClient');
+const { OpenWeatherClient } = require('./src/integrations/openWeatherClient');
+const { TicketmasterClient } = require('./src/integrations/ticketmasterClient');
+const { GooglePlacesClient } = require('./src/integrations/googlePlacesClient');
+const { TravelIntelligenceService } = require('./src/integrations/travelIntelligence');
 
 const registerPublicRoutes = require('./src/routes/publicRoutes');
 const registerCustomerRoutes = require('./src/routes/customerRoutes');
@@ -36,6 +42,12 @@ const tourdiezAdapter = new TourDiezAdapter(process.env);
 const operators = new OperatorRegistry([tourdiezAdapter]);
 const facturalusa = new FacturalusaClient(process.env);
 const paymentGateways = new PaymentGatewayRegistry([new StripeGatewayAdapter(process.env), new EasyPayGatewayAdapter(process.env)]);
+const duffel = new DuffelClient(process.env);
+const hbx = new HbxClient(process.env);
+const weather = new OpenWeatherClient(process.env);
+const ticketmaster = new TicketmasterClient(process.env);
+const googlePlaces = new GooglePlacesClient(process.env);
+const travelIntelligence = new TravelIntelligenceService({ duffel, hbx, weather, ticketmaster, googlePlaces });
 
 // Contexto partilhado por todas as rotas: cada modulo em src/routes/ so
 // pede o que precisa daqui, em vez de cada rota ter de repetir os mesmos
@@ -69,9 +81,16 @@ const ctx = {
   validateEmail,
   validatePassword,
   normalize,
+  applyMargin,
   rateLimit: auth.rateLimit,
   facturalusa,
-  paymentGateways
+  paymentGateways,
+  duffel,
+  hbx,
+  weather,
+  ticketmaster,
+  googlePlaces,
+  travelIntelligence
 };
 ctx.invoicing = createInvoicing(ctx);
 ctx.paymentConfirmation = createPaymentConfirmation(ctx);
