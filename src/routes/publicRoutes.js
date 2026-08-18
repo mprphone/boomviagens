@@ -96,6 +96,8 @@ module.exports = function registerPublicRoutes(router, ctx) {
       infants: Number(offer.infants || 0),
       childAges: Array.isArray(offer.childAges) ? offer.childAges : [],
       infantAges: Array.isArray(offer.infantAges) ? offer.infantAges : [],
+      resumeReservationId: offer.resumeReservationId || null,
+      resumeCustomerEmail: offer.resumeCustomerEmail || null,
       exp: Date.now() + OFFER_TOKEN_TTL_MS
     });
   }
@@ -415,6 +417,7 @@ module.exports = function registerPublicRoutes(router, ctx) {
       company: publicCompany,
       branches,
       paymentsMode: paymentsMode(process.env),
+      paymentMethods: paymentsMode(process.env) === 'disabled' ? [] : (ctx.paymentGateways?.publicMethods?.() || []),
       // O site público conhece capacidades, não nomes/estado comercial dos
       // fornecedores. A topologia completa só existe no API Lab do backoffice.
       features: {

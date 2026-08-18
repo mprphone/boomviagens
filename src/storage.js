@@ -80,6 +80,25 @@ async function upsertRows(table, rows, onConflict = 'id') {
   });
 }
 
+// Permite publicar o codigo antes de a migracao aditiva chegar ao Supabase.
+// Nunca ignora erros de dados/permissoes: so repete quando o PostgREST diz
+// explicitamente que uma das colunas novas ainda nao existe no schema cache.
+async function upsertRowsCompatible(table, rows, optionalColumns = [], onConflict = 'id') {
+  try {
+    return await upsertRows(table, rows, onConflict);
+  } catch (error) {
+    const message = String(error?.message || '');
+    const missingOptionalColumn = message.includes('PGRST204') && optionalColumns.some(column => message.includes(`'${column}'`));
+    if (!missingOptionalColumn) throw error;
+    const legacyRows = rows.map(row => Object.fromEntries(Object.entries(row).filter(([column]) => !optionalColumns.includes(column))));
+    console.warn(`[storage] Supabase sem a migracao aditiva de ${table}; a usar formato compativel ate o SQL ser aplicado.`);
+    return upsertRows(table, legacyRows, onConflict);
+  }
+}
+
+const OPTIONAL_PAYMENT_COLUMNS = ['updated_at', 'gateway', 'gateway_session_id', 'gateway_session'];
+const OPTIONAL_DOCUMENT_COLUMNS = ['passenger_id'];
+
 async function deleteRows(table, ids) {
   if (!ids || !ids.length) return;
   const filter = ids.map(id => encodeURIComponent(id)).join(',');
@@ -502,13 +521,17 @@ function rowToPayment(row) {
   return {
     id: row.id,
     createdAt: row.created_at,
+    updatedAt: row.updated_at || undefined,
     reservationId: row.reservation_id,
     method: row.method,
     amount: Number(row.amount),
     status: row.status,
     reference: row.reference || undefined,
     paidAt: row.paid_at || undefined,
-    expiresAt: row.expires_at || undefined
+    expiresAt: row.expires_at || undefined,
+    gateway: row.gateway || undefined,
+    gatewaySessionId: row.gateway_session_id || undefined,
+    gatewaySession: row.gateway_session || undefined
   };
 }
 
@@ -516,13 +539,17 @@ function paymentToRow(p) {
   return {
     id: p.id,
     created_at: p.createdAt,
+    updated_at: p.updatedAt || null,
     reservation_id: p.reservationId,
     method: p.method,
     amount: p.amount,
     status: p.status,
     reference: p.reference || null,
     paid_at: p.paidAt || null,
-    expires_at: p.expiresAt || null
+    expires_at: p.expiresAt || null,
+    gateway: p.gateway || null,
+    gateway_session_id: p.gatewaySessionId || null,
+    gateway_session: p.gatewaySession || null
   };
 }
 
@@ -576,6 +603,7 @@ function rowToDocument(row) {
     complaintId: row.complaint_id || undefined,
     paymentId: row.payment_id || undefined,
     type: row.type,
+    passengerId: row.passenger_id || undefined,
     passengerName: row.passenger_name || undefined,
     fileName: row.file_name,
     storagePath: row.storage_path,
@@ -600,6 +628,7 @@ function documentToRow(d) {
     complaint_id: d.complaintId || null,
     payment_id: d.paymentId || null,
     type: d.type,
+    passenger_id: d.passengerId || null,
     passenger_name: d.passengerName || null,
     file_name: d.fileName,
     storage_path: d.storagePath,
@@ -971,7 +1000,7 @@ async function writeDbSupabase(db) {
   await upsertRows('customers', (db.customers || []).map(customerToRow));
   await upsertRows('leads', (db.leads || []).map(leadToRow));
   await upsertRows('reservations', (db.reservations || []).map(reservationToRow));
-  await upsertRows('payments', (db.payments || []).map(paymentToRow));
+  await upsertRowsCompatible('payments', (db.payments || []).map(paymentToRow), OPTIONAL_PAYMENT_COLUMNS);
   // opportunities.reservation_id referencia reservations - so pode ser
   // gravada depois de a reserva (se existir) ja ter aterrado.
   await upsertRows('opportunities', (db.opportunities || []).map(opportunityToRow));
@@ -981,7 +1010,7 @@ async function writeDbSupabase(db) {
     upsertRows('emails', (db.emails || []).map(emailToRow)),
     upsertRows('operator_logs', (db.operatorLogs || []).map(operatorLogToRow)),
     upsertRows('audit_logs', (db.auditLogs || []).map(auditLogToRow)),
-    upsertRows('documents', (db.documents || []).map(documentToRow)),
+    upsertRowsCompatible('documents', (db.documents || []).map(documentToRow), OPTIONAL_DOCUMENT_COLUMNS),
     upsertRows('contact_log', (db.contactLog || []).map(contactEntryToRow)),
     upsertRows('complaints', (db.complaints || []).map(complaintToRow)),
     upsertRows('suppliers', (db.suppliers || []).map(supplierToRow)),
@@ -1065,7 +1094,7 @@ async function updateDbSupabase(mutator) {
   const afterServiceLineIds = new Set((db.serviceLines || []).map(s => s.id));
   const removedServiceLineIds = [...beforeServiceLineIds].filter(lineId => !afterServiceLineIds.has(lineId));
   await Promise.all(firstTasks);
-  await upsertRows('payments', paymentRows);
+  await upsertRowsCompatible('payments', paymentRows, OPTIONAL_PAYMENT_COLUMNS);
   // opportunities.reservation_id pode apontar para uma reserva criada na
   // mesma mutacao (conversao Ganho -> processo) - so pode ser gravada
   // depois de reservations (fase anterior) ja ter aterrado.
@@ -1079,7 +1108,7 @@ async function updateDbSupabase(mutator) {
     upsertRows('emails', emailRows),
     upsertRows('operator_logs', operatorLogRows),
     upsertRows('audit_logs', auditLogRows),
-    upsertRows('documents', documentRows),
+    upsertRowsCompatible('documents', documentRows, OPTIONAL_DOCUMENT_COLUMNS),
     upsertRows('contact_log', contactRows),
     upsertRows('complaints', complaintRows),
     upsertRows('suppliers', supplierRows),

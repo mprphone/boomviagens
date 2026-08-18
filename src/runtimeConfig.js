@@ -21,4 +21,8 @@ function mockPaymentsAllowed(env = process.env) {
   return paymentsMode(env) === 'mock';
 }
 
-module.exports = { isProductionDeployment, paymentsMode, mockPaymentsAllowed };
+function gatewayPaymentsEnabled(env = process.env) {
+  return ['gateway', 'real', 'live'].includes(paymentsMode(env));
+}
+
+module.exports = { isProductionDeployment, paymentsMode, mockPaymentsAllowed, gatewayPaymentsEnabled };

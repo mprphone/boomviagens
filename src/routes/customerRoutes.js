@@ -10,7 +10,7 @@ const crypto = require('crypto');
 const { isProductionDeployment } = require('../runtimeConfig');
 
 module.exports = function registerCustomerRoutes(router, ctx) {
-  const { json, unauthorized, parseBody, readDb, updateDb, customerPayload, validateEmail, validatePassword, rateLimit, domain, cleanText, fileStorage, mailer } = ctx;
+  const { json, unauthorized, parseBody, readDb, updateDb, customerPayload, validateEmail, validatePassword, rateLimit, domain, cleanText, fileStorage, mailer, operators, offerRevalidation, offerTokens } = ctx;
   const { ensureCollections, audit, id, now, missingDocumentsFor, DOCUMENT_TYPES, sanitizeCustomer, customerReservationView, customerReservationDetailView, isCustomerVisibleDocument } = domain;
   const { signToken, verifyToken, customerSessionEmail, setCustomerSessionCookie, clearCustomerSessionCookie, safeEqual, hashPassword, verifyPassword, hashLoginCode, CUSTOMER_CODE_TTL_MS, SESSION_TTL_MS } = ctx.auth;
 
@@ -179,6 +179,47 @@ module.exports = function registerCustomerRoutes(router, ctx) {
     return json(res, 200, { ok: true, reservation: detail });
   });
 
+  router.post('/api/customer/reservations/resume', async (req, res) => {
+    const customerEmail = customerSessionEmail(req);
+    if (!customerEmail) return unauthorized(res);
+    const limited = rateLimit(req, res, 'customer-reservation-resume', 20, 60 * 1000);
+    if (limited) return limited;
+    const body = await parseBody(req);
+    const reservationId = cleanText(body.reservationId, 120);
+    const db = ensureCollections(await readDb());
+    const reservation = db.reservations.find(item => item.id === reservationId && item.customer?.email === customerEmail);
+    if (!reservation) return json(res, 404, { ok: false, error: 'Reserva não encontrada.' });
+    if (reservation.status !== 'PENDING_PAYMENT') {
+      return json(res, 409, { ok: false, error: 'Esta viagem já está em processamento. Abra os detalhes para a acompanhar.' });
+    }
+    const previousPrice = Number(reservation.offer?.finalPrice || 0);
+    let result;
+    try {
+      result = await offerRevalidation.revalidate(reservation.offer, db.margins, { allowPriceChange: true, forceHotelCheck: true });
+      const components = reservation.offer?.components;
+      const hasDirectSupplierReference = Boolean(components?.flight?.offerId || components?.hotel?.rateKey || reservation.offer?.hbx?.rateKey);
+      const hasUnverifiedCoreComponent = Boolean(
+        (components?.flight && !components.flight.offerId) ||
+        (components?.hotel && !components.hotel.rateKey)
+      );
+      if (!hasDirectSupplierReference || hasUnverifiedCoreComponent) {
+        const adapter = operators.getForOffer(reservation.offer);
+        if (!adapter) throw Object.assign(new Error('Esta oferta não tem uma referência de fornecedor que permita nova validação automática.'), { code: 'SUPPLIER_REVALIDATION_UNAVAILABLE' });
+        const validation = await adapter.value({ offer: reservation.offer, reservation });
+        if (!validation?.availabilityStillValid || !validation?.priceStillValid) throw Object.assign(new Error('O fornecedor já não confirma a disponibilidade ou o preço desta viagem.'), { code: 'SUPPLIER_UNAVAILABLE' });
+      }
+    } catch (err) {
+      const unavailable = ['SUPPLIER_PRICE_CHANGED', 'DUFFEL_OFFER_EXPIRED', 'HBX_RATE_UNAVAILABLE', 'SUPPLIER_UNAVAILABLE'].includes(err.code);
+      return json(res, unavailable ? 409 : 503, { ok: false, code: err.code || 'SUPPLIER_REVALIDATION_FAILED', error: err.message || 'Não foi possível validar novamente a viagem.' });
+    }
+    const latestPrice = Number(result.offer.finalPrice || 0);
+    const priceChanged = Math.abs(previousPrice - latestPrice) > 0.02;
+    const resume = { reservationId: reservation.id, checkedAt: result.checkedAt, previousPrice, latestPrice, priceChanged, changes: result.changes || [], passengers: reservation.passengers || [] };
+    const offer = offerTokens.publicOffer(result.offer, { resumeReservationId: reservation.id, resumeCustomerEmail: customerEmail, resume });
+    await updateDb(data => audit(data, customerEmail, 'CUSTOMER_RESERVATION_REVALIDATED', { reservationId: reservation.id, previousPrice, latestPrice, priceChanged }));
+    return json(res, 200, { ok: true, offer, resume });
+  });
+
   router.get('/api/customer/profile', async (req, res) => {
     const customerEmail = customerSessionEmail(req);
     if (!customerEmail) return unauthorized(res);
@@ -339,6 +380,73 @@ module.exports = function registerCustomerRoutes(router, ctx) {
     return reservation;
   }
 
+  const identityDocumentTypes = new Set(['PASSPORT', 'IDENTITY_CARD']);
+  const normalizePerson = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const passengerFullName = passenger => [passenger?.name, passenger?.surname].filter(Boolean).join(' ').trim() || 'Titular';
+
+  function selectablePassengers(db, customerEmail, reservation = null) {
+    const customer = db.customers.find(item => item.email === customerEmail) || { id: 'customer', email: customerEmail, passengers: [] };
+    const wallet = Array.isArray(customer.passengers) ? customer.passengers : [];
+    if (!reservation) {
+      const family = wallet.map(passenger => ({
+        id: passenger.id,
+        name: passenger.name,
+        documentType: passenger.documentType,
+        documentNumber: passenger.documentNumber,
+        documentExpiry: passenger.documentExpiry,
+        documentCountry: passenger.documentCountry || passenger.nationality || 'Portugal'
+      })).filter(passenger => passenger.id && passenger.name);
+      if (customer.name && !family.some(passenger => normalizePerson(passenger.name) === normalizePerson(customer.name))) {
+        family.unshift({ id: `owner:${customer.id}`, name: customer.name, documentType: 'CC', documentCountry: 'Portugal' });
+      }
+      return family;
+    }
+    const reservationPassengers = reservation.passengers?.length ? reservation.passengers : [{ name: reservation.customer?.name || customer.name || 'Titular', documentType: 'CC' }];
+    return reservationPassengers.map((passenger, index) => {
+      const name = passengerFullName(passenger);
+      const walletMatch = wallet.find(saved =>
+        (passenger.documentNumber && saved.documentNumber && normalizePerson(passenger.documentNumber) === normalizePerson(saved.documentNumber)) ||
+        normalizePerson(saved.name) === normalizePerson(name)
+      );
+      return {
+        id: passenger.passengerId || passenger.id || walletMatch?.id || `${reservation.id}:passenger:${index}`,
+        name,
+        documentType: passenger.documentType || walletMatch?.documentType || '',
+        documentNumber: passenger.documentNumber || walletMatch?.documentNumber || '',
+        documentExpiry: passenger.documentExpiry || walletMatch?.documentExpiry || '',
+        documentCountry: passenger.documentCountry || walletMatch?.documentCountry || passenger.nationality || walletMatch?.nationality || 'Portugal'
+      };
+    });
+  }
+
+  function validateIdentityMetadata(body, passengers, reservation = null) {
+    const type = cleanText(body.type, 30);
+    if (!identityDocumentTypes.has(type)) return { type };
+    const passengerId = cleanText(body.passengerId, 120);
+    const passenger = passengers.find(item => item.id === passengerId);
+    if (!passenger) throw new Error('Escolha o passageiro a quem pertence este documento.');
+    const documentNumber = cleanText(body.documentNumber, 40).toUpperCase();
+    if (!/^[A-Z0-9][A-Z0-9 .\/-]{3,39}$/.test(documentNumber)) throw new Error('Indique um número de documento válido.');
+    const expiryDate = cleanText(body.expiryDate, 10);
+    const parsedExpiry = new Date(`${expiryDate}T00:00:00Z`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(expiryDate) || Number.isNaN(parsedExpiry.getTime()) || parsedExpiry.toISOString().slice(0, 10) !== expiryDate) throw new Error('Indique uma data de validade válida.');
+    const minimumDate = reservation?.offer?.checkout || new Date().toISOString().slice(0, 10);
+    if (expiryDate < minimumDate) throw new Error(reservation ? 'O documento caduca antes do regresso da viagem.' : 'O documento já está caducado.');
+    const issuingCountry = cleanText(body.issuingCountry, 80);
+    if (issuingCountry.length < 2) throw new Error('Indique o país emissor do documento.');
+    return { type, passengerId: passenger.id, passengerName: passenger.name, documentNumber, expiryDate, issuingCountry };
+  }
+
+  function isDuplicateIdentityDocument(db, customerEmail, metadata, excludedId = '') {
+    if (!identityDocumentTypes.has(metadata.type)) return false;
+    return db.documents.some(doc => doc.id !== excludedId && identityDocumentTypes.has(doc.type) && (
+      doc.customerEmail === customerEmail || ownReservationOrNull(db, doc.reservationId, customerEmail)
+    ) && (
+      normalizePerson(doc.documentNumber) === normalizePerson(metadata.documentNumber) ||
+      (doc.type === metadata.type && doc.passengerId && doc.passengerId === metadata.passengerId)
+    ));
+  }
+
   // Sem reservationId, o documento e do cliente diretamente - passaporte de
   // um membro do agregado familiar, reutilizavel em reservas futuras sem
   // ter de o anexar outra vez a cada reserva nova.
@@ -348,9 +456,16 @@ module.exports = function registerCustomerRoutes(router, ctx) {
     const reservationId = cleanText(url.searchParams.get('reservationId'), 120);
     const db = ensureCollections(await readDb());
     let documents;
+    let reservation = null;
     if (reservationId) {
-      if (!ownReservationOrNull(db, reservationId, customerEmail)) return json(res, 404, { ok: false, error: 'Reserva não encontrada' });
-      documents = db.documents.filter(d => d.reservationId === reservationId);
+      reservation = ownReservationOrNull(db, reservationId, customerEmail);
+      if (!reservation) return json(res, 404, { ok: false, error: 'Reserva não encontrada' });
+      const passengers = selectablePassengers(db, customerEmail, reservation);
+      documents = db.documents.filter(doc => doc.reservationId === reservationId || (doc.customerEmail === customerEmail && identityDocumentTypes.has(doc.type) && passengers.some(passenger =>
+        (doc.passengerId && passenger.id === doc.passengerId) ||
+        (doc.documentNumber && passenger.documentNumber && normalizePerson(doc.documentNumber) === normalizePerson(passenger.documentNumber)) ||
+        normalizePerson(doc.passengerName) === normalizePerson(passenger.name)
+      )));
     } else {
       documents = db.documents.filter(d => d.customerEmail === customerEmail);
     }
@@ -358,13 +473,18 @@ module.exports = function registerCustomerRoutes(router, ctx) {
     // faturas de compra, documentacao interna ou de ocorrencia/reclamacao
     // (ver auditoria).
     documents = documents.filter(d => isCustomerVisibleDocument(d, customerEmail));
-    const withUrls = await Promise.all(documents.map(async d => ({ ...d, signedUrl: await fileStorage.signedUrl(d.storagePath) })));
-    return json(res, 200, { ok: true, documents: withUrls });
+    const withUrls = await Promise.all(documents.map(async d => {
+      const { storagePath, ...safe } = d;
+      return { ...safe, reusable: Boolean(reservationId && d.customerEmail === customerEmail && !d.reservationId), signedUrl: await fileStorage.signedUrl(storagePath) };
+    }));
+    return json(res, 200, { ok: true, documents: withUrls, passengers: selectablePassengers(db, customerEmail, reservation) });
   });
 
   router.post('/api/customer/documents/upload', async (req, res) => {
     const customerEmail = customerSessionEmail(req);
     if (!customerEmail) return unauthorized(res);
+    const limited = rateLimit(req, res, 'customer-document-upload', 20, 60 * 60 * 1000);
+    if (limited) return limited;
     const body = await parseBody(req);
     const reservationId = cleanText(body.reservationId, 120);
     const type = cleanText(body.type, 20);
@@ -375,23 +495,36 @@ module.exports = function registerCustomerRoutes(router, ctx) {
     const forbiddenCustomerTypes = new Set(['INVOICE_PURCHASE', 'INVOICE_SALE', 'RECEIPT', 'CREDIT_NOTE', 'OCCURRENCE_PHOTO']);
     if (forbiddenCustomerTypes.has(type)) return json(res, 400, { ok: false, error: 'Tipo de documento não disponível para carregamento pelo cliente.' });
     const fileName = cleanText(body.fileName, 200);
-    const passengerName = body.passengerName ? cleanText(body.passengerName, 200) : undefined;
     if (!fileName || !body.fileBase64) return json(res, 400, { ok: false, error: 'Ficheiro inválido' });
 
     const db = ensureCollections(await readDb());
+    const reservation = reservationId ? ownReservationOrNull(db, reservationId, customerEmail) : null;
+    if (reservationId && !reservation) return json(res, 404, { ok: false, error: 'Reserva não encontrada' });
+    const passengers = selectablePassengers(db, customerEmail, reservation);
+    let metadata;
+    try { metadata = validateIdentityMetadata({ ...body, type }, passengers, reservation); }
+    catch (err) { return json(res, 400, { ok: false, error: err.message }); }
+    if (isDuplicateIdentityDocument(db, customerEmail, metadata)) {
+      return json(res, 409, { ok: false, error: 'Este documento já está guardado para este passageiro. Atualize os dados existentes em vez de o anexar novamente.' });
+    }
     let folder;
     if (reservationId) {
-      if (!ownReservationOrNull(db, reservationId, customerEmail)) return json(res, 404, { ok: false, error: 'Reserva não encontrada' });
       folder = reservationId;
     } else {
       folder = `cliente/${customerEmail.replace('@', '_')}`;
     }
 
     const buffer = Buffer.from(body.fileBase64, 'base64');
+    if (buffer.length < 4 || buffer.length > 7 * 1024 * 1024) return json(res, 400, { ok: false, error: 'O documento deve ter entre 4 bytes e 7 MB.' });
+    const isPdf = buffer.subarray(0, 4).toString('ascii') === '%PDF';
+    const isJpeg = buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+    const isPng = buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+    if (!isPdf && !isJpeg && !isPng) return json(res, 400, { ok: false, error: 'Formato não permitido. Use PDF, JPG ou PNG.' });
+    const verifiedMimeType = isPdf ? 'application/pdf' : isPng ? 'image/png' : 'image/jpeg';
     const docId = id('doc');
     const storagePath = `${folder}/${docId}-${fileStorage.sanitizeFileName(fileName)}`;
     try {
-      await fileStorage.uploadFile(storagePath, buffer, body.mimeType);
+      await fileStorage.uploadFile(storagePath, buffer, verifiedMimeType);
     } catch (err) {
       return json(res, 502, { ok: false, error: `Falha ao guardar documento: ${err.message}` });
     }
@@ -400,14 +533,21 @@ module.exports = function registerCustomerRoutes(router, ctx) {
       id: docId,
       reservationId: reservationId || undefined,
       customerEmail: reservationId ? undefined : customerEmail,
-      type, passengerName, fileName, storagePath, createdAt: now(), uploadedBy: customerEmail
+      ...metadata,
+      fileName, storagePath, createdAt: now(), uploadedBy: customerEmail
     };
-    await updateDb(d => {
-      ensureCollections(d);
-      d.documents.unshift(document);
-      audit(d, customerEmail, 'DOCUMENT_UPLOADED', { reservationId: reservationId || null, documentId: docId });
-    });
-    return json(res, 200, { ok: true, document });
+    try {
+      await updateDb(d => {
+        ensureCollections(d);
+        d.documents.unshift(document);
+        audit(d, customerEmail, 'DOCUMENT_UPLOADED', { reservationId: reservationId || null, documentId: docId });
+      });
+    } catch (err) {
+      try { await fileStorage.deleteFile(storagePath); } catch { /* compensacao de melhor esforco */ }
+      return json(res, 502, { ok: false, error: `Falha ao registar documento: ${err.message}` });
+    }
+    const { storagePath: _storagePath, ...safeDocument } = document;
+    return json(res, 200, { ok: true, document: safeDocument });
   });
 
   // Ver auditoria: nao basta pertencer a uma reserva do cliente - um
@@ -419,6 +559,37 @@ module.exports = function registerCustomerRoutes(router, ctx) {
     if (document.reservationId) return ownReservationOrNull(db, document.reservationId, customerEmail) ? document : null;
     return document.customerEmail === customerEmail ? document : null;
   }
+
+  router.post('/api/customer/documents/update', async (req, res) => {
+    const customerEmail = customerSessionEmail(req);
+    if (!customerEmail) return unauthorized(res);
+    const body = await parseBody(req);
+    const documentId = cleanText(body.documentId, 120);
+    const db = ensureCollections(await readDb());
+    const document = ownDocumentOrNull(db, db.documents.find(item => item.id === documentId), customerEmail);
+    if (!document) return json(res, 404, { ok: false, error: 'Documento não encontrado' });
+    const type = cleanText(body.type, 30);
+    if (!identityDocumentTypes.has(type)) return json(res, 400, { ok: false, error: 'Só pode editar os dados de Passaporte ou Cartão de Cidadão nesta área.' });
+    const reservation = document.reservationId ? ownReservationOrNull(db, document.reservationId, customerEmail) : null;
+    const passengers = selectablePassengers(db, customerEmail, reservation);
+    let metadata;
+    try { metadata = validateIdentityMetadata({ ...body, type }, passengers, reservation); }
+    catch (err) { return json(res, 400, { ok: false, error: err.message }); }
+    if (isDuplicateIdentityDocument(db, customerEmail, metadata, document.id)) {
+      return json(res, 409, { ok: false, error: 'Já existe outro documento com estes dados para este passageiro.' });
+    }
+    let updated;
+    await updateDb(data => {
+      ensureCollections(data);
+      const target = data.documents.find(item => item.id === document.id);
+      if (!target) return;
+      Object.assign(target, metadata, { updatedAt: now() });
+      updated = { ...target };
+      audit(data, customerEmail, 'DOCUMENT_METADATA_UPDATED', { reservationId: target.reservationId || null, documentId: target.id, type: target.type, passengerId: target.passengerId });
+    });
+    const { storagePath: _storagePath, ...safeDocument } = updated || {};
+    return json(res, 200, { ok: true, document: safeDocument });
+  });
 
   router.post('/api/customer/documents/delete', async (req, res) => {
     const customerEmail = customerSessionEmail(req);

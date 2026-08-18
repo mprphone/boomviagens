@@ -8,8 +8,8 @@
 - Precos do operador: `PVP`.
 - Comissao do operador: incluida.
 - Margem adicional do site: `5%`.
-- Confirmacao: automatica quando pagamento real estiver ligado.
-- Pagamentos: por agora `mock`; testar ate ao pagamento e escolher gateway depois.
+- Confirmacao: pagamento confirmado pelo gateway; emissao/confirmacao do operador mantem validacao operacional.
+- Pagamentos: `mock` em desenvolvimento ou `gateway` com Stripe/Easypay sandbox/live.
 
 ## Criar projeto
 
@@ -27,11 +27,13 @@ SUPABASE_SERVICE_ROLE_KEY=...
 
 `SUPABASE_SERVICE_ROLE_KEY` nunca deve ir para frontend. Usar apenas no servidor Node.
 
+Numa base ja existente, executar `docs/EXECUTAR_NO_SUPABASE.sql`. As instrucoes `alter table ... add column if not exists` acrescentam `documents.passenger_id` e os campos de sessao do gateway em `payments` sem apagar dados.
+
 Se uma `SUPABASE_SERVICE_ROLE_KEY` real tiver sido colocada em `.env.example`, chat, print, commit ou outro ficheiro partilhado, rode/recrie essa chave no painel do Supabase antes de usar o projeto em producao.
 
 ## Documentos por reserva (Storage)
 
-Documentos de passageiros (passaporte/cartao de cidadao, seguro de viagem) ficam num bucket privado do Supabase Storage, nunca em disco local (efemero em Vercel) nem publico (sao documentos sensiveis).
+Documentos de passageiros (Passaporte e Cartao de Cidadao como tipos separados, seguro de viagem) ficam num bucket privado do Supabase Storage, nunca em disco local (efemero em Vercel) nem publico (sao documentos sensiveis).
 
 1. No projeto Supabase: Storage -> New bucket -> nome `documents` -> **Private**.
 2. Garantir que a tabela `documents` de `docs/supabase-schema.sql` foi criada (faz parte do schema normal, basta correr o ficheiro completo no SQL Editor).

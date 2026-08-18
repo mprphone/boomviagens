@@ -1,7 +1,8 @@
 // Ponto de entrada: decide entre login e app, preenche o cabecalho da
 // sidebar com dados reais do cliente e liga a navegacao entre vistas.
 
-import { $, api } from './utils.js';
+import { $, api, notify } from './utils.js';
+import { watchCustomerSessionChanges, clearCustomerScopedBrowserState } from '../../js/sessionGuard.js';
 import { wireLogin } from './auth.js';
 import { renderDashboard } from './dashboard.js';
 import { renderViagens, renderAnteriores } from './reservations.js';
@@ -25,6 +26,10 @@ const VIEWS = {
   mensagens: { title: 'Pedidos e mensagens', render: renderMensagens },
   emergencia: { title: 'Contactos de emergência', render: renderEmergencia }
 };
+
+let activeSessionEmail = '';
+let sessionCheckRunning = false;
+let paymentReturnHandled = false;
 
 function switchView(name) {
   const view = VIEWS[name];
@@ -80,14 +85,69 @@ document.querySelectorAll('.nav-item[data-view]').forEach(btn => {
   btn.addEventListener('click', () => switchView(btn.dataset.view));
 });
 
-wireLogin(showApp);
+async function activateSession(session = {}) {
+  activeSessionEmail = String(session.email || '').toLowerCase();
+  showApp();
+  await handlePaymentReturn();
+}
+
+async function reconcileSession() {
+  if (sessionCheckRunning) return;
+  sessionCheckRunning = true;
+  try {
+    const data = await api('/api/customer/session');
+    const nextEmail = data.authenticated ? String(data.email || '').toLowerCase() : '';
+    if (activeSessionEmail && activeSessionEmail !== nextEmail) {
+      clearCustomerScopedBrowserState();
+      location.reload();
+      return;
+    }
+    if (data.authenticated) {
+      if (!activeSessionEmail) await activateSession(data);
+    } else if (activeSessionEmail) {
+      clearCustomerScopedBrowserState();
+      location.reload();
+    } else if ($('#appShell').hidden) showLogin();
+  } catch {
+    if ($('#appShell').hidden) showLogin();
+  } finally {
+    sessionCheckRunning = false;
+  }
+}
+
+async function handlePaymentReturn() {
+  if (paymentReturnHandled) return;
+  const params = new URLSearchParams(location.search);
+  const result = params.get('payment');
+  const paymentId = params.get('paymentId');
+  if (!result || !paymentId) return;
+  paymentReturnHandled = true;
+  switchView('pagamentos');
+  if (result === 'cancelled') {
+    notify('O pagamento foi cancelado. A reserva continua guardada e pode tentar novamente.', 'error');
+  } else {
+    let confirmed = false;
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      try {
+        const status = await api(`/api/payment/status?paymentId=${encodeURIComponent(paymentId)}`);
+        if (status.payment?.status === 'PAID') { confirmed = true; break; }
+      } catch { break; }
+      await new Promise(resolve => setTimeout(resolve, 1500));
+    }
+    notify(confirmed ? 'Pagamento confirmado com segurança.' : 'Pagamento recebido pelo gateway. A confirmação ainda está a ser processada.', confirmed ? 'success' : 'error');
+    renderPagamentos();
+  }
+  history.replaceState({}, '', '/conta/');
+}
+
+wireLogin(activateSession);
 
 // Ver o comentario equivalente em public/backoffice/js/main.js: sem
 // esta guarda, esta verificacao de sessao feita ao carregar a pagina
 // pode chegar depois de um login bem sucedido pelo formulario (login
 // por codigo demora mais que uma verificacao simples) e reverter a app
 // de volta para o ecra de login.
-api('/api/customer/session').then(data => {
-  if (data.authenticated) showApp();
-  else if ($('#appShell').hidden) showLogin();
-}).catch(() => { if ($('#appShell').hidden) showLogin(); });
+reconcileSession();
+watchCustomerSessionChanges(reconcileSession);
+window.addEventListener('focus', reconcileSession);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) reconcileSession(); });

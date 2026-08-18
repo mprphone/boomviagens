@@ -227,6 +227,7 @@ alter table public.opportunities add column if not exists reservation_id text re
 create table if not exists public.payments (
   id text primary key,
   created_at timestamptz not null default now(),
+  updated_at timestamptz,
   reservation_id text not null references public.reservations(id) on delete cascade,
   method text not null,
   amount numeric(12,2) not null,
@@ -234,8 +235,16 @@ create table if not exists public.payments (
   reference text,
   idempotency_key text unique,
   paid_at timestamptz,
-  expires_at timestamptz
+  expires_at timestamptz,
+  gateway text,
+  gateway_session_id text,
+  gateway_session jsonb
 );
+
+alter table public.payments add column if not exists updated_at timestamptz;
+alter table public.payments add column if not exists gateway text;
+alter table public.payments add column if not exists gateway_session_id text;
+alter table public.payments add column if not exists gateway_session jsonb;
 
 create index if not exists payments_reservation_id_idx on public.payments(reservation_id);
 
@@ -393,6 +402,7 @@ create table if not exists public.documents (
   event_id text references public.reservation_events(id) on delete cascade,
   complaint_id text references public.complaints(id) on delete cascade,
   type text not null,
+  passenger_id text,
   passenger_name text,
   file_name text not null,
   storage_path text not null,
@@ -408,6 +418,8 @@ create table if not exists public.documents (
   expiry_date text,
   issuing_country text
 );
+
+alter table public.documents add column if not exists passenger_id text;
 
 create index if not exists documents_reservation_id_idx on public.documents(reservation_id);
 create index if not exists documents_customer_email_idx on public.documents(customer_email);

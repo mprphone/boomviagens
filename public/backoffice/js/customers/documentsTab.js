@@ -9,8 +9,8 @@
 import { esc, api } from '../utils.js';
 import { openDrawer, closeDrawer } from '../drawer.js';
 
-const DOC_TYPE_LABELS = { PASSPORT: 'Passaporte/CC', VISA: 'Visto', INSURANCE: 'Seguro', OTHER: 'Outro' };
-const DOC_TYPE_ICON = { PASSPORT: '🛂', VISA: '📄', INSURANCE: '🛡️', OTHER: '📎' };
+const DOC_TYPE_LABELS = { PASSPORT: 'Passaporte', IDENTITY_CARD: 'Cartão de Cidadão', VISA: 'Visto', INSURANCE: 'Seguro', OTHER: 'Outro' };
+const DOC_TYPE_ICON = { PASSPORT: '🛂', IDENTITY_CARD: '🪪', VISA: '📄', INSURANCE: '🛡️', OTHER: '📎' };
 const FINANCIAL_TYPE_LABELS = { INVOICE_SALE: 'Fatura', RECEIPT: 'Recibo', CREDIT_NOTE: 'Nota de crédito' };
 const FINANCIAL_TYPE_ICON = { INVOICE_SALE: '🧾', RECEIPT: '💶', CREDIT_NOTE: '↩️' };
 

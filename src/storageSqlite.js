@@ -81,8 +81,9 @@ CREATE TABLE IF NOT EXISTS reservations (
 );
 CREATE INDEX IF NOT EXISTS reservations_status_idx ON reservations(status);
 CREATE TABLE IF NOT EXISTS payments (
-  id TEXT PRIMARY KEY, created_at TEXT, reservation_id TEXT, method TEXT, amount REAL,
-  status TEXT, reference TEXT, paid_at TEXT, expires_at TEXT
+  id TEXT PRIMARY KEY, created_at TEXT, updated_at TEXT, reservation_id TEXT, method TEXT, amount REAL,
+  status TEXT, reference TEXT, paid_at TEXT, expires_at TEXT, gateway TEXT,
+  gateway_session_id TEXT, gateway_session TEXT
 );
 CREATE INDEX IF NOT EXISTS payments_reservation_idx ON payments(reservation_id);
 CREATE TABLE IF NOT EXISTS emails (
@@ -125,7 +126,7 @@ CREATE INDEX IF NOT EXISTS tasks_reservation_idx ON tasks(reservation_id);
 CREATE TABLE IF NOT EXISTS documents (
   id TEXT PRIMARY KEY, created_at TEXT, reservation_id TEXT, customer_email TEXT, supplier_id TEXT, service_line_id TEXT,
   event_id TEXT, complaint_id TEXT, payment_id TEXT,
-  type TEXT, passenger_name TEXT, file_name TEXT, storage_path TEXT, uploaded_by TEXT,
+  type TEXT, passenger_id TEXT, passenger_name TEXT, file_name TEXT, storage_path TEXT, uploaded_by TEXT,
   document_number TEXT, document_date TEXT, amount REAL,
   expiry_date TEXT, issuing_country TEXT
 );
@@ -209,10 +210,13 @@ function ensureLegacyColumnsBeforeIndexes(conn) {
       operational_staff_id: 'TEXT', financial_staff_id: 'TEXT', branch_id: 'TEXT', origin: 'TEXT',
       margin_confirmed: 'REAL', margin_confirmed_at: 'TEXT', margin_final: 'REAL', margin_final_at: 'TEXT'
     },
+    payments: {
+      updated_at: 'TEXT', gateway: 'TEXT', gateway_session_id: 'TEXT', gateway_session: 'TEXT'
+    },
     documents: {
       customer_email: 'TEXT', supplier_id: 'TEXT', service_line_id: 'TEXT', event_id: 'TEXT',
       complaint_id: 'TEXT', payment_id: 'TEXT', document_number: 'TEXT', document_date: 'TEXT',
-      amount: 'REAL', expiry_date: 'TEXT', issuing_country: 'TEXT'
+      amount: 'REAL', expiry_date: 'TEXT', issuing_country: 'TEXT', passenger_id: 'TEXT'
     }
   };
 
@@ -369,7 +373,7 @@ function rowToReservation(row) {
 }
 
 function rowToPayment(row) {
-  return { id: row.id, createdAt: row.created_at, reservationId: row.reservation_id, method: row.method, amount: Number(row.amount), status: row.status, reference: row.reference || undefined, paidAt: row.paid_at || undefined, expiresAt: row.expires_at || undefined };
+  return { id: row.id, createdAt: row.created_at, updatedAt: row.updated_at || undefined, reservationId: row.reservation_id, method: row.method, amount: Number(row.amount), status: row.status, reference: row.reference || undefined, paidAt: row.paid_at || undefined, expiresAt: row.expires_at || undefined, gateway: row.gateway || undefined, gatewaySessionId: row.gateway_session_id || undefined, gatewaySession: parseJ(row.gateway_session, undefined) };
 }
 
 function rowToEmail(row) {
@@ -385,7 +389,7 @@ function rowToAuditLog(row) {
 }
 
 function rowToDocument(row) {
-  return { id: row.id, createdAt: row.created_at, reservationId: row.reservation_id || undefined, customerEmail: row.customer_email || undefined, supplierId: row.supplier_id || undefined, serviceLineId: row.service_line_id || undefined, eventId: row.event_id || undefined, complaintId: row.complaint_id || undefined, paymentId: row.payment_id || undefined, type: row.type, passengerName: row.passenger_name || undefined, fileName: row.file_name, storagePath: row.storage_path, uploadedBy: row.uploaded_by || undefined, documentNumber: row.document_number || undefined, documentDate: row.document_date || undefined, amount: row.amount ?? undefined, expiryDate: row.expiry_date || undefined, issuingCountry: row.issuing_country || undefined };
+  return { id: row.id, createdAt: row.created_at, reservationId: row.reservation_id || undefined, customerEmail: row.customer_email || undefined, supplierId: row.supplier_id || undefined, serviceLineId: row.service_line_id || undefined, eventId: row.event_id || undefined, complaintId: row.complaint_id || undefined, paymentId: row.payment_id || undefined, type: row.type, passengerId: row.passenger_id || undefined, passengerName: row.passenger_name || undefined, fileName: row.file_name, storagePath: row.storage_path, uploadedBy: row.uploaded_by || undefined, documentNumber: row.document_number || undefined, documentDate: row.document_date || undefined, amount: row.amount ?? undefined, expiryDate: row.expiry_date || undefined, issuingCountry: row.issuing_country || undefined };
 }
 
 function rowToServiceLine(row) {
@@ -524,8 +528,8 @@ function writeDbSqlite(dbState) {
     const insRes = conn.prepare(`INSERT INTO reservations (id, created_at, updated_at, status, customer, passengers, offer, operator, source, notes, payment_received_at, operator_validation, operator_validation_at, operator_confirmation, operator_locator, confirmed_at, vat_regime, invoice_number, invoice_date, invoice_system, post_trip_ok, post_trip_notes, commercial_staff_id, operational_staff_id, financial_staff_id, branch_id, origin, margin_confirmed, margin_confirmed_at, margin_final, margin_final_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
     for (const r of dbState.reservations || []) insRes.run(r.id, r.createdAt, r.updatedAt || null, r.status, j(r.customer || {}), j(r.passengers || []), j(r.offer || {}), r.operator || null, r.source || 'site', r.notes || null, r.paymentReceivedAt || null, r.operatorValidation || null, r.operatorValidationAt || null, r.operatorConfirmation || null, r.operatorLocator || null, r.confirmedAt || null, r.vatRegime || 'MARGEM', r.invoiceNumber || null, r.invoiceDate || null, r.invoiceSystem || null, r.postTripOk === undefined ? null : (r.postTripOk ? 1 : 0), r.postTripNotes || null, r.commercialStaffId || null, r.operationalStaffId || null, r.financialStaffId || null, r.branchId || null, r.origin || null, r.marginConfirmed ?? null, r.marginConfirmedAt || null, r.marginFinal ?? null, r.marginFinalAt || null);
 
-    const insPay = conn.prepare('INSERT INTO payments (id, created_at, reservation_id, method, amount, status, reference, paid_at, expires_at) VALUES (?,?,?,?,?,?,?,?,?)');
-    for (const p of dbState.payments || []) insPay.run(p.id, p.createdAt, p.reservationId, p.method, p.amount, p.status, p.reference || null, p.paidAt || null, p.expiresAt || null);
+    const insPay = conn.prepare('INSERT INTO payments (id, created_at, updated_at, reservation_id, method, amount, status, reference, paid_at, expires_at, gateway, gateway_session_id, gateway_session) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)');
+    for (const p of dbState.payments || []) insPay.run(p.id, p.createdAt, p.updatedAt || null, p.reservationId, p.method, p.amount, p.status, p.reference || null, p.paidAt || null, p.expiresAt || null, p.gateway || null, p.gatewaySessionId || null, j(p.gatewaySession));
 
     const insEmail = conn.prepare('INSERT INTO emails (id, created_at, recipient, subject, body, status) VALUES (?,?,?,?,?,?)');
     for (const e of dbState.emails || []) insEmail.run(e.id, e.createdAt, e.to || e.recipient || 'cliente@exemplo.pt', e.subject || 'Email Boomviagens', e.body || '', e.status || 'GERADO_DEMO');
@@ -551,8 +555,8 @@ function writeDbSqlite(dbState) {
     const insEvent = conn.prepare('INSERT INTO reservation_events (id, created_at, reservation_id, actor, type, description, resolved, resolution) VALUES (?,?,?,?,?,?,?,?)');
     for (const e of dbState.reservationEvents || []) insEvent.run(e.id, e.createdAt, e.reservationId, e.actor || null, e.type, e.description || null, e.resolved ? 1 : 0, e.resolution || null);
 
-    const insDoc = conn.prepare('INSERT INTO documents (id, created_at, reservation_id, customer_email, supplier_id, service_line_id, event_id, complaint_id, payment_id, type, passenger_name, file_name, storage_path, uploaded_by, document_number, document_date, amount, expiry_date, issuing_country) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
-    for (const d of dbState.documents || []) insDoc.run(d.id, d.createdAt, d.reservationId || null, d.customerEmail || null, d.supplierId || null, d.serviceLineId || null, d.eventId || null, d.complaintId || null, d.paymentId || null, d.type, d.passengerName || null, d.fileName, d.storagePath, d.uploadedBy || null, d.documentNumber || null, d.documentDate || null, d.amount ?? null, d.expiryDate || null, d.issuingCountry || null);
+    const insDoc = conn.prepare('INSERT INTO documents (id, created_at, reservation_id, customer_email, supplier_id, service_line_id, event_id, complaint_id, payment_id, type, passenger_id, passenger_name, file_name, storage_path, uploaded_by, document_number, document_date, amount, expiry_date, issuing_country) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+    for (const d of dbState.documents || []) insDoc.run(d.id, d.createdAt, d.reservationId || null, d.customerEmail || null, d.supplierId || null, d.serviceLineId || null, d.eventId || null, d.complaintId || null, d.paymentId || null, d.type, d.passengerId || null, d.passengerName || null, d.fileName, d.storagePath, d.uploadedBy || null, d.documentNumber || null, d.documentDate || null, d.amount ?? null, d.expiryDate || null, d.issuingCountry || null);
 
     const insSupplier = conn.prepare('INSERT INTO suppliers (id, created_at, updated_at, name, type, email, phone, nif, notes) VALUES (?,?,?,?,?,?,?,?,?)');
     for (const s of dbState.suppliers || []) insSupplier.run(s.id, s.createdAt, s.updatedAt || null, s.name, s.type || 'OUTRO', s.email || null, s.phone || null, s.nif || null, s.notes || null);

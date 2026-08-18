@@ -35,6 +35,8 @@ module.exports = function createPaymentConfirmation(ctx) {
         p.paidAt = now();
         p.updatedAt = now();
       }
+      delete p.gatewaySession;
+      if (r.offer?._paymentSessions) delete r.offer._paymentSessions[p.id];
       r.paymentReceivedAt = p.paidAt;
       // Estado transitório: o pagamento esta seguro, a validacao operacional
       // acontece a seguir. Isto e importante se a API externa estiver em baixo.

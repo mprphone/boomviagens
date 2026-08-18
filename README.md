@@ -6,7 +6,7 @@ Projeto de desenvolvimento da Boomviagens para gerir o ciclo completo:
 
 A versão deste pacote inclui site público, Área de Cliente, backoffice contextual, CRM/pipelines, processo de viagem, integração TourDiez em adapter, webhooks Stripe/Easypay e integração inicial Facturalusa.
 
-> Para perceber exatamente o que foi alterado nesta entrega e o que ainda é bloqueador antes de produção, ler primeiro `MELHORIAS_2026-08-17.md`.
+> Para perceber o estado atual, as correções e o checklist de produção, ler primeiro `docs/AUDITORIA_CLIENTE_PAGAMENTOS_V9_2026-08-18.md`.
 
 ## Executar localmente
 
@@ -64,14 +64,27 @@ TourDiez suporta pesquisa/availability, value, confirm e cancel, mas uma reserva
 
 ## Pagamentos
 
-Receção de webhooks:
+Modos suportados:
 
-- Stripe: assinatura do webhook validada;
-- Easypay: a notificação não é considerada fonte de verdade; o servidor volta a consultar a API Easypay autenticada.
+- `PAYMENTS_MODE=mock`: simulação controlada, apenas para desenvolvimento/testes;
+- `PAYMENTS_MODE=gateway`: checkout real por Stripe e Easypay;
+- `PAYMENTS_MODE=disabled`: pagamentos indisponíveis, sem falso sucesso.
 
-Em ambos os casos são validados montante/moeda antes de marcar pagamento como recebido.
+Em modo gateway:
 
-**Ainda pendente para live:** criação outgoing da sessão/pagamento Stripe/Easypay + idempotência persistente/locks transacionais em PostgreSQL. Ver `MELHORIAS_2026-08-17.md`.
+- Cartão cria uma Stripe Checkout Session alojada e redireciona para a Stripe;
+- MB WAY e Multibanco criam um manifesto Easypay no servidor e usam o checkout embebido oficial;
+- o browser nunca marca o pagamento como recebido;
+- Stripe valida a assinatura do webhook;
+- Easypay volta a consultar a API autenticada antes de confiar numa notificação;
+- montante, moeda, ambiente e referência interna são validados antes de alterar o ledger.
+
+Endpoints de webhook:
+
+- `POST /api/payments/stripe/webhook`
+- `POST /api/payments/easypay/webhook`
+
+Antes de live é obrigatório configurar `PUBLIC_BASE_URL`, webhooks públicos HTTPS, chaves live e executar a migração Supabase. O fluxo sandbox pode ser validado, sem cobrança, com `npm run test:gateway:sandbox`.
 
 ## Faturação
 
@@ -125,14 +138,14 @@ O menu lateral adapta-se à área escolhida em vez de apresentar toda a aplicaç
 
 ## Documentação desta entrega
 
-`MELHORIAS_2026-08-17.md` contém:
+`docs/AUDITORIA_CLIENTE_PAGAMENTOS_V9_2026-08-18.md` contém:
 
 - melhorias implementadas;
 - decisões de UX;
 - validações novas;
 - correções de segurança;
-- melhorias do backoffice;
-- lista explícita de P0 ainda pendentes antes de live.
+- melhorias dos percursos de cliente e pagamentos;
+- checklist explícito antes de live e riscos residuais.
 
 ## Travel Intelligence — 17/08/2026
 
@@ -154,6 +167,8 @@ Antes de usar as novas regras de pricing numa base já criada, executar:
 docs/migrations/2026-08-17-pricing-v2.sql
 ```
 
+Depois executar também `docs/EXECUTAR_NO_SUPABASE.sql`: é idempotente e acrescenta os campos de sessão de gateway e associação de documentos a passageiros. Existe compatibilidade transitória com o esquema anterior, mas a migração deve ser aplicada antes de live.
+
 ### Verificação local
 
 ```bash
@@ -164,9 +179,9 @@ npm run dev
 
 `npm test` não chama APIs externas. Para testar uma credencial real, usar o botão **Testar ligação** no API Lab do backoffice.
 
-## Auditoria V3
+## Auditoria atual
 
-Antes de qualquer deploy real, ler **`docs/AUDITORIA_V3_2026-08-17.md`**. A V3 é adequada a Preview/testes, mas ainda tem bloqueios explícitos para pagamentos e bookings automáticos reais.
+A auditoria V9 em **`docs/AUDITORIA_CLIENTE_PAGAMENTOS_V9_2026-08-18.md`** substitui o estado antigo da V3 para sessões de cliente, documentos, retoma de reservas e pagamentos. As auditorias anteriores permanecem como histórico.
 
 ## Operational Presentation V4 — 17/08/2026
 

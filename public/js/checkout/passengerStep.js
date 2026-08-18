@@ -20,6 +20,7 @@ function guessFirstAndLastName(fullName) {
 
 function fromWalletShape(w) {
   return {
+    passengerId: w.id || '',
     ...guessFirstAndLastName(w.name),
     birthdate: w.birthdate || '', gender: w.gender || '', nationality: w.nationality || 'Portuguesa',
     documentType: w.documentType === 'PASSPORT' ? 'PASSPORT' : 'CC',
@@ -120,6 +121,7 @@ export async function renderPassengerStep() {
       <div class="checkout-step-heading"><div><p class="eyebrow">Passageiros</p><h3>${label}</h3></div><span class="step-count">${index + 1} de ${total}</span></div>
       <div class="legal-notice compact"><span class="legal-notice-icon">✓</span><p>Preencha os dados exatamente como constam no documento. O site valida idade, duplicados e validade antes de deixar avançar.</p></div>
       ${pickable.length ? `<div class="saved-passenger-box"><span class="field-label">Usar passageiro guardado</span><div class="saved-passenger-chips">${pickable.map(w => `<button type="button" class="ghost mini-action saved-passenger-chip" data-id="${esc(w.id)}">${esc(w.name)}</button>`).join('')}</div></div>` : ''}
+      <input type="hidden" name="passengerId" value="${esc(existing.passengerId || '')}" />
       <div class="passenger-card">
         <div class="passenger-card-grid">
           ${field('name','Nome',existing.name,'text','given-name')}
@@ -176,7 +178,10 @@ export async function renderPassengerStep() {
     }
     $('#passengerFormError').innerHTML = '';
     setPassenger(index, data);
-    if ($('#saveToWalletCheck').checked) await saveToWallet(data, index === 0 && getBookerTravels() ? 'TITULAR' : 'OUTRO');
+    if ($('#saveToWalletCheck').checked) {
+      const saved = await saveToWallet(data, index === 0 && getBookerTravels() ? 'TITULAR' : 'OUTRO');
+      if (saved?.id) { data.passengerId = saved.id; setPassenger(index, data); }
+    }
     if (!isLast) { setPassengerIndex(index + 1); renderPassengerStep(); return; }
     await submitCheckout(e.target);
   });
@@ -184,19 +189,22 @@ export async function renderPassengerStep() {
 
 async function saveToWallet(passengerData, relationship) {
   const wallet = toWalletShape(passengerData, relationship);
-  if (!wallet.name) return;
+  if (!wallet.name) return null;
   const current = getSavedPassengers() || [];
   const matchIdx = current.findIndex(w => (w.name || '').trim().toLowerCase() === wallet.name.trim().toLowerCase());
   const next = matchIdx >= 0 ? current.map((w, i) => i === matchIdx ? { ...w, ...wallet, id: w.id } : w) : [...current, wallet];
   try {
     const data = await api('/api/customer/passengers', { method: 'POST', body: JSON.stringify({ passengers: next }) });
-    setSavedPassengers(data.customer.passengers || next);
-  } catch {}
+    const saved = data.customer.passengers || next;
+    setSavedPassengers(saved);
+    return saved.find(item => (item.name || '').trim().toLowerCase() === wallet.name.trim().toLowerCase()) || null;
+  } catch { return null; }
 }
 
 function readPassengerForm() {
   const f = formToJson($('#passengerForm'));
   return {
+    passengerId: f.passengerId || '',
     name: f.name || '', surname: f.surname || '', birthdate: f.birthdate || '', gender: f.gender || '', nationality: f.nationality || '',
     documentType: f.documentType || '', documentNumber: f.documentNumber || '', documentCountry: f.documentCountry || '', documentExpiry: f.documentExpiry || ''
   };

@@ -1,4 +1,5 @@
 const { verifyStripeSignature } = require('./stripeSignature');
+const GATEWAY_TIMEOUT_MS = 15_000;
 
 /**
  * Contrato que qualquer gateway de pagamento novo tem de implementar para
@@ -40,6 +41,23 @@ class PaymentGatewayAdapter {
   async handleWebhook() {
     throw new Error(`${this.name}: handleWebhook nao implementado`);
   }
+
+  async createCheckout() {
+    throw new Error(`${this.name}: createCheckout nao implementado`);
+  }
+}
+
+async function gatewayJson(res, gateway) {
+  const text = await res.text();
+  let data = {};
+  try { data = text ? JSON.parse(text) : {}; } catch { data = {}; }
+  if (!res.ok) {
+    const detail = data?.error?.message || data?.message?.[0] || data?.message || `HTTP ${res.status}`;
+    const err = new Error(`${gateway}: não foi possível preparar o pagamento (${String(detail).slice(0, 240)})`);
+    err.code = 'PAYMENT_GATEWAY_ERROR';
+    throw err;
+  }
+  return data;
 }
 
 // Eventos que, uma vez o metadata.paymentId resolvido, valem como "dinheiro
@@ -49,11 +67,58 @@ const STRIPE_PAID_EVENT_TYPES = new Set(['checkout.session.completed', 'checkout
 class StripeGatewayAdapter extends PaymentGatewayAdapter {
   constructor(env = process.env) {
     super('Stripe');
+    this.secretKey = env.STRIPE_SECRET_KEY || '';
     this.webhookSecret = env.STRIPE_WEBHOOK_SECRET || '';
+    this.mode = String(env.STRIPE_MODE || 'test').toLowerCase();
   }
 
   isConfigured() {
-    return Boolean(this.webhookSecret);
+    return Boolean(this.secretKey && this.webhookSecret);
+  }
+
+  async createCheckout({ payment, reservation, customer, successUrl, cancelUrl }) {
+    if (!this.isConfigured()) throw new Error('Stripe não está completamente configurada (chave secreta e webhook).');
+    const amountMinor = Math.round(Number(payment.amount) * 100);
+    if (!Number.isInteger(amountMinor) || amountMinor < 50) throw new Error('Montante inválido para pagamento por cartão.');
+    const params = new URLSearchParams();
+    params.set('mode', 'payment');
+    params.set('locale', 'pt');
+    params.set('success_url', successUrl);
+    params.set('cancel_url', cancelUrl);
+    params.set('client_reference_id', reservation.id);
+    if (customer?.email) params.set('customer_email', customer.email);
+    params.set('line_items[0][quantity]', '1');
+    params.set('line_items[0][price_data][currency]', 'eur');
+    params.set('line_items[0][price_data][unit_amount]', String(amountMinor));
+    params.set('line_items[0][price_data][product_data][name]', `Viagem Boomviagens · ${reservation.offer?.destination || reservation.id}`.slice(0, 120));
+    params.set('line_items[0][price_data][product_data][description]', `Reserva ${reservation.id}`);
+    params.set('metadata[paymentId]', payment.id);
+    params.set('metadata[reservationId]', reservation.id);
+    params.set('payment_intent_data[metadata][paymentId]', payment.id);
+    params.set('payment_intent_data[metadata][reservationId]', reservation.id);
+
+    const res = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${this.secretKey}:`).toString('base64')}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        // Um bucket de 30 minutos torna pedidos concorrentes idempotentes,
+        // mas permite criar uma sessao nova depois de a anterior expirar.
+        'Idempotency-Key': `boom-${payment.id}-${Math.floor(Date.now() / (30 * 60 * 1000))}`
+      },
+      body: params.toString(),
+      signal: AbortSignal.timeout(GATEWAY_TIMEOUT_MS)
+    });
+    const session = await gatewayJson(res, 'Stripe');
+    if (!session.id || !session.url) throw new Error('Stripe: a sessão criada não devolveu um endereço de pagamento.');
+    return {
+      gateway: this.name,
+      display: 'redirect',
+      sessionId: session.id,
+      url: session.url,
+      expiresAt: session.expires_at ? new Date(Number(session.expires_at) * 1000).toISOString() : null,
+      testing: this.mode !== 'live'
+    };
   }
 
   async handleWebhook(rawBody, headers = {}) {
@@ -97,6 +162,49 @@ class EasyPayGatewayAdapter extends PaymentGatewayAdapter {
     return Boolean(this.accountId && this.apiKey);
   }
 
+  async createCheckout({ payment, reservation, method }) {
+    if (!this.isConfigured()) throw new Error('Easypay não está completamente configurada.');
+    const methodCode = method === 'MB WAY' ? 'mbw' : method.includes('Multibanco') ? 'mb' : 'cc';
+    const amount = Number(Number(payment.amount).toFixed(2));
+    if (!Number.isFinite(amount) || amount <= 0) throw new Error('Montante inválido para pagamento Easypay.');
+    const payload = {
+      type: ['single'],
+      payment: {
+        methods: [methodCode],
+        type: 'sale',
+        currency: 'EUR',
+        capture: {
+          descriptive: `Boomviagens ${reservation.id}`.slice(0, 50),
+          // A notificacao de uma Single Sale devolve esta transaction_key.
+          // E a referencia interna que permite reconciliar o webhook com o
+          // nosso ledger sem confiar no corpo nao autenticado.
+          transaction_key: payment.id
+        }
+      },
+      order: {
+        key: payment.id,
+        value: amount,
+        items: [{ description: `Viagem ${reservation.offer?.destination || reservation.id}`.slice(0, 120), quantity: 1, key: reservation.id, value: amount }]
+      }
+    };
+    const res = await fetch(`${this.baseUrl}/checkout`, {
+      method: 'POST',
+      headers: { AccountId: this.accountId, ApiKey: this.apiKey, Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(GATEWAY_TIMEOUT_MS)
+    });
+    const manifest = await gatewayJson(res, 'Easypay');
+    if (!manifest.id || !manifest.session) throw new Error('Easypay: a sessão criada não devolveu um manifesto válido.');
+    return {
+      gateway: this.name,
+      display: 'embedded',
+      sessionId: manifest.id,
+      manifest,
+      expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+      testing: this.baseUrl.includes('api.test.')
+    };
+  }
+
   async handleWebhook(rawBody) {
     let notification;
     try {
@@ -112,9 +220,11 @@ class EasyPayGatewayAdapter extends PaymentGatewayAdapter {
     // autenticada com as nossas credenciais, e so agir sobre essa resposta,
     // nunca sobre o "status" que veio no corpo do webhook em si.
     const res = await fetch(`${this.baseUrl}/single/${encodeURIComponent(easypayId)}`, {
-      headers: { AccountId: this.accountId, ApiKey: this.apiKey, Accept: 'application/json' }
+      headers: { AccountId: this.accountId, ApiKey: this.apiKey, Accept: 'application/json' },
+      signal: AbortSignal.timeout(GATEWAY_TIMEOUT_MS)
     });
-    if (!res.ok) return { paymentId: null };
+    if (res.status === 404) return { paymentId: null };
+    if (!res.ok) throw new Error(`Easypay: não foi possível verificar a notificação (HTTP ${res.status})`);
     const payment = await res.json();
     // Confirmado empiricamente contra a API de testes: GET /single/{id}
     // devolve 404 {"message":["Payment not found"]} para um id
@@ -123,12 +233,22 @@ class EasyPayGatewayAdapter extends PaymentGatewayAdapter {
     // da documentacao publica; os outros ficam como leitura razoavel a
     // confirmar contra notificacoes reais quando existirem.
     const paidStatuses = new Set(['success', 'paid', 'captured']);
-    if (!paidStatuses.has(String(payment.status || '').toLowerCase())) return { paymentId: null };
-    // "key" e a referencia propria (o nosso paymentId) que se envia ao criar
-    // o pagamento na Easypay - mesmo conceito do metadata.paymentId da
-    // Stripe, nome de campo diferente. So existe de verdade depois de a
-    // criacao de pagamentos Easypay ser construida (fora do ambito atual).
-    return { paymentId: payment.key || null, eventId: notification?.id || easypayId, amount: Number(payment.value ?? payment.amount ?? 0) || null, currency: String(payment.currency || 'EUR').toUpperCase(), livemode: !this.baseUrl.includes('api.test.') };
+    const verifiedStatus = payment.payment_status ?? payment.status;
+    if (!paidStatuses.has(String(verifiedStatus || '').toLowerCase())) return { paymentId: null };
+    const verifiedKeys = [
+      payment.key,
+      payment.transaction_key,
+      payment.capture?.transaction_key,
+      ...(Array.isArray(payment.captures) ? payment.captures.flatMap(capture => [capture?.transaction_key, capture?.key]) : []),
+      ...(Array.isArray(payment.transactions) ? payment.transactions.flatMap(transaction => [transaction?.transaction_key, transaction?.key]) : [])
+    ].filter(Boolean).map(String);
+    // Prefere o formato atual dos IDs internos; se o gateway conservar a
+    // key noutro campo, aceita-a apenas quando tambem aparece na resposta
+    // verificada da API (nunca apenas no webhook recebido).
+    const paymentId = verifiedKeys.find(key => /^pay[-_]/i.test(key))
+      || verifiedKeys.find(key => key === String(notification.key || ''))
+      || null;
+    return { paymentId, eventId: notification?.id || easypayId, amount: Number(payment.value ?? payment.amount ?? 0) || null, currency: String(payment.currency || 'EUR').toUpperCase(), livemode: !this.baseUrl.includes('api.test.') };
   }
 }
 
@@ -147,6 +267,23 @@ class PaymentGatewayRegistry {
 
   list() {
     return this.adapters.map(adapter => ({ name: adapter.name, configured: adapter.isConfigured() }));
+  }
+
+  forMethod(method) {
+    const value = String(method || '');
+    if (value === 'MB WAY' || value.includes('Multibanco')) return this.get('Easypay');
+    const stripe = this.get('Stripe');
+    return stripe?.isConfigured() ? stripe : this.get('Easypay');
+  }
+
+  publicMethods() {
+    const stripe = this.get('Stripe');
+    const easypay = this.get('Easypay');
+    return [
+      easypay?.isConfigured() ? { id: 'MB WAY', label: 'MB WAY', gateway: 'Easypay' } : null,
+      easypay?.isConfigured() ? { id: 'Referência Multibanco', label: 'Multibanco', gateway: 'Easypay' } : null,
+      stripe?.isConfigured() || easypay?.isConfigured() ? { id: 'Cartão', label: 'Cartão', gateway: stripe?.isConfigured() ? 'Stripe' : 'Easypay' } : null
+    ].filter(Boolean);
   }
 }
 

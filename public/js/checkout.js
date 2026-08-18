@@ -6,7 +6,7 @@
 import { $ } from './utils.js';
 import { getCurrentOffer } from './state.js';
 import { setCheckoutStep, renderCheckoutSummary, openCheckoutModal, closeCheckoutModal } from './checkout/checkoutShell.js';
-import { resetCheckoutState, hasCheckoutProgress, restoreCheckoutDraft, setDraftOfferId } from './checkout/checkoutState.js';
+import { resetCheckoutState, hasCheckoutProgress, restoreCheckoutDraft, setDraftOfferId, setPassengers } from './checkout/checkoutState.js';
 import { renderCheckoutStep1, applyExistingSessionIfAny } from './checkout/billingStep.js';
 
 // O checkout tem dados reais a perder (faturacao, passageiros) antes de
@@ -37,6 +37,7 @@ $('#passportModalAccept').onclick = async () => {
   const offer = getCurrentOffer();
   resetCheckoutState({ keepDraft: true });
   const restored = restoreCheckoutDraft(offer?.id);
+  if (!restored && Array.isArray(offer?.resume?.passengers) && offer.resume.passengers.length) setPassengers(offer.resume.passengers);
   setDraftOfferId(offer?.id);
   renderCheckoutSummary(offer);
   setCheckoutStep(1);

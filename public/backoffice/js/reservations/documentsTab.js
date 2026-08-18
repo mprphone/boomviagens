@@ -8,7 +8,8 @@
 import { esc, api } from '../utils.js';
 
 const DOC_TYPES = [
-  { value: 'PASSPORT', label: 'Passaporte/CC', group: 'Cliente' },
+  { value: 'PASSPORT', label: 'Passaporte', group: 'Cliente' },
+  { value: 'IDENTITY_CARD', label: 'Cartão de Cidadão', group: 'Cliente' },
   { value: 'VISA', label: 'Visto', group: 'Cliente' },
   { value: 'INSURANCE', label: 'Seguro de viagem', group: 'Reserva' },
   { value: 'VOUCHER', label: 'Voucher', group: 'Reserva' },

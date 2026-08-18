@@ -4,7 +4,6 @@
 
 import { $, esc, money, dateRange, statusLabel, api, notify } from './utils.js';
 import { openTripDetail } from './tripDetail.js';
-import { renderResumePayment } from './resumePayment.js';
 
 function isPast(reservation) {
   if (reservation.status === 'CANCELLED') return true;
@@ -28,7 +27,7 @@ function tripCard(r) {
       <div class="trip-card-side">
         <span class="pill ${r.status === 'CONFIRMED' ? 'ok' : r.status === 'CANCELLED' ? 'bad' : 'info'}">${esc(statusLabel(r.status))}</span>
         <strong>${money(offer.finalPrice)}</strong>
-        ${needsPayment ? `<button class="btn mini-action pay-now" data-payment="${esc(r.payment.id)}">Pagar agora</button>` : ''}
+        ${needsPayment ? '<button class="btn mini-action resume-trip">Rever e continuar</button>' : ''}
       </div>
     </article>`;
 }
@@ -46,29 +45,30 @@ async function renderList(elId, filterFn, emptyMessage) {
   const list = data.reservations.filter(filterFn);
   el.innerHTML = `<div class="trip-list">${list.map(tripCard).join('') || `<p class="empty-note">${emptyMessage}</p>`}</div>`;
 
-  el.querySelectorAll('.pay-now').forEach(btn => {
-    btn.onclick = async ev => {
-      ev.stopPropagation();
-      btn.disabled = true;
-      btn.textContent = 'A confirmar...';
-      try {
-        await api('/api/payment/confirm', { method: 'POST', body: JSON.stringify({ paymentId: btn.dataset.payment }) });
-        await renderList(elId, filterFn, emptyMessage);
-      } catch (err) {
-        notify(err.message);
-        btn.disabled = false;
-        btn.textContent = 'Pagar agora';
-      }
-    };
-  });
   el.querySelectorAll('.trip-card[data-reservation]').forEach(card => {
-    // Reserva ainda por pagar (ex.: "Guardar e continuar mais tarde" no
-    // checkout) - clicar retoma exatamente o ecra de pagamento, em vez do
-    // detalhe normal da viagem.
-    card.onclick = () => card.dataset.needsPayment
-      ? renderResumePayment(card.dataset.reservation)
-      : openTripDetail(card.dataset.reservation);
+    card.onclick = () => card.dataset.needsPayment ? resumeReservation(card) : openTripDetail(card.dataset.reservation);
+    card.querySelector('.resume-trip')?.addEventListener('click', event => { event.stopPropagation(); resumeReservation(card); });
   });
+}
+
+async function resumeReservation(card) {
+  if (card.dataset.resuming === '1') return;
+  card.dataset.resuming = '1';
+  const button = card.querySelector('.resume-trip');
+  return resumeReservationById(card.dataset.reservation, button, () => { card.dataset.resuming = '0'; });
+}
+
+export async function resumeReservationById(reservationId, button, onFailure = () => {}) {
+  if (button) { button.disabled = true; button.textContent = 'A validar preço e disponibilidade…'; }
+  try {
+    const data = await api('/api/customer/reservations/resume', { method: 'POST', body: JSON.stringify({ reservationId }) });
+    sessionStorage.setItem('boom_resume_offer_v1', JSON.stringify({ reservationId, offer: data.offer, resume: data.resume, savedAt: Date.now() }));
+    location.href = `/?resumeReservation=${encodeURIComponent(reservationId)}`;
+  } catch (err) {
+    notify(err.message);
+    onFailure();
+    if (button) { button.disabled = false; button.textContent = 'Rever e continuar'; }
+  }
 }
 
 export function renderViagens() {

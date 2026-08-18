@@ -1,6 +1,6 @@
-const { mockPaymentsAllowed, paymentsMode } = require('../runtimeConfig');
-// Checkout e pagamento (simulado). A confirmacao real no operador so
-// acontece depois de aprovacao manual no backoffice (ver adminRoutes.js).
+const { mockPaymentsAllowed, paymentsMode, gatewayPaymentsEnabled } = require('../runtimeConfig');
+// Checkout e pagamentos mock/gateway. Mesmo num pagamento real, a emissao
+// no operador so acontece depois da validacao operacional/backoffice.
 //
 // Nota: endpoints legacy de checkout/pagamento foram removidos (ver auditoria) - o checkout-legacy nao validava
 // nada, e o confirm-legacy ja nem sequer era alcancavel (o primeiro return
@@ -10,16 +10,33 @@ const { mockPaymentsAllowed, paymentsMode } = require('../runtimeConfig');
 const crypto = require('crypto');
 
 module.exports = function registerCheckoutRoutes(router, ctx) {
-  const { json, unauthorized, parseBody, readDb, updateDb, operators, customerPayload, validatePassengerForTrip, paymentMethod, cleanText, domain, paymentConfirmation, duffel, hbx, applyMargin } = ctx;
+  const { json, unauthorized, parseBody, readDb, updateDb, operators, customerPayload, validatePassengerForTrip, paymentMethod, cleanText, domain, paymentConfirmation, paymentGateways } = ctx;
   const { ensureCollections, audit, id, now } = domain;
   const { rateLimit } = ctx;
   const { customerSessionEmail, openToken } = ctx.auth;
 
+  function publicBaseUrl() {
+    const value = String(process.env.PUBLIC_BASE_URL || process.env.BASE_URL || '').trim().replace(/\/$/, '');
+    if (!value) throw new Error('Defina PUBLIC_BASE_URL para criar pagamentos no gateway.');
+    let parsed;
+    try { parsed = new URL(value); } catch { throw new Error('PUBLIC_BASE_URL não é um endereço válido.'); }
+    if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('PUBLIC_BASE_URL tem de usar HTTP ou HTTPS.');
+    return parsed.toString().replace(/\/$/, '');
+  }
 
-  function pricesDiffer(a, b, tolerance = 0.02) {
-    const left = Number(a);
-    const right = Number(b);
-    return !Number.isFinite(left) || !Number.isFinite(right) || Math.abs(left - right) > tolerance;
+  function safePayment(payment) {
+    if (!payment) return null;
+    const { gatewaySession: _secretSession, ...safe } = payment;
+    return safe;
+  }
+
+  function safeReservation(reservation) {
+    const offer = reservation?.offer || {};
+    return reservation ? {
+      id: reservation.id,
+      status: reservation.status,
+      offer: { destination: offer.destination || '', hotel: offer.hotel || '', checkin: offer.checkin || '', checkout: offer.checkout || '', nights: Number(offer.nights || 0), finalPrice: Number(offer.finalPrice || 0) }
+    } : null;
   }
 
   // Antes de criar a reserva/pagamento, volta a consultar apenas os
@@ -27,84 +44,8 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
   // Isto não executa booking: confirma que o preço que o cliente viu ainda
   // corresponde ao estado mais recente disponível no fornecedor.
   async function revalidateSelectedSupplierPrices(offer, margins) {
-    const components = offer.components && typeof offer.components === 'object' ? offer.components : null;
-    const destinationName = String(offer.destination || 'Viagem');
-    const targetCurrency = String(process.env.CURRENCY || 'EUR').toUpperCase();
-
-    if (components?.flight?.offerId) {
-      if (!duffel?.isConfigured()) {
-        const err = new Error('Não foi possível revalidar o voo neste momento. Volte a rever a viagem antes do pagamento.');
-        err.code = 'SUPPLIER_REVALIDATION_UNAVAILABLE';
-        throw err;
-      }
-      const latest = await duffel.getOffer(components.flight.offerId);
-      if (String(latest.totalCurrency || '').toUpperCase() !== targetCurrency) {
-        const err = new Error('A moeda da oferta de voo mudou. Atualize a pesquisa.');
-        err.code = 'SUPPLIER_PRICE_CHANGED';
-        throw err;
-      }
-      const latestPricing = applyMargin(latest.totalAmount, destinationName, margins, { operator: 'Duffel', channel: 'ONLINE', productType: 'VOO' });
-      if (pricesDiffer(latestPricing.finalPrice, components.flight.finalPrice)) {
-        const err = new Error(`O preço do voo foi atualizado para ${Number(latestPricing.finalPrice).toFixed(2)} €. Reveja a viagem antes de continuar.`);
-        err.code = 'SUPPLIER_PRICE_CHANGED';
-        err.latestPrice = latestPricing.finalPrice;
-        throw err;
-      }
-      components.flight = {
-        ...components.flight,
-        costPrice: Number(latestPricing.costPrice),
-        finalPrice: Number(latestPricing.finalPrice),
-        offer: latest
-      };
-      offer.flight = latest;
-    }
-
-    const hotelComponent = components?.hotel || (offer.hbx?.rateKey ? {
-      provider: 'HBX', hotelCode: offer.hbx.hotelCode || '', giataCode: offer.hbx.giataCode || '',
-      rateKey: offer.hbx.rateKey, rateType: offer.hbx.rateType || '', roomCode: offer.hbx.roomCode || '',
-      costPrice: Number(offer.costPrice || 0), finalPrice: Number(offer.finalPrice || 0)
-    } : null);
-
-    if (hotelComponent && String(hotelComponent.rateType || '').toUpperCase() === 'RECHECK') {
-      if (!hbx?.isConfigured('hotels')) {
-        const err = new Error('Não foi possível revalidar o hotel neste momento. Volte a rever a viagem antes do pagamento.');
-        err.code = 'SUPPLIER_REVALIDATION_UNAVAILABLE';
-        throw err;
-      }
-      const latestRate = await hbx.checkRate(hotelComponent.rateKey);
-      const latestPricing = applyMargin(latestRate.net, destinationName, margins, { operator: 'HBX Hotels', channel: 'ONLINE', productType: 'HOTEL' });
-      if (pricesDiffer(latestPricing.finalPrice, hotelComponent.finalPrice)) {
-        const err = new Error(`O preço do hotel foi atualizado para ${Number(latestPricing.finalPrice).toFixed(2)} €. Reveja a viagem antes de continuar.`);
-        err.code = 'SUPPLIER_PRICE_CHANGED';
-        err.latestPrice = latestPricing.finalPrice;
-        throw err;
-      }
-      const updatedHotel = {
-        ...hotelComponent,
-        rateKey: latestRate.rateKey,
-        rateType: latestRate.rateType || hotelComponent.rateType,
-        roomCode: latestRate.roomCode || hotelComponent.roomCode,
-        costPrice: Number(latestPricing.costPrice),
-        finalPrice: Number(latestPricing.finalPrice)
-      };
-      if (components) components.hotel = updatedHotel;
-      else {
-        offer.costPrice = Number(latestPricing.costPrice);
-        offer.finalPrice = Number(latestPricing.finalPrice);
-      }
-      offer.hbx = { ...(offer.hbx || {}), rateKey: updatedHotel.rateKey, rateType: updatedHotel.rateType, roomCode: updatedHotel.roomCode };
-    }
-
-    if (components) {
-      const parts = [components.hotel, components.flight, components.transfer, ...(Array.isArray(components.activities) ? components.activities : [])].filter(Boolean);
-      const cost = Number(parts.reduce((sum, part) => sum + Number(part.costPrice || 0), 0).toFixed(2));
-      const sale = Number(parts.reduce((sum, part) => sum + Number(part.finalPrice || 0), 0).toFixed(2));
-      if (!(sale > 0) || sale < cost) throw new Error('Não foi possível validar o total atual da viagem.');
-      offer.costPrice = cost;
-      offer.finalPrice = sale;
-      offer.components = components;
-    }
-    return offer;
+    if (!ctx.offerRevalidation?.revalidate) throw new Error('Serviço de revalidação indisponível.');
+    return (await ctx.offerRevalidation.revalidate(offer, margins, { allowPriceChange: false, forceHotelCheck: false })).offer;
   }
 
   router.post('/api/checkout', async (req, res) => {
@@ -143,7 +84,9 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
         costPrice: signed.costPrice, finalPrice: signed.finalPrice,
         operator: signed.operator || offer.operator, tourdiez: signed.tourdiez || undefined, hbx: signed.hbx || undefined,
         provider: signed.provider || offer.provider, productType: signed.productType || offer.productType,
-        flight: signed.flight || undefined, components: signed.components || undefined
+        flight: signed.flight || undefined, components: signed.components || undefined,
+        resumeReservationId: signed.resumeReservationId || undefined,
+        resumeCustomerEmail: signed.resumeCustomerEmail || undefined
       };
     }
 
@@ -193,9 +136,22 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
       return json(res, 400, { ok: false, error: 'Preço da oferta inválido após revalidação.' });
     }
 
+    let resumedReservation = null;
+    let resumedPayment = null;
+    if (offer.resumeReservationId) {
+      if (offer.resumeCustomerEmail !== verifiedEmail) return json(res, 403, { ok: false, error: 'Esta retoma não pertence à sessão autenticada.' });
+      resumedReservation = db.reservations.find(item => item.id === offer.resumeReservationId && item.customer?.email === verifiedEmail);
+      resumedPayment = db.payments.find(item => item.reservationId === offer.resumeReservationId && item.status === 'PENDING');
+      if (!resumedReservation || !resumedPayment || resumedReservation.status !== 'PENDING_PAYMENT') {
+        return json(res, 409, { ok: false, error: 'Esta reserva já não pode ser retomada neste estado.' });
+      }
+    }
+
     const reservation = {
-      id: id('res'),
-      createdAt: now(),
+      ...(resumedReservation || {}),
+      id: resumedReservation?.id || id('res'),
+      createdAt: resumedReservation?.createdAt || now(),
+      updatedAt: resumedReservation ? now() : undefined,
       status: 'PENDING_PAYMENT',
       customer,
       passengers,
@@ -277,8 +233,10 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
       });
     }
     const payment = {
-      id: id('pay'),
-      createdAt: now(),
+      ...(resumedPayment || {}),
+      id: resumedPayment?.id || id('pay'),
+      createdAt: resumedPayment?.createdAt || now(),
+      updatedAt: resumedPayment ? now() : undefined,
       reservationId: reservation.id,
       method: paymentMethod(body.paymentMethod),
       amount: offer.finalPrice,
@@ -289,6 +247,12 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
       reference: paymentsMode(process.env) === 'mock' ? crypto.randomInt(100000000, 999999999).toString() : '',
       expiresAt: new Date(Date.now() + 86400000).toISOString()
     };
+    if (resumedPayment) {
+      delete payment.gateway;
+      delete payment.gatewaySessionId;
+      delete payment.gatewaySession;
+      payment.reference = paymentsMode(process.env) === 'mock' ? payment.reference || crypto.randomInt(100000000, 999999999).toString() : '';
+    }
 
     // Verificar e inserir a idempotency key tem de acontecer as duas coisas
     // dentro do MESMO updateDb: se a verificacao fosse feita contra uma
@@ -307,8 +271,17 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
           return;
         }
       }
-      d.reservations.unshift(reservation);
-      d.payments.unshift(payment);
+      if (resumedReservation) {
+        const reservationIndex = d.reservations.findIndex(item => item.id === reservation.id);
+        const paymentIndex = d.payments.findIndex(item => item.id === payment.id);
+        if (reservationIndex < 0 || paymentIndex < 0) return;
+        d.reservations[reservationIndex] = reservation;
+        d.payments[paymentIndex] = payment;
+        d.serviceLines = d.serviceLines.filter(line => line.reservationId !== reservation.id || line.status !== 'NAO_CONFIRMADO');
+      } else {
+        d.reservations.unshift(reservation);
+        d.payments.unshift(payment);
+      }
       for (const serviceLine of serviceLines) {
         d.serviceLines.push(serviceLine);
         d.reservationEvents.unshift({ id: id('evt'), createdAt: now(), reservationId: reservation.id, actor: 'site', type: 'SERVICE_ADDED', description: `${serviceLine.description} (linha automatica do checkout)` });
@@ -316,8 +289,8 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
       let existing = d.customers.find(c => c.email === customer.email);
       if (!existing && customer.email) d.customers.unshift({ id: id('cli'), createdAt: now(), ...customer });
       if (idemKey) d.idempotencyKeys[idemKey] = { reservationId: reservation.id, paymentId: payment.id, createdAt: now() };
-      audit(d, 'site', 'CHECKOUT_CREATED', { reservationId: reservation.id, paymentId: payment.id, idempotencyKey: idemKey || null });
-      resultPayload = { reservation, payment, idempotent: false };
+      audit(d, verifiedEmail, resumedReservation ? 'CHECKOUT_RESUMED' : 'CHECKOUT_CREATED', { reservationId: reservation.id, paymentId: payment.id, idempotencyKey: idemKey || null });
+      resultPayload = { reservation, payment, idempotent: false, resumed: Boolean(resumedReservation) };
     });
     const mode = paymentsMode(process.env);
     const next = mode === 'mock'
@@ -325,7 +298,8 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
       : mode === 'disabled'
         ? 'Pagamento real ainda não está disponível neste deployment. Não trate esta reserva como paga.'
         : 'Aguardar confirmação autenticada do gateway; o browser nunca marca o pagamento como pago.';
-    return json(res, 200, { ok: true, ...resultPayload, paymentsMode: mode, next });
+    if (!resultPayload) return json(res, 409, { ok: false, error: 'O estado da reserva mudou durante o checkout. Atualize a página.' });
+    return json(res, 200, { ok: true, ...resultPayload, reservation: safeReservation(resultPayload.reservation), payment: safePayment(resultPayload.payment), paymentsMode: mode, next });
   });
 
 
@@ -347,10 +321,97 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
       const p = d.payments.find(x => x.id === payment.id);
       if (!p || p.status !== 'PENDING') return;
       p.method = method;
+      p.updatedAt = now();
+      if (p.gatewaySession?.method && p.gatewaySession.method !== method) {
+        delete p.gatewaySession;
+        delete p.gatewaySessionId;
+        delete p.gateway;
+      }
+      const currentReservation = d.reservations.find(item => item.id === reservation.id);
+      if (currentReservation?.offer?._paymentSessions?.[p.id]?.method !== method) {
+        delete currentReservation?.offer?._paymentSessions?.[p.id];
+      }
       updated = { ...p };
       audit(d, customerEmail, 'PAYMENT_METHOD_SELECTED', { reservationId: reservation.id, paymentId: p.id, method });
     });
-    return json(res, 200, { ok: true, payment: updated });
+    return json(res, 200, { ok: true, payment: safePayment(updated) });
+  });
+
+  router.post('/api/payment/session', async (req, res) => {
+    const limited = rateLimit(req, res, 'payment-session', 20, 60 * 1000);
+    if (limited) return limited;
+    if (!gatewayPaymentsEnabled(process.env)) {
+      return json(res, 409, { ok: false, error: `A criação de sessões reais está desativada (modo ${paymentsMode(process.env)}).` });
+    }
+    const body = await parseBody(req);
+    const db = ensureCollections(await readDb());
+    const payment = db.payments.find(p => p.id === cleanText(body.paymentId || '', 120));
+    if (!payment) return json(res, 404, { ok: false, error: 'Pagamento não encontrado.' });
+    const reservation = db.reservations.find(r => r.id === payment.reservationId);
+    if (!reservation) return json(res, 404, { ok: false, error: 'Reserva não encontrada.' });
+    const customerEmail = customerSessionEmail(req);
+    if (!customerEmail || customerEmail !== reservation.customer?.email) return unauthorized(res);
+    if (payment.status === 'PAID') return json(res, 409, { ok: false, code: 'ALREADY_PAID', error: 'Este pagamento já está confirmado.' });
+    if (payment.status !== 'PENDING') return json(res, 409, { ok: false, error: 'Este pagamento já não pode ser iniciado.' });
+
+    // O espelho interno na reserva mantem a reutilizacao operacional mesmo
+    // durante a janela em que o Supabase ainda nao recebeu as colunas novas
+    // de payments. Nunca e incluido nas vistas publicas/do cliente.
+    const existing = payment.gatewaySession || reservation.offer?._paymentSessions?.[payment.id];
+    if (existing?.sessionId && existing?.method === payment.method && existing?.expiresAt && new Date(existing.expiresAt).getTime() > Date.now() + 60_000) {
+      return json(res, 200, { ok: true, session: existing, payment: safePayment(payment), reused: true });
+    }
+
+    const adapter = paymentGateways?.forMethod?.(payment.method);
+    if (!adapter?.isConfigured?.()) return json(res, 503, { ok: false, error: `Não existe um gateway configurado para ${payment.method}.` });
+    let session;
+    try {
+      const baseUrl = publicBaseUrl();
+      session = await adapter.createCheckout({
+        payment,
+        reservation,
+        customer: reservation.customer,
+        method: payment.method,
+        successUrl: `${baseUrl}/conta/?payment=success&paymentId=${encodeURIComponent(payment.id)}&session_id={CHECKOUT_SESSION_ID}`,
+        cancelUrl: `${baseUrl}/conta/?payment=cancelled&paymentId=${encodeURIComponent(payment.id)}`
+      });
+    } catch (err) {
+      return json(res, 502, { ok: false, code: err.code || 'PAYMENT_GATEWAY_ERROR', error: err.message || 'Não foi possível abrir o pagamento.' });
+    }
+
+    session.method = payment.method;
+    let updated;
+    await updateDb(d => {
+      ensureCollections(d);
+      const p = d.payments.find(x => x.id === payment.id);
+      if (!p || p.status !== 'PENDING') return;
+      p.gateway = session.gateway;
+      p.gatewaySessionId = session.sessionId;
+      p.gatewaySession = session;
+      p.updatedAt = now();
+      const currentReservation = d.reservations.find(item => item.id === reservation.id);
+      if (currentReservation) {
+        currentReservation.offer = currentReservation.offer && typeof currentReservation.offer === 'object' ? currentReservation.offer : {};
+        currentReservation.offer._paymentSessions = currentReservation.offer._paymentSessions && typeof currentReservation.offer._paymentSessions === 'object' ? currentReservation.offer._paymentSessions : {};
+        currentReservation.offer._paymentSessions[p.id] = session;
+        currentReservation.updatedAt = now();
+      }
+      updated = { ...p };
+      audit(d, customerEmail, 'PAYMENT_SESSION_CREATED', { reservationId: reservation.id, paymentId: p.id, gateway: session.gateway, sessionId: session.sessionId });
+    });
+    if (!updated) return json(res, 409, { ok: false, error: 'O estado do pagamento mudou enquanto a sessão era criada.' });
+    return json(res, 200, { ok: true, session, payment: safePayment(updated), reused: false });
+  });
+
+  router.get('/api/payment/status', async (req, res, url) => {
+    const db = ensureCollections(await readDb());
+    const paymentId = cleanText(url.searchParams.get('paymentId') || '', 120);
+    const payment = db.payments.find(p => p.id === paymentId);
+    if (!payment) return json(res, 404, { ok: false, error: 'Pagamento não encontrado.' });
+    const reservation = db.reservations.find(r => r.id === payment.reservationId);
+    const customerEmail = customerSessionEmail(req);
+    if (!customerEmail || customerEmail !== reservation?.customer?.email) return unauthorized(res);
+    return json(res, 200, { ok: true, payment: safePayment(payment), reservation: { id: reservation.id, status: reservation.status, destination: reservation.offer?.destination || '' } });
   });
 
   router.post('/api/payment/confirm', async (req, res) => {
@@ -378,6 +439,6 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
 
     const result = await paymentConfirmation.confirmPayment(payment.id);
     if (!result.ok) return json(res, 404, result);
-    return json(res, 200, result);
+    return json(res, 200, { ok: true, payment: safePayment(result.payment), reservation: safeReservation(result.reservation), next: result.next, idempotent: result.idempotent, invoice: result.invoice ? { ok: result.invoice.ok, reason: result.invoice.reason } : undefined });
   });
 };

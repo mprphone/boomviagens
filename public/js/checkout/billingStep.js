@@ -4,8 +4,9 @@
 // efeito colateral, para a reserva ja aparecer em /conta sem novo login.
 
 import { $, esc, api, formToJson, isValidNif } from '../utils.js';
+import { announceCustomerSessionChange } from '../sessionGuard.js';
 import { setCheckoutStep } from './checkoutShell.js';
-import { getBilling, setBilling, isEmailVerified, setEmailVerified, getVerifyChallenge, setVerifyChallenge, setPassengerIndex, hasExistingPassword, setHasExistingPassword, getExistingProfile, setExistingProfile, getBookerTravels, setBookerTravels } from './checkoutState.js';
+import { getBilling, setBilling, isEmailVerified, setEmailVerified, getVerifyChallenge, setVerifyChallenge, setPassengerIndex, hasExistingPassword, setHasExistingPassword, getExistingProfile, setExistingProfile, getBookerTravels, setBookerTravels, setCheckoutOwnerEmail } from './checkoutState.js';
 import { renderPassengerStep } from './passengerStep.js';
 
 export function renderCheckoutStep1() {
@@ -24,10 +25,16 @@ export function renderCheckoutStep1() {
         <label>Email
           <div class="verify-field">
             <input type="email" name="email" id="billingEmail" value="${esc(billing.email)}" required ${verified ? 'readonly' : ''} />
-            <button type="button" class="ghost mini-action" id="verifyEmailBtn">${verified ? 'Verificado ✓' : 'Verificar'}</button>
+            ${verified ? '<span class="session-verified-badge">Sessão ativa ✓</span>' : '<button type="button" class="ghost mini-action" id="verifyEmailBtn">Receber código</button>'}
           </div>
         </label>
       </div>
+      ${verified ? `<div class="checkout-session-card"><span>✓</span><div><b>Já está autenticado</b><small>Está a reservar com ${esc(billing.email)}. Não precisa de voltar a introduzir password ou código.</small></div></div>` : `
+        <div class="checkout-login-card">
+          <div><b>Já tem conta Boomviagens?</b><small>Introduza o email acima e a sua password. Se ainda não criou password, pode receber um código.</small></div>
+          <div class="checkout-login-row"><input type="password" id="existingPasswordInput" minlength="8" autocomplete="current-password" placeholder="A sua password" /><button type="button" class="ghost" id="checkoutPasswordLogin">Entrar</button></div>
+          <p class="verify-panel-message" id="checkoutLoginMessage"></p>
+        </div>`}
       <div id="emailVerifyPanel" class="verify-panel" hidden>
         <label>Código recebido por email <input id="emailVerifyCode" maxlength="6" inputmode="numeric" autocomplete="one-time-code" /></label>
         <button type="button" class="ghost mini-action" id="confirmEmailCodeBtn">Confirmar código</button>
@@ -95,7 +102,9 @@ function wireStep1Form() {
     errorEl.hidden = valid;
   });
 
-  $('#verifyEmailBtn').onclick = () => requestEmailCode(emailInput.value.trim());
+  $('#verifyEmailBtn')?.addEventListener('click', () => requestEmailCode(emailInput.value.trim()));
+  $('#checkoutPasswordLogin')?.addEventListener('click', () => loginExistingAccount(emailInput.value.trim()));
+  $('#existingPasswordInput')?.addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); loginExistingAccount(emailInput.value.trim()); } });
   $('#setPasswordBtn')?.addEventListener('click', setPassword);
 
   form.addEventListener('submit', async e => {
@@ -176,6 +185,36 @@ async function requestEmailCode(emailValue) {
   }
 }
 
+async function loginExistingAccount(emailValue) {
+  const btn = $('#checkoutPasswordLogin');
+  const input = $('#existingPasswordInput');
+  const msg = $('#checkoutLoginMessage');
+  if (!emailValue || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
+    msg.textContent = 'Introduza primeiro o email da sua conta.';
+    return;
+  }
+  if (!input.value || input.value.length < 8) {
+    msg.textContent = 'Introduza a sua password. Se não a definiu, use “Receber código”.';
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = 'A entrar…';
+  msg.textContent = '';
+  try {
+    await api('/api/customer/login/password', { method: 'POST', body: JSON.stringify({ email: emailValue, password: input.value }) });
+    setCheckoutOwnerEmail(emailValue);
+    setEmailVerified(true);
+    setBilling({ ...getBilling(), email: emailValue });
+    await prefillFromExistingProfile();
+    announceCustomerSessionChange();
+    renderCheckoutStep1();
+  } catch (err) {
+    msg.textContent = err.message;
+    btn.disabled = false;
+    btn.textContent = 'Entrar';
+  }
+}
+
 async function confirmEmailCode(emailValue) {
   const btn = $('#confirmEmailCodeBtn');
   const msg = $('#emailVerifyMessage');
@@ -186,12 +225,14 @@ async function confirmEmailCode(emailValue) {
       method: 'POST',
       body: JSON.stringify({ email: emailValue, code: $('#emailVerifyCode').value.trim(), challenge: getVerifyChallenge() })
     });
+    setCheckoutOwnerEmail(emailValue);
     setEmailVerified(true);
     // Guarda o que ja estava escrito no formulario antes de o recriar -
     // prefillFromExistingProfile() so preenche por cima do que faltar.
     const form = $('#checkoutStep1Form');
     setBilling({ name: form.name.value.trim(), email: emailValue, phone: form.phone.value.trim(), nif: form.nif.value.trim(), address: form.address.value.trim() });
     await prefillFromExistingProfile();
+    announceCustomerSessionChange();
     renderCheckoutStep1();
   } catch (err) {
     msg.textContent = err.message;
@@ -209,11 +250,13 @@ async function confirmEmailCode(emailValue) {
 export async function applyExistingSessionIfAny() {
   try {
     const session = await api('/api/customer/session');
-    if (!session.authenticated || !session.email) return;
+    if (!session.authenticated || !session.email) { setCheckoutOwnerEmail(null); return; }
+    setCheckoutOwnerEmail(session.email);
     setEmailVerified(true);
     setBilling({ ...getBilling(), email: session.email });
     await prefillFromExistingProfile();
   } catch {
+    setCheckoutOwnerEmail(null);
     // Sem sessao ativa (ou falha a confirma-la) - segue o fluxo normal,
     // pede verificacao por codigo como sempre.
   }

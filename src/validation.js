@@ -101,6 +101,7 @@ function customerPayload(body = {}) {
 
 function passengerPayload(body = {}) {
   return {
+    passengerId: optionalText(body.passengerId || body.id, 80),
     name: requiredText(body.name, 'Nome do passageiro', 120),
     surname: optionalText(body.surname, 120),
     type: ['ADT', 'CHD', 'INF'].includes(body.type) ? body.type : 'ADT',
@@ -115,11 +116,18 @@ function passengerPayload(body = {}) {
 }
 
 
+function strictIsoDate(value) {
+  const text = String(value || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return null;
+  const parsed = new Date(`${text}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== text) return null;
+  return parsed;
+}
+
 function ageOnDate(birthdate, isoDate) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(birthdate || '')) || !/^\d{4}-\d{2}-\d{2}$/.test(String(isoDate || ''))) return null;
-  const b = new Date(`${birthdate}T00:00:00Z`);
-  const d = new Date(`${isoDate}T00:00:00Z`);
-  if (Number.isNaN(b.getTime()) || Number.isNaN(d.getTime()) || b > d) return null;
+  const b = strictIsoDate(birthdate);
+  const d = strictIsoDate(isoDate);
+  if (!b || !d || b > d) return null;
   let age = d.getUTCFullYear() - b.getUTCFullYear();
   if (d.getUTCMonth() < b.getUTCMonth() || (d.getUTCMonth() === b.getUTCMonth() && d.getUTCDate() < b.getUTCDate())) age--;
   return age;
@@ -141,10 +149,12 @@ function validatePassengerForTrip(body = {}, expectedType = 'ADT', returnDate = 
   if (expectedType === 'CHD' && age >= 12) throw new Error('Passageiro crianca tera 12 ou mais anos na data da viagem');
   if (expectedType === 'CHD' && age < 2) throw new Error('Passageiro com menos de 2 anos deve ser pesquisado como bebe');
   if (expectedType === 'INF' && age >= 2) throw new Error('Passageiro bebe tera 2 ou mais anos na data da viagem e deve ser pesquisado como crianca');
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(p.documentExpiry)) throw new Error('Validade do documento invalida');
-  const expiry = new Date(`${p.documentExpiry}T00:00:00Z`);
-  const ret = new Date(`${returnDate}T00:00:00Z`);
-  if (Number.isNaN(expiry.getTime()) || expiry < ret) throw new Error('Documento caduca antes do regresso da viagem');
+  if (!/^[A-Z0-9][A-Z0-9 .\/-]{3,79}$/i.test(p.documentNumber)) throw new Error('Numero do documento invalido');
+  if (p.documentCountry.length < 2) throw new Error('Pais emissor do documento invalido');
+  const expiry = strictIsoDate(p.documentExpiry);
+  const ret = strictIsoDate(returnDate);
+  if (!expiry) throw new Error('Validade do documento invalida');
+  if (!ret || expiry < ret) throw new Error('Documento caduca antes do regresso da viagem');
   return p;
 }
 

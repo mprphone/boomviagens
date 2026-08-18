@@ -221,6 +221,8 @@ function renderToolbar(filteredCount) {
     ['PACKAGE', currentProductCounts.packages || 0],
     ['HOTEL', currentProductCounts.hotels || 0]
   ].filter(([, count]) => count > 0);
+  existing.hidden = filteredCount === 0 && tabs.length === 0;
+  if (existing.hidden) { existing.innerHTML = ''; return; }
   const totalFamilies = tabs.length;
   existing.innerHTML = `<div class="product-tabs-wrap"><div class="product-tabs">${totalFamilies > 1 ? `<button type="button" data-product="ALL" class="${currentProductFilter==='ALL'?'is-active':''}">Todas <span>${currentSearchResults.length}</span></button>` : ''}${tabs.map(([type,count])=>`<button type="button" data-product="${type}" class="${currentProductFilter===type?'is-active':''}">${productTabLabel(type)} <span>${count}</span></button>`).join('')}</div><small><b>${filteredCount}</b> opções nesta vista</small></div><label>Ordenar por <select id="resultsSort"><option value="recommended">Recomendadas</option><option value="price">Preço mais baixo</option><option value="rating">Melhor classificação</option><option value="flexible">Mais flexíveis</option></select></label>`;
   existing.querySelectorAll('[data-product]').forEach(btn => btn.onclick = () => {
@@ -237,6 +239,7 @@ function renderToolbar(filteredCount) {
 function renderResultsList() {
   const base = productResults();
   const filtered = sortResults(base.filter(passesFilters));
+  document.querySelector('.results-layout')?.classList.toggle('is-empty', base.length === 0);
   $('#resultCount').textContent = currentProductFilter === 'ALL' ? `${filtered.length} opções` : `${filtered.length} ${productTabLabel(currentProductFilter).replace(/^[^ ]+ /,'').toLowerCase()}`;
   renderToolbar(filtered.length);
   renderHighlights(base, currentParsed.budget);
@@ -366,6 +369,7 @@ function timeOnly(value) { try { return value ? new Date(value).toLocaleTimeStri
 
 function renderFlightResults(data) {
   currentSearchResults = data.results || []; currentParsed = data.parsed || {}; currentCatalogTeasers = [];
+  document.querySelector('.results-layout')?.classList.toggle('is-empty', currentSearchResults.length === 0);
   const multi = currentParsed.tripType === 'MULTI_CITY';
   const tripDates = multi ? `${currentParsed.slices?.length || 0} trajetos` : dateRange(currentParsed.checkin, currentParsed.checkout);
   $('#resultsRecapTitle').textContent = multi ? 'Voos multi-cidade' : `Voos para ${currentParsed.destination || ''}`;

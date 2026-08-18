@@ -41,7 +41,7 @@ const LOSS_REASONS = ['PRECO', 'CLIENTE_DESISTIU', 'CONCORRENCIA', 'DATAS', 'DES
 const PROPOSAL_STATUSES = ['RASCUNHO', 'ENVIADA', 'VISTA', 'ACEITE', 'REJEITADA', 'EXPIRADA'];
 // Categorias documentais (separador "Documentos") - agrupam-se visualmente
 // por area (cliente, reserva, financeiro, viagem, ocorrencias) na UI.
-const DOCUMENT_TYPES = ['PASSPORT', 'VISA', 'INSURANCE', 'VOUCHER', 'TICKET', 'INVOICE_PURCHASE', 'INVOICE_SALE', 'RECEIPT', 'CREDIT_NOTE', 'ITINERARY', 'OCCURRENCE_PHOTO', 'OTHER'];
+const DOCUMENT_TYPES = ['PASSPORT', 'IDENTITY_CARD', 'VISA', 'INSURANCE', 'VOUCHER', 'TICKET', 'INVOICE_PURCHASE', 'INVOICE_SALE', 'RECEIPT', 'CREDIT_NOTE', 'ITINERARY', 'OCCURRENCE_PHOTO', 'OTHER'];
 // Tipos de documento financeiro (separador Financeiro > Faturas e
 // Documentos) - so estes tres usam document_number/document_date/amount.
 const CUSTOMER_FINANCIAL_DOC_TYPES = ['INVOICE_SALE', 'RECEIPT', 'CREDIT_NOTE'];
@@ -50,7 +50,7 @@ const CUSTOMER_FINANCIAL_DOC_TYPES = ['INVOICE_SALE', 'RECEIPT', 'CREDIT_NOTE'];
 // notas de credito, fotos de ocorrencia, "outro"). Por defeito fechado:
 // um tipo novo em DOCUMENT_TYPES so fica visivel ao cliente se for
 // explicitamente acrescentado aqui.
-const CUSTOMER_VISIBLE_DOCUMENT_TYPES = ['PASSPORT', 'VISA', 'INSURANCE', 'VOUCHER', 'TICKET', 'ITINERARY'];
+const CUSTOMER_VISIBLE_DOCUMENT_TYPES = ['PASSPORT', 'IDENTITY_CARD', 'VISA', 'INSURANCE', 'VOUCHER', 'TICKET', 'ITINERARY'];
 const CONTACT_TYPES = ['CALL', 'EMAIL', 'WHATSAPP', 'IN_PERSON', 'OTHER'];
 const COMPLAINT_STATUSES = ['OPEN', 'ANALYZING', 'SENT_TO_SUPPLIER', 'AWAITING_RESPONSE', 'RESPONSE_RECEIVED', 'NEGOTIATING', 'APPROVED', 'REJECTED', 'RESOLVED', 'CLOSED'];
 // Uma reclamacao pode ser do cliente contra a agencia, ou da agencia contra
@@ -287,7 +287,7 @@ function complaintStatusLabel(status) {
 
 function documentTypeLabel(type) {
   return ({
-    PASSPORT: 'Passaporte/CC', VISA: 'Visto', INSURANCE: 'Seguro de viagem', VOUCHER: 'Voucher',
+    PASSPORT: 'Passaporte', IDENTITY_CARD: 'Cartão de Cidadão', VISA: 'Visto', INSURANCE: 'Seguro de viagem', VOUCHER: 'Voucher',
     TICKET: 'Bilhete', INVOICE_PURCHASE: 'Fatura de compra', INVOICE_SALE: 'Fatura de venda',
     RECEIPT: 'Recibo/comprovativo', CREDIT_NOTE: 'Nota de crédito', ITINERARY: 'Itinerário/programa',
     OCCURRENCE_PHOTO: 'Foto de ocorrência', OTHER: 'Outro'
@@ -326,15 +326,31 @@ function isCustomerVisibleDocument(doc, customerEmail) {
 }
 
 function missingDocumentsFor(reservation, documents) {
-  const docs = documents.filter(d => d.reservationId === reservation.id);
+  const customerEmail = String(reservation.customer?.email || '').toLowerCase();
+  const docs = documents.filter(d => d.reservationId === reservation.id || (customerEmail && String(d.customerEmail || '').toLowerCase() === customerEmail));
   const missing = [];
   const passengers = reservation.passengers?.length ? reservation.passengers : [{ name: reservation.customer?.name || 'Titular' }];
+  const norm = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const looksLikeLegacyCard = doc => doc.type === 'PASSPORT' && /(?:cart[aã]o|cidad[aã]o|\bcc\b)/i.test(`${doc.fileName || ''} ${doc.passengerName || ''}`);
+  const returnDate = reservation.offer?.checkout || '';
   for (const passenger of passengers) {
-    const passengerName = passenger.name || 'Titular';
-    const hasPassport = docs.some(d => d.type === 'PASSPORT' && d.passengerName === passengerName);
-    if (!hasPassport) missing.push(`Passaporte/cartao de cidadao de ${passengerName}`);
+    const passengerName = [passenger.name, passenger.surname].filter(Boolean).join(' ').trim() || 'Titular';
+    const wantedType = passenger.documentType === 'CC' || passenger.documentType === 'IDENTITY_CARD' ? 'IDENTITY_CARD' : 'PASSPORT';
+    const matching = docs.filter(doc => {
+      const rightType = wantedType === 'IDENTITY_CARD' ? (doc.type === 'IDENTITY_CARD' || looksLikeLegacyCard(doc)) : (doc.type === 'PASSPORT' && !looksLikeLegacyCard(doc));
+      if (!rightType) return false;
+      if (passenger.passengerId && doc.passengerId) return passenger.passengerId === doc.passengerId;
+      if (passenger.id && doc.passengerId) return passenger.id === doc.passengerId;
+      if (passenger.documentNumber && doc.documentNumber) return norm(passenger.documentNumber) === norm(doc.documentNumber);
+      return norm(doc.passengerName) === norm(passengerName);
+    });
+    const label = wantedType === 'IDENTITY_CARD' ? 'Cartão de Cidadão' : 'Passaporte';
+    if (!matching.length) { missing.push(`${label} de ${passengerName}`); continue; }
+    const complete = matching.find(doc => doc.documentNumber && doc.expiryDate && doc.issuingCountry);
+    if (!complete) { missing.push(`Completar dados do ${label} de ${passengerName}`); continue; }
+    if (returnDate && complete.expiryDate < returnDate) missing.push(`Renovar ${label} de ${passengerName} (caduca antes do regresso)`);
   }
-  const hasInsurance = docs.some(d => d.type === 'INSURANCE');
+  const hasInsurance = docs.some(d => d.type === 'INSURANCE' && d.reservationId === reservation.id);
   if (!hasInsurance) missing.push('Seguro de viagem');
   return missing;
 }
@@ -525,6 +541,16 @@ function customerReservationView(reservation, { missingDocuments = [], payment }
       board: offer.board,
       finalPrice: offer.finalPrice
     },
+    passengers: (reservation.passengers || []).map(passenger => ({
+      id: passenger.id || passenger.passengerId,
+      passengerId: passenger.passengerId || passenger.id,
+      name: passenger.name,
+      surname: passenger.surname,
+      documentType: passenger.documentType,
+      documentNumber: passenger.documentNumber,
+      documentCountry: passenger.documentCountry,
+      documentExpiry: passenger.documentExpiry
+    })),
     missingDocuments,
     payment: payment ? {
       id: payment.id,

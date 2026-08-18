@@ -26,6 +26,8 @@ const { TicketmasterClient } = require('./src/integrations/ticketmasterClient');
 const { GooglePlacesClient } = require('./src/integrations/googlePlacesClient');
 const { TravelIntelligenceService } = require('./src/integrations/travelIntelligence');
 const { ServiceCatalog } = require('./src/integrations/serviceCatalog');
+const createOfferTokenService = require('./src/offerTokenService');
+const createOfferRevalidation = require('./src/offerRevalidation');
 
 const registerPublicRoutes = require('./src/routes/publicRoutes');
 const registerCustomerRoutes = require('./src/routes/customerRoutes');
@@ -50,6 +52,8 @@ const ticketmaster = new TicketmasterClient(process.env);
 const googlePlaces = new GooglePlacesClient(process.env);
 const travelIntelligence = new TravelIntelligenceService({ duffel, hbx, weather, ticketmaster, googlePlaces });
 const serviceCatalog = new ServiceCatalog({ env: process.env, tourdiezAdapter, duffel, hbx, ticketmaster });
+const offerTokens = createOfferTokenService(auth);
+const offerRevalidation = createOfferRevalidation({ duffel, hbx, applyMargin, env: process.env });
 
 // Contexto partilhado por todas as rotas: cada modulo em src/routes/ so
 // pede o que precisa daqui, em vez de cada rota ter de repetir os mesmos
@@ -93,7 +97,9 @@ const ctx = {
   ticketmaster,
   googlePlaces,
   travelIntelligence,
-  serviceCatalog
+  serviceCatalog,
+  offerTokens,
+  offerRevalidation
 };
 ctx.invoicing = createInvoicing(ctx);
 ctx.paymentConfirmation = createPaymentConfirmation(ctx);

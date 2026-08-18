@@ -1,8 +1,7 @@
-// Webhooks de gateways de pagamento externos - hoje Stripe e Easypay, ambos
-// so recetores (o checkout continua 100% simulado, PAYMENTS_MODE=mock,
-// nada ainda cria sessoes/cobrancas a serio, por isso nenhum evento real
-// chega aqui ainda). Cada gateway autentica as suas notificacoes de forma
-// diferente - toda essa logica fica no adapter respetivo
+// Webhooks de gateways de pagamento externos - hoje Stripe e Easypay.
+// O checkout cria as sessoes no servidor quando PAYMENTS_MODE=gateway.
+// Cada gateway autentica/verifica as suas notificacoes de forma diferente;
+// toda essa logica fica no adapter respetivo
 // (src/paymentGatewayAdapters.js), a rota so le o corpo em bruto e reage ao
 // paymentId que o adapter devolver. Um gateway novo no futuro e um adapter
 // novo (ctx.paymentGateways) + uma rota igual a estas duas, sem tocar em

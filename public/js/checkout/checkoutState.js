@@ -17,9 +17,10 @@ let savedPassengers = null;
 let bookerTravels = true;
 let lastSavedAt = null;
 let draftOfferId = null;
+let draftOwnerEmail = null;
 
 function snapshot() {
-  return { billing, passengers, currentPassengerIndex, bookerTravels, draftOfferId, lastSavedAt: new Date().toISOString() };
+  return { billing, passengers, currentPassengerIndex, bookerTravels, draftOfferId, draftOwnerEmail, lastSavedAt: new Date().toISOString() };
 }
 
 function persist() {
@@ -43,6 +44,7 @@ export function restoreCheckoutDraft(expectedOfferId = null) {
     if (Number.isInteger(data.currentPassengerIndex)) currentPassengerIndex = data.currentPassengerIndex;
     if (typeof data.bookerTravels === 'boolean') bookerTravels = data.bookerTravels;
     draftOfferId = data.draftOfferId || expectedOfferId || null;
+    draftOwnerEmail = data.draftOwnerEmail ? String(data.draftOwnerEmail).toLowerCase() : null;
     lastSavedAt = data.lastSavedAt || null;
     return Boolean(billing.name || billing.email || passengers.length);
   } catch {
@@ -71,6 +73,7 @@ export const getVerifyChallenge = () => verifyChallenge;
 export const setVerifyChallenge = value => { verifyChallenge = value; };
 
 export const getPassengers = () => passengers;
+export const setPassengers = value => { passengers = Array.isArray(value) ? value : []; persist(); };
 export const setPassenger = (index, data) => { passengers[index] = data; persist(); };
 
 export const getPassengerIndex = () => currentPassengerIndex;
@@ -82,6 +85,26 @@ export const setBookerTravels = value => { bookerTravels = Boolean(value); persi
 export const getLastSavedAt = () => lastSavedAt;
 export const setDraftOfferId = value => { draftOfferId = value || null; persist(); };
 export const getDraftOfferId = () => draftOfferId;
+
+export function setCheckoutOwnerEmail(value) {
+  const next = value ? String(value).trim().toLowerCase() : null;
+  const billingEmail = String(billing.email || '').trim().toLowerCase();
+  const belongsToAnotherAccount = Boolean(
+    (draftOwnerEmail && draftOwnerEmail !== next) ||
+    (!draftOwnerEmail && next && billingEmail && billingEmail !== next)
+  );
+  if (belongsToAnotherAccount) {
+    billing = { name: '', email: '', phone: '', nif: '', address: '' };
+    passengers = [];
+    currentPassengerIndex = 0;
+    existingProfile = null;
+    savedPassengers = null;
+    emailVerified = false;
+    clearCheckoutDraft();
+  }
+  draftOwnerEmail = next;
+  persist();
+}
 
 export const setReservationCreated = value => { reservationCreated = value; if (value) clearCheckoutDraft(); };
 
@@ -105,5 +128,6 @@ export function resetCheckoutState({ keepDraft = false } = {}) {
   savedPassengers = null;
   bookerTravels = true;
   draftOfferId = null;
+  draftOwnerEmail = null;
   if (!keepDraft) clearCheckoutDraft();
 }

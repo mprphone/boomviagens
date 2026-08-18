@@ -4,6 +4,7 @@
 // area de cliente embutida no site ja usava.
 
 import { $, api } from './utils.js';
+import { announceCustomerSessionChange, clearCustomerScopedBrowserState } from '../../js/sessionGuard.js';
 
 let pendingEmail = '';
 let pendingChallenge = '';
@@ -28,8 +29,9 @@ export function wireLogin(onSuccess) {
     msg.textContent = 'A validar...';
     msg.classList.remove('is-error');
     try {
-      await api('/api/customer/login/verify', { method: 'POST', body: JSON.stringify({ email: pendingEmail, code, challenge: pendingChallenge }) });
-      onSuccess();
+      const data = await api('/api/customer/login/verify', { method: 'POST', body: JSON.stringify({ email: pendingEmail, code, challenge: pendingChallenge }) });
+      announceCustomerSessionChange();
+      onSuccess(data);
     } catch (err) {
       msg.textContent = err.message;
       msg.classList.add('is-error');
@@ -45,6 +47,8 @@ export function wireLogin(onSuccess) {
 
   $('#logoutBtn').onclick = async () => {
     await api('/api/customer/logout', { method: 'POST', body: '{}' });
+    clearCustomerScopedBrowserState();
+    announceCustomerSessionChange();
     location.reload();
   };
 
@@ -55,8 +59,9 @@ export function wireLogin(onSuccess) {
     msg.textContent = 'A validar...';
     msg.classList.remove('is-error');
     try {
-      await api('/api/customer/login/password', { method: 'POST', body: JSON.stringify({ email, password }) });
-      onSuccess();
+      const data = await api('/api/customer/login/password', { method: 'POST', body: JSON.stringify({ email, password }) });
+      announceCustomerSessionChange();
+      onSuccess(data);
     } catch (err) {
       msg.textContent = err.message;
       msg.classList.add('is-error');

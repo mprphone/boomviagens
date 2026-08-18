@@ -21,6 +21,11 @@ Refatoração visual e estrutural profunda do frontoffice público e da área re
 - Resultados com pesquisa compacta, filtros, ordenação, comparação, estados de loading/empty/error e resumo persistente da viagem.
 - Construtor de viagem separado dos resultados, com voo, hotel, transfer, seguro, experiências e informação contextual.
 - Checkout em cinco etapas reais: Dados, Passageiros, Extras, Pagamento e Confirmação. Extras sem preço disponível criam um pedido no CRM e nunca alteram silenciosamente o total.
+- Uma sessão de cliente ativa é reutilizada no checkout; clientes existentes podem entrar com password ou pedir código, sem verificações repetidas desnecessárias.
+- Mudanças de conta noutro separador invalidam o estado local antigo, evitando que duas identidades pareçam ativas no mesmo browser.
+- Passaporte e Cartão de Cidadão são documentos separados, com passageiro, número, validade, país emissor e reutilização entre reservas.
+- Reservas pendentes voltam à revisão, revalidam preço/disponibilidade e continuam o mesmo processo; não saltam diretamente para pagamento.
+- Stripe Checkout e Easypay Checkout são criados no servidor e confirmados exclusivamente por webhook autenticado/verificado.
 - Área reservada alinhada com a nova identidade Boomviagens, navegação sem emojis principais e erros funcionais apresentados por notificações acessíveis.
 - Novo centro autenticado de pedidos e mensagens para apoio, alterações, cancelamentos, reclamações, pagamentos e documentos, com referência, associação à reserva e histórico do cliente.
 - Catálogo de capacidades gerado no servidor. Apenas serviços com adaptador configurado aparecem como pesquisa online; os restantes mantêm um fluxo comercial operacional por pedido assistido.
@@ -44,12 +49,14 @@ As folhas antigas `header.css`, `hero-search.css`, `home.css`, `results.css`, `r
 - `/api/airports/suggest`, `/api/destinations/suggest`, `/api/price-calendar`
 - `/api/travel-intelligence`, `/api/trip-builder/update`
 - `/api/share-trip`, `/api/assisted-request`
-- `/api/checkout`, `/api/payment/method`, `/api/payment/confirm`
+- `/api/checkout`, `/api/payment/method`, `/api/payment/session`, `/api/payment/status`, `/api/payment/confirm`
+- `/api/payments/stripe/webhook`, `/api/payments/easypay/webhook`
+- `/api/customer/reservations/resume`, `/api/customer/documents/update`
 - Rotas `/api/customer/*` e `/api/admin/*`, incluindo `/api/customer/support-request` e histórico de pedidos
 
 ## Testes efetuados
 
-- Validação sintática de 142 ficheiros JavaScript, incluindo o frontoffice, área de cliente e backoffice preservado.
+- Validação sintática de 146 ficheiros JavaScript, incluindo o frontoffice, área de cliente e backoffice preservado.
 - Testes de integrações, pricing, passageiros e controlo de custos.
 - Testes operacionais de destinos, datas, tipos de serviço e contratos existentes.
 - Testes de aeroportos mundiais, ida, ida e volta e multi-cidade.
@@ -59,7 +66,7 @@ As folhas antigas `header.css`, `hero-search.css`, `home.css`, `results.css`, `r
 ## Limitações e dependências de produção
 
 - Preços, disponibilidade e conteúdo comercial dependem sempre das respostas reais dos fornecedores.
-- Pagamentos reais dependem das credenciais, criação de sessão e webhooks Stripe/Easypay configurados em produção.
+- Pagamentos reais dependem das credenciais live e dos webhooks Stripe/Easypay configurados no domínio HTTPS de produção; a criação de sessão está implementada e foi validada em sandbox.
 - Serviços ainda sem adaptador utilizam pedido assistido; passam a online apenas depois de o adaptador implementar pesquisa, normalização, pricing e confirmação.
 - O enriquecimento Google Places mantém-se desativado por defeito.
 - Não foram criados preços, stock ou dados demo.
@@ -67,6 +74,6 @@ As folhas antigas `header.css`, `hero-search.css`, `home.css`, `results.css`, `r
 
 ## Segurança
 
-- `.env` não foi alterado nem incluído no controlo de versões.
+- `.env` permanece ignorado pelo Git; nenhum segredo foi incluído no controlo de versões.
 - Nenhum segredo, NET, margem, rate key ou token foi movido para o cliente ou para `/api/config`.
 - As novas variáveis em `.env.example` são apenas convenções sem valores reais.

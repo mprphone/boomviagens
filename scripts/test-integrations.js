@@ -69,8 +69,10 @@ function testPassengerSearchAndValidation() {
   assert.deepEqual(parsed.childAges, [4, 10]);
   assert.deepEqual(parsed.infantAges, [1]);
   assert.equal(parsed.infants, 1);
-  const infant = validatePassengerForTrip({ name:'Bebé', surname:'Teste', birthdate:'2026-01-01', nationality:'Portuguesa', documentType:'PASSPORT', documentNumber:'X1', documentCountry:'Portugal', documentExpiry:'2030-01-01' }, 'INF', '2026-10-01');
+  const infant = validatePassengerForTrip({ name:'Bebé', surname:'Teste', birthdate:'2026-01-01', nationality:'Portuguesa', documentType:'PASSPORT', documentNumber:'X123', documentCountry:'Portugal', documentExpiry:'2030-01-01' }, 'INF', '2026-10-01');
   assert.equal(infant.type, 'INF');
+  assert.throws(() => validatePassengerForTrip({ name:'Data', surname:'Inválida', birthdate:'2020-02-31', nationality:'Portuguesa', documentType:'PASSPORT', documentNumber:'X123', documentCountry:'Portugal', documentExpiry:'2030-01-01' }, 'CHD', '2026-10-01'), /Data de nascimento/i);
+  assert.throws(() => validatePassengerForTrip({ name:'Doc', surname:'Inválido', birthdate:'1980-01-01', nationality:'Portuguesa', documentType:'PASSPORT', documentNumber:'!', documentCountry:'Portugal', documentExpiry:'2030-01-01' }, 'ADT', '2026-10-01'), /Numero do documento/i);
 }
 
 
