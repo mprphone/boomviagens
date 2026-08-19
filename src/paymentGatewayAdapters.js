@@ -205,16 +205,12 @@ class EasyPayGatewayAdapter extends PaymentGatewayAdapter {
     };
   }
 
-  async handleWebhook(rawBody) {
-    let notification;
-    try {
-      notification = JSON.parse(rawBody);
-    } catch {
-      throw new Error('Corpo da notificação não é JSON válido');
-    }
-    const easypayId = notification?.id;
+  // Verificacao autenticada e reutilizavel de um pagamento Easypay por id -
+  // usada pelo webhook (abaixo) e por /api/payment/status como reconciliacao
+  // direta, para quando a notificacao assincrona nao chega (visto em
+  // producao: sandbox nem sempre dispara a notificacao MBWAY a tempo).
+  async verifyPayment(easypayId, notificationKey = '') {
     if (!easypayId) return { paymentId: null };
-
     // A Easypay nao assina as notificacoes (confirmado na documentacao
     // deles) - a unica forma de confiar e voltar a consultar a propria API,
     // autenticada com as nossas credenciais, e so agir sobre essa resposta,
@@ -224,7 +220,7 @@ class EasyPayGatewayAdapter extends PaymentGatewayAdapter {
       signal: AbortSignal.timeout(GATEWAY_TIMEOUT_MS)
     });
     if (res.status === 404) return { paymentId: null };
-    if (!res.ok) throw new Error(`Easypay: não foi possível verificar a notificação (HTTP ${res.status})`);
+    if (!res.ok) throw new Error(`Easypay: não foi possível verificar o pagamento (HTTP ${res.status})`);
     const payment = await res.json();
     // Confirmado empiricamente contra a API de testes: GET /single/{id}
     // devolve 404 {"message":["Payment not found"]} para um id
@@ -246,9 +242,19 @@ class EasyPayGatewayAdapter extends PaymentGatewayAdapter {
     // key noutro campo, aceita-a apenas quando tambem aparece na resposta
     // verificada da API (nunca apenas no webhook recebido).
     const paymentId = verifiedKeys.find(key => /^pay[-_]/i.test(key))
-      || verifiedKeys.find(key => key === String(notification.key || ''))
+      || verifiedKeys.find(key => key === String(notificationKey || ''))
       || null;
-    return { paymentId, eventId: notification?.id || easypayId, amount: Number(payment.value ?? payment.amount ?? 0) || null, currency: String(payment.currency || 'EUR').toUpperCase(), livemode: !this.baseUrl.includes('api.test.') };
+    return { paymentId, eventId: easypayId, amount: Number(payment.value ?? payment.amount ?? 0) || null, currency: String(payment.currency || 'EUR').toUpperCase(), livemode: !this.baseUrl.includes('api.test.') };
+  }
+
+  async handleWebhook(rawBody) {
+    let notification;
+    try {
+      notification = JSON.parse(rawBody);
+    } catch {
+      throw new Error('Corpo da notificação não é JSON válido');
+    }
+    return this.verifyPayment(notification?.id, notification?.key);
   }
 }
 

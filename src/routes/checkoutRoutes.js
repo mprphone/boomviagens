@@ -440,11 +440,29 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
   router.get('/api/payment/status', async (req, res, url) => {
     const db = ensureCollections(await readDb());
     const paymentId = cleanText(url.searchParams.get('paymentId') || '', 120);
-    const payment = db.payments.find(p => p.id === paymentId);
+    let payment = db.payments.find(p => p.id === paymentId);
     if (!payment) return json(res, 404, { ok: false, error: 'Pagamento não encontrado.' });
-    const reservation = db.reservations.find(r => r.id === payment.reservationId);
+    let reservation = db.reservations.find(r => r.id === payment.reservationId);
     const customerEmail = customerSessionEmail(req);
     if (!customerEmail || customerEmail !== reservation?.customer?.email) return unauthorized(res);
+    // A notificacao assincrona da Easypay por vezes nao chega a tempo (ou de
+    // todo) - em vez de deixar o cliente preso a espera de um webhook que
+    // pode nunca aparecer, reconciliamos aqui de forma direta e autenticada
+    // sempre que o pagamento ainda esta pendente, reaproveitando a mesma
+    // verificacao usada pelo webhook (GET /single/{id}, nunca o corpo dele).
+    if (payment.status === 'PENDING' && payment.gateway === 'Easypay' && payment.gatewaySessionId) {
+      try {
+        const adapter = paymentGateways?.get?.('Easypay');
+        const verification = await adapter?.verifyPayment?.(payment.gatewaySessionId);
+        if (verification?.paymentId === payment.id) await paymentConfirmation.confirmPayment(payment.id);
+      } catch {
+        // Reconciliacao best-effort - se a Easypay estiver indisponivel agora,
+        // devolve o estado atual e o cliente pode voltar a tentar depois.
+      }
+      const fresh = ensureCollections(await readDb());
+      payment = fresh.payments.find(p => p.id === paymentId) || payment;
+      reservation = fresh.reservations.find(r => r.id === payment.reservationId) || reservation;
+    }
     return json(res, 200, { ok: true, payment: safePayment(payment), reservation: { id: reservation.id, status: reservation.status, destination: reservation.offer?.destination || '' } });
   });
 
