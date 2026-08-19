@@ -63,6 +63,10 @@ export async function api(path, options = {}) {
     ...options
   });
   const data = await res.json();
-  if (!res.ok || data.ok === false) throw new Error(data.error || 'Erro API');
+  if (!res.ok || data.ok === false) {
+    const error = new Error(data.error || 'Erro API');
+    error.code = data.code || '';
+    throw error;
+  }
   return data;
 }

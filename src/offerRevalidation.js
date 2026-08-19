@@ -10,7 +10,14 @@ function createOfferRevalidation({ duffel, hbx, applyMargin, env = process.env }
 
     if (components?.flight?.offerId) {
       if (!duffel?.isConfigured()) throw Object.assign(new Error('Não foi possível revalidar o voo neste momento.'), { code: 'SUPPLIER_REVALIDATION_UNAVAILABLE' });
-      const latest = await duffel.getOffer(components.flight.offerId);
+      let latest;
+      try { latest = await duffel.getOffer(components.flight.offerId); }
+      catch (error) {
+        if ([400, 404, 410].includes(Number(error.status))) {
+          throw Object.assign(new Error('Esta tarifa de voo já expirou. Faça uma nova pesquisa para obter preços e disponibilidade atuais.'), { code: 'DUFFEL_OFFER_EXPIRED' });
+        }
+        throw error;
+      }
       if (String(latest.totalCurrency || '').toUpperCase() !== targetCurrency) throw Object.assign(new Error('A moeda da oferta de voo mudou.'), { code: 'SUPPLIER_PRICE_CHANGED' });
       const pricing = applyMargin(latest.totalAmount, destinationName, margins, { operator: 'Duffel', channel: 'ONLINE', productType: 'VOO' });
       if (pricesDiffer(pricing.finalPrice, components.flight.finalPrice)) {
@@ -28,7 +35,14 @@ function createOfferRevalidation({ duffel, hbx, applyMargin, env = process.env }
     const hbxHotel = hotelComponent?.rateKey && (offer.hbx?.rateKey || /(?:hbx|hotelbeds)/i.test(String(hotelComponent.provider || '')));
     if (hbxHotel && (forceHotelCheck || String(hotelComponent.rateType || '').toUpperCase() === 'RECHECK')) {
       if (!hbx?.isConfigured('hotels')) throw Object.assign(new Error('Não foi possível revalidar o hotel neste momento.'), { code: 'SUPPLIER_REVALIDATION_UNAVAILABLE' });
-      const latest = await hbx.checkRate(hotelComponent.rateKey);
+      let latest;
+      try { latest = await hbx.checkRate(hotelComponent.rateKey); }
+      catch (error) {
+        if ([400, 404, 410].includes(Number(error.status))) {
+          throw Object.assign(new Error('Esta tarifa de hotel já expirou. Faça uma nova pesquisa para obter preços e disponibilidade atuais.'), { code: 'HBX_RATE_UNAVAILABLE' });
+        }
+        throw error;
+      }
       const pricing = applyMargin(latest.net, destinationName, margins, { operator: 'HBX Hotels', channel: 'ONLINE', productType: 'HOTEL' });
       if (pricesDiffer(pricing.finalPrice, hotelComponent.finalPrice)) {
         if (!allowPriceChange) throw Object.assign(new Error(`O preço do hotel foi atualizado para ${Number(pricing.finalPrice).toFixed(2)} €.`), { code: 'SUPPLIER_PRICE_CHANGED', latestPrice: pricing.finalPrice });

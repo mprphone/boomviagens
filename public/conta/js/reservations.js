@@ -46,8 +46,14 @@ async function renderList(elId, filterFn, emptyMessage) {
   el.innerHTML = `<div class="trip-list">${list.map(tripCard).join('') || `<p class="empty-note">${emptyMessage}</p>`}</div>`;
 
   el.querySelectorAll('.trip-card[data-reservation]').forEach(card => {
-    card.onclick = () => card.dataset.needsPayment ? resumeReservation(card) : openTripDetail(card.dataset.reservation);
-    card.querySelector('.resume-trip')?.addEventListener('click', event => { event.stopPropagation(); resumeReservation(card); });
+    // O cartao abre sempre a reserva guardada. So o botao explicito tenta
+    // revalidar a tarifa e retomar o checkout/pagamento.
+    card.onclick = () => openTripDetail(card.dataset.reservation);
+    card.querySelector('.resume-trip')?.addEventListener('click', event => {
+      event.stopPropagation();
+      if (event.currentTarget.dataset.searchAgain === '1') location.href = '/';
+      else resumeReservation(card);
+    });
   });
 }
 
@@ -67,7 +73,13 @@ export async function resumeReservationById(reservationId, button, onFailure = (
   } catch (err) {
     notify(err.message);
     onFailure();
-    if (button) { button.disabled = false; button.textContent = 'Rever e continuar'; }
+    if (button) {
+      button.disabled = false;
+      if (['DUFFEL_OFFER_EXPIRED', 'HBX_RATE_UNAVAILABLE', 'SUPPLIER_UNAVAILABLE'].includes(err.code)) {
+        button.dataset.searchAgain = '1';
+        button.textContent = 'Pesquisar nova oferta';
+      } else button.textContent = 'Rever e continuar';
+    }
   }
 }
 

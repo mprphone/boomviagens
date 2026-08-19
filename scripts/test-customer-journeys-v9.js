@@ -93,6 +93,15 @@ async function testLiveRevalidation() {
   const nonHbx = createOfferRevalidation({ duffel, hbx: { isConfigured: () => true, checkRate: async () => { unexpectedHotelCheck = true; } }, applyMargin, env: { CURRENCY: 'EUR' } });
   await nonHbx.revalidate({ destination: 'Madrid', components: { hotel: { provider: 'Outro operador', finalPrice: 200, costPrice: 180 }, activities: [] } }, [], { allowPriceChange: true, forceHotelCheck: true });
   assert.equal(unexpectedHotelCheck, false, 'Um hotel sem rateKey HBX nao pode ser enviado para o endpoint Hotelbeds');
+
+  const expiredDuffel = createOfferRevalidation({
+    duffel: { isConfigured: () => true, getOffer: async () => { throw Object.assign(new Error('HTTP 404'), { status: 404 }); } },
+    hbx, applyMargin, env: { CURRENCY: 'EUR' }
+  });
+  await assert.rejects(
+    () => expiredDuffel.revalidate({ destination: 'Madrid', components: { flight: { offerId: 'off_expired', finalPrice: 100 }, activities: [] } }, [], { allowPriceChange: true }),
+    error => error.code === 'DUFFEL_OFFER_EXPIRED' && /nova pesquisa/i.test(error.message)
+  );
 }
 
 function testSealedResumeOffer() {
