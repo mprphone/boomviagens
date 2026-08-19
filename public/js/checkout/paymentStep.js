@@ -10,6 +10,7 @@ import { setCheckoutStep, closeCheckoutModal } from './checkoutShell.js';
 let checkoutData = null;
 let paymentsMode = 'disabled';
 let paymentCapabilities = [];
+let paymentAvailability = 'disabled';
 let easypayInstance = null;
 
 export async function renderCheckoutStep3(data) {
@@ -18,9 +19,11 @@ export async function renderCheckoutStep3(data) {
     const config = await api('/api/config');
     paymentsMode = config.paymentsMode || 'disabled';
     paymentCapabilities = Array.isArray(config.paymentMethods) ? config.paymentMethods : [];
+    paymentAvailability = config.paymentAvailability || (paymentCapabilities.length ? 'available' : paymentsMode);
   } catch {
     paymentsMode = 'disabled';
     paymentCapabilities = [];
+    paymentAvailability = 'disabled';
   }
   renderPaymentChoice(data);
 }
@@ -50,7 +53,7 @@ function renderPaymentChoice(data) {
       <div class="payment-methods payment-methods-large" role="radiogroup" aria-label="Método de pagamento">
         ${methods.map(method => paymentOption(method, method.id === selectedMethod)).join('')}
       </div>
-      ${methods.length ? '' : '<div class="legal-notice"><span class="legal-notice-icon">!</span><p>Os pagamentos online ainda não estão disponíveis neste ambiente. A reserva pode ser guardada e retomada mais tarde.</p></div>'}
+      ${methods.length ? '' : `<div class="legal-notice"><span class="legal-notice-icon">!</span><p>${paymentAvailability === 'misconfigured' ? 'Os pagamentos de teste estão ativos, mas as credenciais Stripe/Easypay não estão disponíveis neste servidor. A configuração do deployment tem de ser atualizada.' : 'Os pagamentos online ainda não estão disponíveis neste ambiente. A reserva pode ser guardada e retomada mais tarde.'}</p></div>`}
       <label class="consent"><input type="checkbox" id="termsCheck" /><span>Li e aceito os <a href="#legal">Termos e Condições</a> e a <a href="#legal">Política de Privacidade</a>.</span></label>
       <div id="checkoutPaymentError"></div>
       <button class="btn wide" id="paymentContinue" type="button" ${methods.length ? '' : 'disabled'}>${methods.length ? `Continuar com ${esc(selectedMethod)}` : 'Pagamento indisponível'}</button>

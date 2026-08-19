@@ -413,11 +413,16 @@ module.exports = function registerPublicRoutes(router, ctx) {
       rnavt: company.rnavt || '',
       address: company.address || ''
     };
+    const currentPaymentsMode = paymentsMode(process.env);
+    const paymentMethods = currentPaymentsMode === 'disabled' ? [] : (ctx.paymentGateways?.publicMethods?.() || []);
     return json(res, 200, {
       company: publicCompany,
       branches,
-      paymentsMode: paymentsMode(process.env),
-      paymentMethods: paymentsMode(process.env) === 'disabled' ? [] : (ctx.paymentGateways?.publicMethods?.() || []),
+      paymentsMode: currentPaymentsMode,
+      paymentMethods,
+      paymentAvailability: currentPaymentsMode === 'disabled'
+        ? 'disabled'
+        : paymentMethods.length ? 'available' : 'misconfigured',
       // O site público conhece capacidades, não nomes/estado comercial dos
       // fornecedores. A topologia completa só existe no API Lab do backoffice.
       features: {

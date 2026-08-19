@@ -121,11 +121,11 @@ function wireStep1Form() {
     }
     setBilling({ name: f.name, email: f.email, phone: f.phone, nif: f.nif || '', address: f.address || '' });
     setBookerTravels(Boolean(form.elements.bookerTravels?.checked));
-    if (form.elements.saveProfile?.checked) syncProfileFields(f);
     const btn = $('#step1Continue');
     const oldText = btn?.textContent || 'Continuar para passageiros';
     if (btn) { btn.disabled = true; btn.textContent = 'A preparar passageiros…'; }
     try {
+      if (form.elements.saveProfile?.checked) await syncProfileFields(f);
       setCheckoutStep(2);
       setPassengerIndex(0);
       await renderPassengerStep();
@@ -143,7 +143,7 @@ function wireStep1Form() {
 // nunca sobrepoe um valor ja existente (o NIF, alias, nem chega a ficar
 // editavel nesse caso - ver renderCheckoutStep1). Sessao ja garantida: so se
 // chega aqui com isEmailVerified() true, que so acontece com sessao valida.
-function syncProfileFields(f) {
+async function syncProfileFields(f) {
   const c = getExistingProfile() || {};
   const updates = {
     name: (!c.name || c.name === 'Cliente') ? f.name : c.name,
@@ -151,12 +151,8 @@ function syncProfileFields(f) {
     nif: c.nif || f.nif || '',
     address: f.address || c.address || ''
   };
-  api('/api/customer/profile', { method: 'POST', body: JSON.stringify({ ...c, ...updates }) })
-    .then(data => setExistingProfile(data.customer))
-    .catch(() => {
-      // Melhor esforco - se falhar, a reserva segue na mesma, so nao fica
-      // gravado para a proxima vez.
-    });
+  const data = await api('/api/customer/profile', { method: 'POST', body: JSON.stringify({ ...c, ...updates }) });
+  setExistingProfile(data.customer);
 }
 
 async function requestEmailCode(emailValue) {

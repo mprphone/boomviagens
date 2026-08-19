@@ -30,6 +30,7 @@ const VIEWS = {
 let activeSessionEmail = '';
 let sessionCheckRunning = false;
 let paymentReturnHandled = false;
+let sessionRevision = 0;
 
 function switchView(name) {
   const view = VIEWS[name];
@@ -86,6 +87,10 @@ document.querySelectorAll('.nav-item[data-view]').forEach(btn => {
 });
 
 async function activateSession(session = {}) {
+  // Invalida qualquer /api/customer/session iniciado antes do login. Em
+  // redes moveis esse pedido antigo pode terminar depois do POST de login e
+  // nao pode voltar a esconder a aplicacao com o estado anterior.
+  sessionRevision += 1;
   activeSessionEmail = String(session.email || '').toLowerCase();
   showApp();
   await handlePaymentReturn();
@@ -94,8 +99,10 @@ async function activateSession(session = {}) {
 async function reconcileSession() {
   if (sessionCheckRunning) return;
   sessionCheckRunning = true;
+  const revisionAtStart = sessionRevision;
   try {
     const data = await api('/api/customer/session');
+    if (revisionAtStart !== sessionRevision) return;
     const nextEmail = data.authenticated ? String(data.email || '').toLowerCase() : '';
     if (activeSessionEmail && activeSessionEmail !== nextEmail) {
       clearCustomerScopedBrowserState();

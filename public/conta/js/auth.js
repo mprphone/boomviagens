@@ -30,8 +30,8 @@ export function wireLogin(onSuccess) {
     msg.classList.remove('is-error');
     try {
       const data = await api('/api/customer/login/verify', { method: 'POST', body: JSON.stringify({ email: pendingEmail, code, challenge: pendingChallenge }) });
+      await onSuccess(data);
       announceCustomerSessionChange();
-      onSuccess(data);
     } catch (err) {
       msg.textContent = err.message;
       msg.classList.add('is-error');
@@ -60,8 +60,8 @@ export function wireLogin(onSuccess) {
     msg.classList.remove('is-error');
     try {
       const data = await api('/api/customer/login/password', { method: 'POST', body: JSON.stringify({ email, password }) });
+      await onSuccess(data);
       announceCustomerSessionChange();
-      onSuccess(data);
     } catch (err) {
       msg.textContent = err.message;
       msg.classList.add('is-error');

@@ -56,7 +56,12 @@ export function notify(message, type = 'error') {
 }
 
 export async function api(path, options = {}) {
-  const res = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...options });
+  const res = await fetch(path, {
+    credentials: 'same-origin',
+    cache: 'no-store',
+    headers: { 'Content-Type': 'application/json' },
+    ...options
+  });
   const data = await res.json();
   if (!res.ok || data.ok === false) throw new Error(data.error || 'Erro API');
   return data;

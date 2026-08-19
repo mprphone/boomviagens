@@ -15,6 +15,38 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
   const { rateLimit } = ctx;
   const { customerSessionEmail, openToken } = ctx.auth;
 
+  function passengerIdentity(passenger = {}) {
+    const document = String(passenger.documentNumber || '').trim().toLowerCase().replace(/\s+/g, '');
+    if (document) return `document:${document}`;
+    const name = [passenger.name, passenger.surname].filter(Boolean).join(' ').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase().replace(/\s+/g, ' ');
+    const birthdate = String(passenger.birthdate || '').trim();
+    return name ? `person:${name}:${birthdate}` : '';
+  }
+
+  // A pessoa que faz a reserva e os passageiros sao entidades diferentes:
+  // os dados de faturacao/contacto atualizam a ficha do cliente, enquanto a
+  // carteira de passageiros e agregada sem duplicar por documento ou por
+  // nome+data de nascimento. Campos internos (password, notas, alertas, etc.)
+  // nunca sao apagados pelo checkout.
+  function mergeCheckoutCustomer(existing, customer, passengers) {
+    const merged = existing || { id: id('cli'), createdAt: now(), email: customer.email };
+    for (const field of ['name', 'phone', 'nif', 'address']) {
+      if (customer[field]) merged[field] = customer[field];
+    }
+    merged.email = customer.email;
+    merged.updatedAt = now();
+
+    const wallet = Array.isArray(merged.passengers) ? [...merged.passengers] : [];
+    for (const passenger of passengers || []) {
+      const identity = passengerIdentity(passenger);
+      const index = identity ? wallet.findIndex(item => passengerIdentity(item) === identity) : -1;
+      if (index >= 0) wallet[index] = { ...wallet[index], ...passenger, id: wallet[index].id || passenger.passengerId || id('pax') };
+      else wallet.push({ ...passenger, id: passenger.passengerId || id('pax') });
+    }
+    merged.passengers = wallet.slice(0, 12);
+    return merged;
+  }
+
   function publicBaseUrl() {
     const value = String(process.env.PUBLIC_BASE_URL || process.env.BASE_URL || '').trim().replace(/\/$/, '');
     if (!value) throw new Error('Defina PUBLIC_BASE_URL para criar pagamentos no gateway.');
@@ -286,8 +318,10 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
         d.serviceLines.push(serviceLine);
         d.reservationEvents.unshift({ id: id('evt'), createdAt: now(), reservationId: reservation.id, actor: 'site', type: 'SERVICE_ADDED', description: `${serviceLine.description} (linha automatica do checkout)` });
       }
-      let existing = d.customers.find(c => c.email === customer.email);
-      if (!existing && customer.email) d.customers.unshift({ id: id('cli'), createdAt: now(), ...customer });
+      const existingIndex = d.customers.findIndex(c => String(c.email || '').trim().toLowerCase() === customer.email);
+      const savedCustomer = mergeCheckoutCustomer(existingIndex >= 0 ? d.customers[existingIndex] : null, customer, passengers);
+      if (existingIndex >= 0) d.customers[existingIndex] = savedCustomer;
+      else d.customers.unshift(savedCustomer);
       if (idemKey) d.idempotencyKeys[idemKey] = { reservationId: reservation.id, paymentId: payment.id, createdAt: now() };
       audit(d, verifiedEmail, resumedReservation ? 'CHECKOUT_RESUMED' : 'CHECKOUT_CREATED', { reservationId: reservation.id, paymentId: payment.id, idempotencyKey: idemKey || null });
       resultPayload = { reservation, payment, idempotent: false, resumed: Boolean(resumedReservation) };
