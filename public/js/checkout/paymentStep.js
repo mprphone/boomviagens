@@ -185,6 +185,14 @@ async function handleEasyPaySuccess(info, data) {
   const reference = paymentInfo.reference
     ? `<div class="mb-slip"><div class="mb-slip-row"><span>Entidade</span><strong>${esc(paymentInfo.entity || '')}</strong></div><div class="mb-slip-row"><span>Referência</span><strong>${esc(paymentInfo.reference)}</strong></div><div class="mb-slip-row"><span>Valor</span><strong>${money(paymentInfo.value || data.payment.amount)}</strong></div></div>`
     : '';
+  // O widget da Easypay fica parado no proprio ecra de "sucesso" deles ao
+  // clicar em Concluir - se nao dermos feedback ja aqui, o utilizador fica
+  // ~20s a olhar para esse ecra parado enquanto o polling corre em
+  // silencio e parece que o clique nao fez nada.
+  easypayInstance?.unmount?.();
+  easypayInstance = null;
+  $('#easypay-checkout')?.remove();
+  $('#checkoutPaymentError').innerHTML = `${reference}<div class="gateway-loading"><span class="spinner"></span><p>A confirmar o pagamento com segurança…</p></div>`;
   const confirmed = await waitForPayment(data.payment.id, 12);
   if (confirmed?.payment?.status === 'PAID') {
     setLastPayment(confirmed.payment);
@@ -195,12 +203,7 @@ async function handleEasyPaySuccess(info, data) {
   // O gateway autorizou, mas a confirmacao autenticada (webhook) ainda nao
   // chegou. O browser nunca marca como pago por si - explicar e deixar
   // verificar de novo ou acompanhar na area de cliente, em vez de ficar em
-  // silencio como antes. O widget da Easypay fica com o proprio ecra de
-  // "sucesso" parado (o deles, nao o nosso) e tem de ser desmontado, senao
-  // esta mensagem fica escondida por cima dele e parece que nada aconteceu.
-  easypayInstance?.unmount?.();
-  easypayInstance = null;
-  $('#easypay-checkout')?.remove();
+  // silencio como antes.
   $('#checkoutPaymentError').innerHTML = `
     ${reference}
     <p class="secure-box">Pedido recebido pela Easypay. Ainda estamos a aguardar a confirmação autenticada do pagamento — pode demorar alguns momentos.</p>
