@@ -3,10 +3,10 @@
 
 import { $, esc, api, notify } from './utils.js';
 
-const CATEGORY_ORDER = ['IDENTIFICACAO', 'SEGURO', 'VOUCHERS', 'BILHETES', 'PROGRAMA', 'OUTROS'];
-const CATEGORY_LABEL = { IDENTIFICACAO: 'Identificação', SEGURO: 'Seguro', VOUCHERS: 'Vouchers', BILHETES: 'Bilhetes', PROGRAMA: 'Programa', OUTROS: 'Outros' };
-const TYPE_CATEGORY = { PASSPORT: 'IDENTIFICACAO', IDENTITY_CARD: 'IDENTIFICACAO', VISA: 'IDENTIFICACAO', INSURANCE: 'SEGURO', VOUCHER: 'VOUCHERS', TICKET: 'BILHETES', ITINERARY: 'PROGRAMA', OTHER: 'OUTROS' };
-export const TYPE_LABEL = { PASSPORT: 'Passaporte', IDENTITY_CARD: 'Cartão de Cidadão', VISA: 'Visto', INSURANCE: 'Seguro', VOUCHER: 'Voucher', TICKET: 'Bilhete', ITINERARY: 'Itinerário/programa', OTHER: 'Outro' };
+const CATEGORY_ORDER = ['IDENTIFICACAO', 'SEGURO', 'VOUCHERS', 'BILHETES', 'PROGRAMA', 'FATURAS', 'OUTROS'];
+const CATEGORY_LABEL = { IDENTIFICACAO: 'Identificação', SEGURO: 'Seguro', VOUCHERS: 'Vouchers', BILHETES: 'Bilhetes', PROGRAMA: 'Programa', FATURAS: 'Faturas', OUTROS: 'Outros' };
+const TYPE_CATEGORY = { PASSPORT: 'IDENTIFICACAO', IDENTITY_CARD: 'IDENTIFICACAO', VISA: 'IDENTIFICACAO', INSURANCE: 'SEGURO', VOUCHER: 'VOUCHERS', TICKET: 'BILHETES', ITINERARY: 'PROGRAMA', INVOICE_SALE: 'FATURAS', OTHER: 'OUTROS' };
+export const TYPE_LABEL = { PASSPORT: 'Passaporte', IDENTITY_CARD: 'Cartão de Cidadão', VISA: 'Visto', INSURANCE: 'Seguro', VOUCHER: 'Voucher', TICKET: 'Bilhete', ITINERARY: 'Itinerário/programa', INVOICE_SALE: 'Fatura', OTHER: 'Outro' };
 const IDENTITY_TYPES = new Set(['PASSPORT', 'IDENTITY_CARD']);
 
 export async function renderDocumentos() {

@@ -50,7 +50,7 @@ const CUSTOMER_FINANCIAL_DOC_TYPES = ['INVOICE_SALE', 'RECEIPT', 'CREDIT_NOTE'];
 // notas de credito, fotos de ocorrencia, "outro"). Por defeito fechado:
 // um tipo novo em DOCUMENT_TYPES so fica visivel ao cliente se for
 // explicitamente acrescentado aqui.
-const CUSTOMER_VISIBLE_DOCUMENT_TYPES = ['PASSPORT', 'IDENTITY_CARD', 'VISA', 'INSURANCE', 'VOUCHER', 'TICKET', 'ITINERARY'];
+const CUSTOMER_VISIBLE_DOCUMENT_TYPES = ['PASSPORT', 'IDENTITY_CARD', 'VISA', 'INSURANCE', 'VOUCHER', 'TICKET', 'ITINERARY', 'INVOICE_SALE'];
 const CONTACT_TYPES = ['CALL', 'EMAIL', 'WHATSAPP', 'IN_PERSON', 'OTHER'];
 const COMPLAINT_STATUSES = ['OPEN', 'ANALYZING', 'SENT_TO_SUPPLIER', 'AWAITING_RESPONSE', 'RESPONSE_RECEIVED', 'NEGOTIATING', 'APPROVED', 'REJECTED', 'RESOLVED', 'CLOSED'];
 // Uma reclamacao pode ser do cliente contra a agencia, ou da agencia contra

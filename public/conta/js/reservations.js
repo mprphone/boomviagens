@@ -5,11 +5,13 @@
 import { $, esc, money, dateRange, statusLabel, api, notify } from './utils.js';
 import { openTripDetail } from './tripDetail.js';
 
-// A reserva so e uma "viagem" para o cliente depois de estar confirmada.
-// Antes disso esta em curso (pagamento/validacao) e deve aparecer em
-// "Viagens guardadas", nao em "As minhas viagens" - era essa a confusao
-// antiga: as duas listas mostravam o mesmo.
-const TRIP_STATUSES = new Set(['CONFIRMED', 'AWAITING_DOCUMENTS', 'READY', 'CHECKIN', 'IN_TRIP']);
+// A divisao entre as duas listas e o dinheiro, nao o estado do operador:
+// assim que o pagamento fica confirmado a reserva e "minha viagem" para o
+// cliente (mesmo pendente de validacao/intervencao humana) - "Viagens
+// guardadas" fica so para o que ainda nao foi pago. Antes disto dividia por
+// reservation.status (so CONFIRMED contava), o que escondia reservas ja
+// pagas mas ainda em validacao do operador dentro de "guardadas", junto de
+// carrinhos que nem sequer tinham sido pagos.
 const FINISHED_STATUSES = new Set(['POST_TRIP', 'CONCLUDED', 'CANCELLED']);
 
 function isPast(reservation) {
@@ -20,12 +22,16 @@ function isPast(reservation) {
   return false;
 }
 
+function isPaid(reservation) {
+  return reservation.payment?.status === 'PAID';
+}
+
 function isActiveTrip(reservation) {
-  return TRIP_STATUSES.has(reservation.status) && !isPast(reservation);
+  return isPaid(reservation) && !isPast(reservation);
 }
 
 function isSavedInProgress(reservation) {
-  return !TRIP_STATUSES.has(reservation.status) && !FINISHED_STATUSES.has(reservation.status);
+  return !isPaid(reservation) && !FINISHED_STATUSES.has(reservation.status);
 }
 
 function tripCard(r) {
@@ -116,7 +122,7 @@ export function renderGuardadas() {
 }
 
 export function renderViagens() {
-  return renderList('#view-viagens', isActiveTrip, 'Ainda não tem viagens confirmadas.', { backView: 'viagens' });
+  return renderList('#view-viagens', isActiveTrip, 'Ainda não tem viagens pagas.', { backView: 'viagens' });
 }
 
 export function renderAnteriores() {
