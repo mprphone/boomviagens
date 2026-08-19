@@ -19,6 +19,7 @@ function testCustomerJourneyStructure() {
   const accountAuth = fs.readFileSync('public/conta/js/auth.js', 'utf8');
   const accountUtils = fs.readFileSync('public/conta/js/utils.js', 'utf8');
   const accountHtml = fs.readFileSync('public/conta/index.html', 'utf8');
+  const customerRoutes = fs.readFileSync('src/routes/customerRoutes.js', 'utf8');
   const documents = fs.readFileSync('public/conta/js/documents.js', 'utf8');
 
   assert(css.includes('.results-layout.is-empty') && results.includes("classList.toggle('is-empty'"), 'Resultados vazios precisam de um layout proprio');
@@ -26,6 +27,7 @@ function testCustomerJourneyStructure() {
   assert(sessionGuard.includes('BroadcastChannel') && sessionGuard.includes('clearCustomerScopedBrowserState'), 'Mudancas de conta entre separadores devem invalidar estado local antigo');
   assert(accountMain.includes('revisionAtStart !== sessionRevision') && accountAuth.includes('await onSuccess(data)') && accountUtils.includes("credentials: 'same-origin'"), 'Login deve conservar o cookie e ignorar verificacoes de sessao anteriores ao POST, sobretudo em redes moveis');
   assert(accountHtml.includes('method="post" action="/api/customer/login/password"') && accountHtml.includes("history.replaceState") && accountHtml.includes("'password'"), 'Credenciais nunca podem ser submetidas por GET nem permanecer no URL/historico quando o JavaScript falha');
+  assert(customerRoutes.includes("res.writeHead(303") && customerRoutes.includes("Location: '/conta/'") && customerRoutes.includes('isBrowserForm(req)'), 'Login HTML sem JavaScript deve criar a sessao e redirecionar para a area reservada, nunca mostrar JSON');
   assert(accountReservations.includes('/api/customer/reservations/resume') && accountPayments.includes('resumeReservationById'), 'Reservas pendentes devem revalidar antes de continuar');
   assert(!accountReservations.includes('/api/payment/confirm') && !accountPayments.includes('/api/payment/confirm'), 'A area de cliente nao pode confirmar pagamentos diretamente');
   assert(payment.includes('/api/payment/session') && payment.includes('cdn.easypay.pt') && payment.includes('window.location.assign'), 'Checkout deve criar sessoes reais Stripe/Easypay');

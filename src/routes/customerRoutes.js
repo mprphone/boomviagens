@@ -14,6 +14,19 @@ module.exports = function registerCustomerRoutes(router, ctx) {
   const { ensureCollections, audit, id, now, missingDocumentsFor, DOCUMENT_TYPES, sanitizeCustomer, customerReservationView, customerReservationDetailView, isCustomerVisibleDocument } = domain;
   const { signToken, verifyToken, customerSessionEmail, setCustomerSessionCookie, clearCustomerSessionCookie, safeEqual, hashPassword, verifyPassword, hashLoginCode, CUSTOMER_CODE_TTL_MS, SESSION_TTL_MS } = ctx.auth;
 
+  function isBrowserForm(req) {
+    return String(req.headers['content-type'] || '').toLowerCase().includes('application/x-www-form-urlencoded');
+  }
+
+  function redirectToCustomerArea(res) {
+    // setCustomerSessionCookie() ja colocou Set-Cookie. O writeHead preserva
+    // esse header e transforma o fallback HTML (sem JavaScript) numa entrada
+    // normal na area reservada, em vez de deixar o cliente a olhar para JSON.
+    res.writeHead(303, { Location: '/conta/', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' });
+    res.end();
+    return true;
+  }
+
   // So cria clientes novos. Quem ja existe so pode ser alterado por quem
   // tem sessao autenticada como esse email (ver auditoria) - antes disto,
   // bastava conhecer o email de outra pessoa para reescrever o seu perfil
@@ -99,6 +112,7 @@ module.exports = function registerCustomerRoutes(router, ctx) {
     const db = await readDb();
     const customer = (db.customers || []).find(c => c.email === customerEmail) || null;
     await updateDb(d => audit(d, customerEmail, 'CUSTOMER_LOGIN', {}));
+    if (isBrowserForm(req)) return redirectToCustomerArea(res);
     return json(res, 200, { ok: true, email: customerEmail, name: customer?.name || '' });
   });
 
@@ -118,6 +132,7 @@ module.exports = function registerCustomerRoutes(router, ctx) {
     const token = signToken({ scope: 'customer', email: customerEmail, exp: Date.now() + SESSION_TTL_MS });
     setCustomerSessionCookie(res, token);
     await updateDb(d => audit(d, customerEmail, 'CUSTOMER_LOGIN_PASSWORD', {}));
+    if (isBrowserForm(req)) return redirectToCustomerArea(res);
     return json(res, 200, { ok: true, email: customerEmail, name: customer.name || '' });
   });
 
