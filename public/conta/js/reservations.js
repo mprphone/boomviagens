@@ -5,12 +5,27 @@
 import { $, esc, money, dateRange, statusLabel, api, notify } from './utils.js';
 import { openTripDetail } from './tripDetail.js';
 
+// A reserva so e uma "viagem" para o cliente depois de estar confirmada.
+// Antes disso esta em curso (pagamento/validacao) e deve aparecer em
+// "Viagens guardadas", nao em "As minhas viagens" - era essa a confusao
+// antiga: as duas listas mostravam o mesmo.
+const TRIP_STATUSES = new Set(['CONFIRMED', 'AWAITING_DOCUMENTS', 'READY', 'CHECKIN', 'IN_TRIP']);
+const FINISHED_STATUSES = new Set(['POST_TRIP', 'CONCLUDED', 'CANCELLED']);
+
 function isPast(reservation) {
-  if (reservation.status === 'CANCELLED') return true;
+  if (FINISHED_STATUSES.has(reservation.status)) return true;
   if (reservation.status === 'CONFIRMED' && reservation.offer?.checkout) {
     return new Date(`${reservation.offer.checkout}T00:00:00`) < new Date();
   }
   return false;
+}
+
+function isActiveTrip(reservation) {
+  return TRIP_STATUSES.has(reservation.status) && !isPast(reservation);
+}
+
+function isSavedInProgress(reservation) {
+  return !TRIP_STATUSES.has(reservation.status) && !FINISHED_STATUSES.has(reservation.status);
 }
 
 function tripCard(r) {
@@ -27,12 +42,12 @@ function tripCard(r) {
       <div class="trip-card-side">
         <span class="pill ${r.status === 'CONFIRMED' ? 'ok' : r.status === 'CANCELLED' ? 'bad' : 'info'}">${esc(statusLabel(r.status))}</span>
         <strong>${money(offer.finalPrice)}</strong>
-        ${needsPayment ? '<button class="btn mini-action resume-trip">Rever e continuar</button>' : ''}
+        ${needsPayment ? '<button class="btn mini-action resume-trip">Continuar reserva</button>' : ''}
       </div>
     </article>`;
 }
 
-async function renderList(elId, filterFn, emptyMessage) {
+async function renderList(elId, filterFn, emptyMessage, { backView = 'viagens', clickToResume = false } = {}) {
   const el = $(elId);
   el.innerHTML = '<p class="muted">A carregar...</p>';
   let data;
@@ -46,9 +61,12 @@ async function renderList(elId, filterFn, emptyMessage) {
   el.innerHTML = `<div class="trip-list">${list.map(tripCard).join('') || `<p class="empty-note">${emptyMessage}</p>`}</div>`;
 
   el.querySelectorAll('.trip-card[data-reservation]').forEach(card => {
-    // O cartao abre sempre a reserva guardada. So o botao explicito tenta
-    // revalidar a tarifa e retomar o checkout/pagamento.
-    card.onclick = () => openTripDetail(card.dataset.reservation);
+    // Nas "Viagens guardadas" clicar no cartao retoma logo a reserva (com
+    // revalidacao de preco/disponibilidade). Nas restantes, abre o detalhe.
+    card.onclick = () => {
+      if (clickToResume && card.dataset.needsPayment === '1') resumeReservation(card);
+      else openTripDetail(card.dataset.reservation, backView);
+    };
     card.querySelector('.resume-trip')?.addEventListener('click', event => {
       event.stopPropagation();
       if (event.currentTarget.dataset.searchAgain === '1') location.href = '/';
@@ -93,10 +111,14 @@ export async function resumeReservationById(reservationId, button, onFailure = (
   }
 }
 
+export function renderGuardadas() {
+  return renderList('#view-guardadas', isSavedInProgress, 'Não tem reservas guardadas por concluir.', { backView: 'guardadas', clickToResume: true });
+}
+
 export function renderViagens() {
-  return renderList('#view-viagens', r => !isPast(r), 'Ainda não tem viagens em curso.');
+  return renderList('#view-viagens', isActiveTrip, 'Ainda não tem viagens confirmadas.', { backView: 'viagens' });
 }
 
 export function renderAnteriores() {
-  return renderList('#view-anteriores', isPast, 'Ainda não tem reservas anteriores.');
+  return renderList('#view-anteriores', isPast, 'Ainda não tem reservas anteriores.', { backView: 'anteriores' });
 }

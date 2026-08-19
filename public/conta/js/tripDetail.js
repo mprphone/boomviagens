@@ -30,8 +30,8 @@ const TABS = [
   { key: 'ajuda', label: 'Ajuda', render: renderAjudaTab }
 ];
 
-export async function openTripDetail(reservationId) {
-  document.querySelectorAll('.nav-item[data-view]').forEach(btn => btn.classList.toggle('is-active', btn.dataset.view === 'viagens'));
+export async function openTripDetail(reservationId, backView = 'viagens') {
+  document.querySelectorAll('.nav-item[data-view]').forEach(btn => btn.classList.toggle('is-active', btn.dataset.view === backView));
   document.querySelectorAll('.view').forEach(sec => { sec.hidden = sec.id !== 'view-viagem'; });
   const pageTitle = $('#pageTitle');
 
@@ -49,7 +49,7 @@ export async function openTripDetail(reservationId) {
   if (pageTitle) pageTitle.textContent = offer.destination || 'A minha viagem';
 
   el.innerHTML = `
-    <button type="button" class="back-link">← As minhas viagens</button>
+    <button type="button" class="back-link">← ${backView === 'guardadas' ? 'Viagens guardadas' : backView === 'anteriores' ? 'Reservas anteriores' : 'As minhas viagens'}</button>
     <div class="trip-header">
       <h2>${esc(offer.destination || '')}${offer.country ? `, ${esc(offer.country)}` : ''}</h2>
       <p class="muted">${esc(offer.hotel || '')}</p>
@@ -60,7 +60,7 @@ export async function openTripDetail(reservationId) {
     </div>
     <div class="trip-tab-panel"></div>`;
 
-  el.querySelector('.back-link').onclick = () => document.querySelector('.nav-item[data-view="viagens"]')?.click();
+  el.querySelector('.back-link').onclick = () => document.querySelector(`.nav-item[data-view="${backView}"]`)?.click();
 
   const panel = el.querySelector('.trip-tab-panel');
   // Resumo/A minha viagem fazem um pedido extra (documentos) antes de

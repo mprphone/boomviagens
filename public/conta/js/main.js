@@ -5,7 +5,7 @@ import { $, api, notify } from './utils.js';
 import { watchCustomerSessionChanges, clearCustomerScopedBrowserState } from '../../js/sessionGuard.js';
 import { wireLogin } from './auth.js';
 import { renderDashboard } from './dashboard.js';
-import { renderViagens, renderAnteriores } from './reservations.js';
+import { renderGuardadas, renderViagens, renderAnteriores } from './reservations.js';
 import { renderDocumentos } from './documents.js';
 import { renderPagamentos } from './payments.js';
 import { renderDados } from './profile.js';
@@ -16,6 +16,7 @@ import { renderEmergencia } from './emergencyContacts.js';
 
 const VIEWS = {
   dashboard: { title: 'Dashboard', render: renderDashboard },
+  guardadas: { title: 'Viagens guardadas', render: renderGuardadas },
   viagens: { title: 'As minhas viagens', render: renderViagens },
   anteriores: { title: 'Reservas anteriores', render: renderAnteriores },
   documentos: { title: 'Documentos', render: renderDocumentos },

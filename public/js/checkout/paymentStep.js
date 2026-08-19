@@ -185,16 +185,27 @@ async function handleEasyPaySuccess(info, data) {
   const reference = paymentInfo.reference
     ? `<div class="mb-slip"><div class="mb-slip-row"><span>Entidade</span><strong>${esc(paymentInfo.entity || '')}</strong></div><div class="mb-slip-row"><span>Referência</span><strong>${esc(paymentInfo.reference)}</strong></div><div class="mb-slip-row"><span>Valor</span><strong>${money(paymentInfo.value || data.payment.amount)}</strong></div></div>`
     : '';
-  $('#checkoutPaymentError').innerHTML = `${reference}<p class="secure-box">Pedido recebido pela Easypay. Estamos a aguardar a confirmação autenticada do pagamento.</p>`;
-  const confirmed = await waitForPayment(data.payment.id, 8);
+  const confirmed = await waitForPayment(data.payment.id, 12);
   if (confirmed?.payment?.status === 'PAID') {
     setLastPayment(confirmed.payment);
     setCheckoutStep(5);
     renderCheckoutStep4({ ...data, payment: confirmed.payment, reservation: { ...data.reservation, status: confirmed.reservation.status } });
+    return;
   }
+  // O gateway autorizou, mas a confirmacao autenticada (webhook) ainda nao
+  // chegou. O browser nunca marca como pago por si - explicar e deixar
+  // verificar de novo ou acompanhar na area de cliente, em vez de ficar em
+  // silencio como antes.
+  $('#checkoutPaymentError').innerHTML = `
+    ${reference}
+    <p class="secure-box">Pedido recebido pela Easypay. Ainda estamos a aguardar a confirmação autenticada do pagamento — pode demorar alguns momentos.</p>
+    <button class="btn wide" type="button" id="checkPaymentStatus">Verificar estado</button>
+    <button class="ghost wide" type="button" id="goToAccount">Ver na Área de Cliente</button>`;
+  $('#checkPaymentStatus').onclick = () => handleEasyPaySuccess(info, data);
+  $('#goToAccount').onclick = () => { location.href = '/conta/'; };
 }
 
-async function waitForPayment(paymentId, attempts = 8) {
+async function waitForPayment(paymentId, attempts = 12) {
   for (let index = 0; index < attempts; index += 1) {
     try {
       const status = await api(`/api/payment/status?paymentId=${encodeURIComponent(paymentId)}`);
