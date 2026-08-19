@@ -454,7 +454,15 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
       try {
         const adapter = paymentGateways?.get?.('Easypay');
         const verification = await adapter?.verifyPayment?.(payment.gatewaySessionId);
-        if (verification?.paymentId === payment.id) await paymentConfirmation.confirmPayment(payment.id);
+        // Mesma barreira de seguranca do webhook (paymentsRoutes.js): o id
+        // bater certo nao chega, o montante/moeda verificados na Easypay tem
+        // de coincidir com o que o nosso ledger espera antes de confirmar.
+        const expectedAmount = Number(payment.amount || 0);
+        const amountMatches = verification?.amount == null || Math.abs(expectedAmount - Number(verification.amount)) <= 0.005;
+        const currencyMatches = !verification?.currency || verification.currency === 'EUR';
+        if (verification?.paymentId === payment.id && amountMatches && currencyMatches) {
+          await paymentConfirmation.confirmPayment(payment.id);
+        }
       } catch {
         // Reconciliacao best-effort - se a Easypay estiver indisponivel agora,
         // devolve o estado atual e o cliente pode voltar a tentar depois.
