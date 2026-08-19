@@ -445,20 +445,22 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
     let reservation = db.reservations.find(r => r.id === payment.reservationId);
     const customerEmail = customerSessionEmail(req);
     if (!customerEmail || customerEmail !== reservation?.customer?.email) return unauthorized(res);
-    // A notificacao assincrona da Easypay por vezes nao chega a tempo (ou de
-    // todo) - em vez de deixar o cliente preso a espera de um webhook que
+    // A notificacao assincrona de qualquer um dos gateways por vezes nao
+    // chega a tempo (ou de todo, visto em producao tanto na Easypay como no
+    // Stripe) - em vez de deixar o cliente preso a espera de um webhook que
     // pode nunca aparecer, reconciliamos aqui de forma direta e autenticada
-    // sempre que o pagamento ainda esta pendente, reaproveitando a mesma
-    // verificacao usada pelo webhook (GET /single/{id}, nunca o corpo dele).
-    if (payment.status === 'PENDING' && payment.gateway === 'Easypay' && payment.gatewaySessionId) {
+    // sempre que o pagamento ainda esta pendente, reaproveitando o mesmo
+    // verifyPayment() de cada adapter (nunca o corpo de uma notificacao).
+    if (payment.status === 'PENDING' && payment.gatewaySessionId && ['Easypay', 'Stripe'].includes(payment.gateway)) {
       try {
-        const adapter = paymentGateways?.get?.('Easypay');
+        const adapter = paymentGateways?.get?.(payment.gateway);
         const verification = await adapter?.verifyPayment?.(payment.gatewaySessionId);
         // Mesma barreira de seguranca do webhook (paymentsRoutes.js): o id
-        // bater certo nao chega, o montante/moeda verificados na Easypay tem
+        // bater certo nao chega, o montante/moeda verificados no gateway tem
         // de coincidir com o que o nosso ledger espera antes de confirmar.
         const expectedAmount = Number(payment.amount || 0);
-        const amountMatches = verification?.amount == null || Math.abs(expectedAmount - Number(verification.amount)) <= 0.005;
+        const amountMatches = (verification?.amountMinor == null || Math.round(expectedAmount * 100) === Math.round(Number(verification.amountMinor)))
+          && (verification?.amount == null || Math.abs(expectedAmount - Number(verification.amount)) <= 0.005);
         const currencyMatches = !verification?.currency || verification.currency === 'EUR';
         if (verification?.paymentId === payment.id && amountMatches && currencyMatches) {
           await paymentConfirmation.confirmPayment(payment.id);
@@ -466,11 +468,11 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
           // Log deliberado (nao um erro) - sem isto, um "ainda nao confirmado"
           // fica indistinguivel de "nunca tentamos verificar" nos logs, o que
           // ja causou diagnostico as cegas mais que uma vez nesta reconciliacao.
-          console.log('[easypay] status ainda nao confirmado na reconciliacao direta', { paymentId: payment.id, gatewaySessionId: payment.gatewaySessionId, verifiedPaymentId: verification?.paymentId || null, amountMatches, currencyMatches });
+          console.log(`[${payment.gateway}] status ainda nao confirmado na reconciliacao direta`, { paymentId: payment.id, gatewaySessionId: payment.gatewaySessionId, verifiedPaymentId: verification?.paymentId || null, amountMatches, currencyMatches });
         }
       } catch (err) {
-        console.error('[easypay] falha ao reconciliar diretamente', { paymentId: payment.id, error: err.message });
-        // Reconciliacao best-effort - se a Easypay estiver indisponivel agora,
+        console.error(`[${payment.gateway}] falha ao reconciliar diretamente`, { paymentId: payment.id, error: err.message });
+        // Reconciliacao best-effort - se o gateway estiver indisponivel agora,
         // devolve o estado atual e o cliente pode voltar a tentar depois.
       }
       const fresh = ensureCollections(await readDb());

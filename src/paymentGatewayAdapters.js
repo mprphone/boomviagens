@@ -148,6 +148,23 @@ class StripeGatewayAdapter extends PaymentGatewayAdapter {
     const currency = obj.currency || null;
     return { paymentId: obj.metadata?.paymentId || null, eventId: event.id || null, amountMinor: amount != null ? Number(amount) : null, currency: currency ? String(currency).toUpperCase() : null, livemode: Boolean(event.livemode) };
   }
+
+  // Reconciliacao direta, equivalente ao verifyPayment() da Easypay - para
+  // quando o webhook do Stripe nao esta configurado ou nao chega, consulta a
+  // propria Checkout Session em vez de ficar so a espera do evento assinado.
+  async verifyPayment(sessionId) {
+    if (!sessionId) return { paymentId: null };
+    const res = await fetch(`https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sessionId)}`, {
+      headers: { Authorization: `Basic ${Buffer.from(`${this.secretKey}:`).toString('base64')}` },
+      signal: AbortSignal.timeout(GATEWAY_TIMEOUT_MS)
+    });
+    if (res.status === 404) return { paymentId: null };
+    if (!res.ok) throw new Error(`Stripe: não foi possível verificar a sessão (HTTP ${res.status})`);
+    const session = await res.json();
+    if (String(session.payment_status || '').toLowerCase() !== 'paid') return { paymentId: null };
+    const amount = session.amount_total ?? session.amount_subtotal ?? null;
+    return { paymentId: session.metadata?.paymentId || null, eventId: session.id, amountMinor: amount != null ? Number(amount) : null, currency: session.currency ? String(session.currency).toUpperCase() : null, livemode: Boolean(session.livemode) };
+  }
 }
 
 class EasyPayGatewayAdapter extends PaymentGatewayAdapter {
