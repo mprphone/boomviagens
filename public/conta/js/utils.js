@@ -66,6 +66,7 @@ export async function api(path, options = {}) {
   if (!res.ok || data.ok === false) {
     const error = new Error(data.error || 'Erro API');
     error.code = data.code || '';
+    error.data = data;
     throw error;
   }
   return data;

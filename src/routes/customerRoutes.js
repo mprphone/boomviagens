@@ -225,7 +225,27 @@ module.exports = function registerCustomerRoutes(router, ctx) {
       }
     } catch (err) {
       const unavailable = ['SUPPLIER_PRICE_CHANGED', 'DUFFEL_OFFER_EXPIRED', 'HBX_RATE_UNAVAILABLE', 'SUPPLIER_UNAVAILABLE'].includes(err.code);
-      return json(res, unavailable ? 409 : 503, { ok: false, code: err.code || 'SUPPLIER_REVALIDATION_FAILED', error: err.message || 'Não foi possível validar novamente a viagem.' });
+      const expired = ['DUFFEL_OFFER_EXPIRED', 'HBX_RATE_UNAVAILABLE', 'SUPPLIER_UNAVAILABLE'].includes(err.code);
+      const offer = reservation.offer || {};
+      return json(res, unavailable ? 409 : 503, {
+        ok: false,
+        code: err.code || 'SUPPLIER_REVALIDATION_FAILED',
+        error: expired
+          ? 'A oferta guardada já não está disponível. Vamos procurar alternativas para o mesmo destino e datas.'
+          : err.message || 'Não foi possível validar novamente a viagem.',
+        ...(expired ? { search: {
+          destination: offer.destination || '',
+          origin: offer.origin || 'Lisboa',
+          checkin: offer.checkin || '',
+          checkout: offer.checkout || '',
+          adults: Number(offer.adults || 1),
+          children: Number(offer.children || 0),
+          infants: Number(offer.infants || 0),
+          childAges: Array.isArray(offer.childAges) ? offer.childAges : [],
+          infantAges: Array.isArray(offer.infantAges) ? offer.infantAges : [],
+          searchType: String(offer.productType || '').toUpperCase() === 'HOTEL' ? 'HOTEL' : 'PACKAGE'
+        } } : {})
+      });
     }
     const latestPrice = Number(result.offer.finalPrice || 0);
     const priceChanged = Math.abs(previousPrice - latestPrice) > 0.02;

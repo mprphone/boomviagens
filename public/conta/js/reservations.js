@@ -71,8 +71,18 @@ export async function resumeReservationById(reservationId, button, onFailure = (
     sessionStorage.setItem('boom_resume_offer_v1', JSON.stringify({ reservationId, offer: data.offer, resume: data.resume, savedAt: Date.now() }));
     location.href = `/?resumeReservation=${encodeURIComponent(reservationId)}`;
   } catch (err) {
-    notify(err.message);
     onFailure();
+    if (['DUFFEL_OFFER_EXPIRED', 'HBX_RATE_UNAVAILABLE', 'SUPPLIER_UNAVAILABLE'].includes(err.code) && err.data?.search) {
+      if (button) { button.disabled = true; button.textContent = 'A procurar alternativas…'; }
+      try {
+        const alternatives = await api('/api/search', { method: 'POST', body: JSON.stringify(err.data.search) });
+        sessionStorage.setItem('boom_reservation_alternatives_v1', JSON.stringify({ reservationId, data: alternatives, savedAt: Date.now() }));
+        location.href = `/?alternativesFor=${encodeURIComponent(reservationId)}`;
+        return;
+      } catch (searchError) {
+        notify(`A oferta anterior terminou e não foi possível procurar alternativas agora: ${searchError.message}`);
+      }
+    } else notify(err.message);
     if (button) {
       button.disabled = false;
       if (['DUFFEL_OFFER_EXPIRED', 'HBX_RATE_UNAVAILABLE', 'SUPPLIER_UNAVAILABLE'].includes(err.code)) {

@@ -44,10 +44,18 @@ export async function renderReservationDocuments(container, reservationId) {
 }
 
 function reservationBlockHtml(reservation) {
+  const missing = reservation.missingDocuments || [];
+  const identityMissing = missing.filter(item => /passaporte|cart[aã]o|documento de identifica/i.test(item));
+  const tripMissing = missing.filter(item => !identityMissing.includes(item));
+  const status = tripMissing.length
+    ? `<div class="doc-missing-note"><b>Por concluir</b><span>${esc(tripMissing.join(' · '))}</span></div>`
+    : identityMissing.length
+      ? '<div class="doc-missing-note"><b>Identificação por completar</b><span>Complete uma única vez os documentos pessoais no Cofre da família, acima. Serão reutilizados nesta e nas restantes viagens.</span></div>'
+      : '<div class="doc-complete-note">✓ Documentação necessária completa</div>';
   return `
     <div class="doc-reservation" data-document-block data-reservation="${esc(reservation.id)}">
       <div class="doc-reservation-head"><div><b>${esc(reservation.offer?.hotel || reservation.id)}</b><span>${esc(reservation.offer?.destination || '')}</span></div><span class="doc-scope-badge">${esc(reservation.offer?.checkout || 'Reserva')}</span></div>
-      ${reservation.missingDocuments?.length ? `<div class="doc-missing-note"><b>Por concluir</b><span>${esc(reservation.missingDocuments.join(' · '))}</span></div>` : '<div class="doc-complete-note">✓ Documentação necessária completa</div>'}
+      ${status}
       <div data-document-content><p class="muted">A carregar…</p></div>
     </div>`;
 }
@@ -58,8 +66,13 @@ async function loadDocumentBlock(block, reservationId) {
   try {
     const query = reservationId ? `?reservationId=${encodeURIComponent(reservationId)}` : '';
     const data = await api(`/api/customer/documents${query}`);
-    content.innerHTML = `${documentsListHtml(data.documents, data.passengers)}${uploadFormHtml(data.passengers, reservationId)}`;
-    wireDocumentActions(block, data, reservationId);
+    const visibleDocuments = reservationId ? data.documents.filter(document => !document.reusable) : data.documents;
+    const reusedCount = reservationId ? data.documents.length - visibleDocuments.length : 0;
+    const reuseNote = reusedCount
+      ? `<div class="doc-complete-note">✓ ${reusedCount} documento${reusedCount === 1 ? '' : 's'} de identificação reutilizado${reusedCount === 1 ? '' : 's'} automaticamente a partir do Cofre da família.</div>`
+      : '';
+    content.innerHTML = `${reuseNote}${documentsListHtml(visibleDocuments, data.passengers)}${uploadFormHtml(data.passengers, reservationId)}`;
+    wireDocumentActions(block, { ...data, documents: visibleDocuments }, reservationId);
   } catch (err) {
     content.innerHTML = `<p class="error">${esc(err.message)}</p>`;
   }

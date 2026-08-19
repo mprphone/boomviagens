@@ -324,7 +324,7 @@ function updateTripSummary(parsed = {}, offer = null) {
   box.innerHTML = `<p class="eyebrow">A sua pesquisa</p><h3>${esc(destination)}</h3><div class="trip-summary-list"><div class="trip-summary-line"><span>Datas</span><b>${esc(dates)}</b></div><div class="trip-summary-line"><span>Viajantes</span><b>${travellers}</b></div>${tripType ? `<div class="trip-summary-line"><span>Viagem</span><b>${tripType}</b></div>` : ''}</div>${price > 0 ? `<div class="trip-summary-price"><span>Opção selecionada</span><strong>${money(price)}</strong></div>` : '<p>Compare as opções e escolha a que melhor se adapta à sua viagem.</p>'}`;
 }
 
-function renderResultsPage(data) {
+export function renderResultsPage(data) {
   currentSearchResults = data.results || []; currentParsed = data.parsed || {}; currentSearchMessage = data.message || ''; currentCatalogTeasers = data.catalogTeasers || []; currentProductCounts = data.productCounts || { dynamic: 0, packages: 0, hotels: 0 }; compared.clear(); renderCompareBar();
   currentProductFilter = currentProductCounts.dynamic ? 'DYNAMIC_PACKAGE' : currentProductCounts.packages ? 'PACKAGE' : currentProductCounts.hotels ? 'HOTEL' : 'ALL';
   activeFilters = { stars: new Set(), boards: new Set(), freeCancellation: false, maxPrice: null, sort: 'recommended' };

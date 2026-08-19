@@ -5,7 +5,8 @@ import { $, api, notify } from './utils.js';
 import './nav.js';
 import './heroSearch.js';
 import { loadDeals } from './home.js';
-import './results.js';
+import { renderResultsPage } from './results.js';
+import { goToResults } from './router.js';
 import { showReview } from './review.js';
 import './checkout.js';
 import './chat.js';
@@ -71,5 +72,23 @@ if (resumeReservationId) {
       .then(data => openResumedOffer(data.offer))
       .catch(err => { notify(err.message); history.replaceState({}, '', '/'); });
   }
+}
+
+// Quando uma tarifa guardada expirou, a Area de Cliente executou uma nova
+// pesquisa real com as mesmas condicoes e transferiu os resultados para este
+// separador. Abrimos diretamente as alternativas, sem expor erros do
+// fornecedor nem obrigar o cliente a preencher tudo novamente.
+const alternativesFor = new URLSearchParams(location.search).get('alternativesFor');
+if (alternativesFor) {
+  let cachedAlternatives = null;
+  try { cachedAlternatives = JSON.parse(sessionStorage.getItem('boom_reservation_alternatives_v1') || 'null'); } catch {}
+  if (cachedAlternatives?.reservationId === alternativesFor && cachedAlternatives.data && Date.now() - Number(cachedAlternatives.savedAt || 0) < 10 * 60 * 1000) {
+    sessionStorage.removeItem('boom_reservation_alternatives_v1');
+    goToResults();
+    renderResultsPage(cachedAlternatives.data);
+    const results = document.getElementById('results');
+    results?.insertAdjacentHTML('afterbegin', '<div class="legal-notice"><span class="legal-notice-icon">!</span><p><b>A oferta guardada já não está disponível.</b> Estas são alternativas atuais para o mesmo destino, datas e passageiros.</p></div>');
+  } else notify('A oferta guardada já não está disponível. Faça uma nova pesquisa para consultar alternativas atuais.');
+  history.replaceState({}, '', '/');
 }
 

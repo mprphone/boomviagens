@@ -29,9 +29,11 @@ function testCustomerJourneyStructure() {
   assert(accountHtml.includes('method="post" action="/api/customer/login/password"') && accountHtml.includes("history.replaceState") && accountHtml.includes("'password'"), 'Credenciais nunca podem ser submetidas por GET nem permanecer no URL/historico quando o JavaScript falha');
   assert(customerRoutes.includes("res.writeHead(303") && customerRoutes.includes("Location: '/conta/'") && customerRoutes.includes('isBrowserForm(req)'), 'Login HTML sem JavaScript deve criar a sessao e redirecionar para a area reservada, nunca mostrar JSON');
   assert(accountReservations.includes('/api/customer/reservations/resume') && accountPayments.includes('resumeReservationById'), 'Reservas pendentes devem revalidar antes de continuar');
+  assert(accountReservations.includes("'/api/search'") && accountReservations.includes('boom_reservation_alternatives_v1'), 'Ofertas guardadas expiradas devem procurar e apresentar alternativas reais');
   assert(!accountReservations.includes('/api/payment/confirm') && !accountPayments.includes('/api/payment/confirm'), 'A area de cliente nao pode confirmar pagamentos diretamente');
   assert(payment.includes('/api/payment/session') && payment.includes('cdn.easypay.pt') && payment.includes('window.location.assign'), 'Checkout deve criar sessoes reais Stripe/Easypay');
   assert(documents.includes('IDENTITY_CARD') && documents.includes('documentNumber') && documents.includes('expiryDate') && documents.includes('passengerId'), 'Documentos de identidade devem estar separados, validados e associados a passageiros');
+  assert(documents.includes('filter(document => !document.reusable)') && documents.includes('Cofre da família'), 'Documentos pessoais reutilizaveis devem aparecer uma vez no cofre, nao repetidos em cada reserva');
 }
 
 function testIdentityDocuments() {
