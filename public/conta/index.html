@@ -3,6 +3,19 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="referrer" content="no-referrer" />
+  <script>
+    // Defesa imediata para URLs criados por versoes antigas/caches: dados de
+    // autenticacao nunca podem permanecer no endereco, historico ou referrer.
+    (() => {
+      const url = new URL(location.href);
+      const sensitive = ['password', 'pass', 'pwd', 'code', 'challenge'];
+      if (sensitive.some(key => url.searchParams.has(key))) {
+        sensitive.forEach(key => url.searchParams.delete(key));
+        history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+      }
+    })();
+  </script>
   <title>A minha conta - Boomviagens</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -18,18 +31,18 @@
 </head>
 <body>
   <div id="loginGate" class="login-gate">
-    <form id="loginEmailForm" class="login-card">
+    <form id="loginEmailForm" class="login-card" method="post" action="/api/customer/login/password" autocomplete="on">
       <p class="login-eyebrow">boomviagens.pt</p>
       <h1>A minha conta</h1>
       <p class="muted">Entre com o email da sua reserva para aceder às suas viagens, documentos e pagamentos.</p>
-      <label>Email <input name="email" type="email" placeholder="o-seu-email@exemplo.pt" required /></label>
-      <label>Password <span class="muted">(se já tiver definida)</span> <input name="password" type="password" placeholder="opcional" /></label>
+      <label>Email <input name="email" type="email" autocomplete="username" placeholder="o-seu-email@exemplo.pt" required /></label>
+      <label>Password <span class="muted">(se já tiver definida)</span> <input name="password" type="password" autocomplete="current-password" placeholder="opcional" /></label>
       <button class="btn wide" type="submit" id="loginSubmitBtn">Entrar</button>
       <button class="ghost wide" type="button" id="requestCodeBtn">Prefiro receber um código por email</button>
       <p id="loginEmailMessage" class="login-message"></p>
     </form>
 
-    <form id="loginCodeForm" class="login-card" hidden>
+    <form id="loginCodeForm" class="login-card" method="post" action="/api/customer/login/verify" autocomplete="off" hidden>
       <p class="login-eyebrow">boomviagens.pt</p>
       <h1>Confirme o código</h1>
       <p class="muted">Enviámos um código de acesso para o seu email.</p>
