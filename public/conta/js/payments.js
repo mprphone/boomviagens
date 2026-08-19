@@ -2,7 +2,7 @@
 // reserva, tal como o checkout ja funciona hoje - nao inventa um plano
 // de sinal/2 prestacoes/saldo que o sistema nao tem).
 
-import { $, esc, money } from './utils.js';
+import { $, esc, money, api } from './utils.js';
 import { resumeReservationById } from './reservations.js';
 
 export async function renderPagamentos() {

@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "check": "node scripts/check-js.js",
+    "check": "node scripts/check-js.js && eslint public/js public/conta/js public/backoffice/js",
     "test:integrations": "node scripts/test-integrations.js",
     "test": "npm run check && npm run test:integrations && npm run test:operational && npm run test:global && npm run test:frontoffice && npm run test:frontoffice:v8 && npm run test:customer-journeys:v9",
     "test:api": "node scripts/test-api.js",
@@ -36,6 +36,7 @@
     "nodemailer": "^9.0.5"
   },
   "devDependencies": {
-    "esbuild": "^0.28.2"
+    "esbuild": "^0.28.2",
+    "eslint": "^9.39.5"
   }
 }

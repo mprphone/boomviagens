@@ -110,7 +110,7 @@ export async function loadDeals() {
     }
     window.__boomHomeDeals = visibleDeals;
     target.innerHTML = visibleDeals.map(dealCard).join('');
-    target.querySelectorAll('[data-home-deal-index]').forEach(btn => btn.addEventListener('click', () => searchDeal(visibleDeals[Number(btn.dataset.homeDealIndex)])));
+    target.querySelectorAll('[data-home-deal-index]').forEach(btn => btn.addEventListener('click', () => window.searchDeal(visibleDeals[Number(btn.dataset.homeDealIndex)])));
     renderRecommended(data.deals);
   } catch (err) {
     target.innerHTML = `<p class="error">${esc(err.message)}</p>`;
@@ -152,7 +152,7 @@ function renderRecommended(deals) {
         </div>
       </div>
     </article>`).join('');
-  target.querySelectorAll('[data-recommended-index]').forEach(btn => btn.addEventListener('click', () => searchDeal(picks[Number(btn.dataset.recommendedIndex)]?.offer)));
+  target.querySelectorAll('[data-recommended-index]').forEach(btn => btn.addEventListener('click', () => window.searchDeal(picks[Number(btn.dataset.recommendedIndex)]?.offer)));
 }
 
 // 4 agencias: so aparecem se ja tiverem morada preenchida no backoffice
