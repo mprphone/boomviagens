@@ -195,7 +195,12 @@ async function handleEasyPaySuccess(info, data) {
   // O gateway autorizou, mas a confirmacao autenticada (webhook) ainda nao
   // chegou. O browser nunca marca como pago por si - explicar e deixar
   // verificar de novo ou acompanhar na area de cliente, em vez de ficar em
-  // silencio como antes.
+  // silencio como antes. O widget da Easypay fica com o proprio ecra de
+  // "sucesso" parado (o deles, nao o nosso) e tem de ser desmontado, senao
+  // esta mensagem fica escondida por cima dele e parece que nada aconteceu.
+  easypayInstance?.unmount?.();
+  easypayInstance = null;
+  $('#easypay-checkout')?.remove();
   $('#checkoutPaymentError').innerHTML = `
     ${reference}
     <p class="secure-box">Pedido recebido pela Easypay. Ainda estamos a aguardar a confirmação autenticada do pagamento — pode demorar alguns momentos.</p>
