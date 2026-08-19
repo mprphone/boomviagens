@@ -143,7 +143,18 @@ async function handlePaymentReturn() {
       await new Promise(resolve => setTimeout(resolve, 1500));
     }
     notify(confirmed ? 'Pagamento confirmado com segurança.' : 'Pagamento recebido pelo gateway. A confirmação ainda está a ser processada.', confirmed ? 'success' : 'error');
-    renderPagamentos();
+    await renderPagamentos();
+    if (confirmed) {
+      // Cartao/Stripe sai do site para pagar e volta direto para a Area de
+      // Cliente - nunca passa pelo ecra "Reserva recebida" do checkout (esse
+      // so existe dentro do popup, para MB WAY/simulacao). Sem isto, um
+      // pagamento com cartao confirmado so tinha uma toast que desaparece
+      // sozinha em segundos, sem nada visivel a seguir.
+      const banner = document.createElement('div');
+      banner.className = 'panel';
+      banner.innerHTML = '<div class="panel-head"><h2>✓ Pagamento confirmado</h2><span class="pill ok">Pago</span></div><p class="muted">A sua reserva está paga e segue agora para validação do operador. Pode acompanhar o estado aqui ou em "Viagens guardadas".</p>';
+      $('#view-pagamentos').prepend(banner);
+    }
   }
   history.replaceState({}, '', '/conta/');
 }
