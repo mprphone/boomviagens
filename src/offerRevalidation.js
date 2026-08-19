@@ -38,7 +38,7 @@ function createOfferRevalidation({ duffel, hbx, applyMargin, env = process.env }
       let latest;
       try { latest = await hbx.checkRate(hotelComponent.rateKey); }
       catch (error) {
-        if ([400, 404, 410].includes(Number(error.status))) {
+        if ([400, 404, 410, 422].includes(Number(error.status))) {
           throw Object.assign(new Error('Esta tarifa de hotel já expirou. Faça uma nova pesquisa para obter preços e disponibilidade atuais.'), { code: 'HBX_RATE_UNAVAILABLE' });
         }
         throw error;
