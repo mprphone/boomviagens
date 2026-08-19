@@ -57,7 +57,11 @@ export function renderCheckoutStep1() {
         </label>
       </div>
       ${nifLocked ? '<p class="muted small">NIF definido na sua conta. Para alterar, faça-o em "Os meus dados".</p>' : ''}
-      <label>Morada <span class="muted">(opcional)</span> <input name="address" value="${esc(billing.address)}" placeholder="Rua, número, código postal, localidade" /></label>
+      <label>Morada <span class="muted">(opcional, mas necessária para emitir fatura)</span> <input name="address" value="${esc(billing.address)}" placeholder="Rua, número" /></label>
+      <div class="form-row">
+        <label>Código postal <input name="postalCode" value="${esc(billing.postalCode)}" placeholder="0000-000" /></label>
+        <label>Localidade <input name="city" value="${esc(billing.city)}" placeholder="Cidade" /></label>
+      </div>
       <div class="booking-preferences">
         <label class="consent strong"><input type="checkbox" name="bookerTravels" ${getBookerTravels() ? 'checked' : ''} /><span><b>Eu também vou viajar</b><small>Se estiver assinalado, usamos estes dados para pré-preencher o primeiro passageiro.</small></span></label>
         ${verified ? '<label class="consent"><input type="checkbox" name="saveProfile" checked /><span>Guardar/atualizar estes dados na minha conta para a próxima reserva</span></label>' : ''}
@@ -77,7 +81,7 @@ function wireStep1Form() {
   const continueBtn = $('#step1Continue');
   const persistCurrentForm = () => {
     const values = formToJson(form);
-    setBilling({ name: values.name || '', email: values.email || '', phone: values.phone || '', nif: values.nif || '', address: values.address || '' });
+    setBilling({ name: values.name || '', email: values.email || '', phone: values.phone || '', nif: values.nif || '', address: values.address || '', postalCode: values.postalCode || '', city: values.city || '' });
     setBookerTravels(Boolean(form.elements.bookerTravels?.checked));
   };
   form.querySelectorAll('input').forEach(input => input.addEventListener('change', persistCurrentForm));
@@ -119,7 +123,7 @@ function wireStep1Form() {
       $('#checkoutFormError').innerHTML = '<p class="error">O NIF indicado não é válido.</p>';
       return;
     }
-    setBilling({ name: f.name, email: f.email, phone: f.phone, nif: f.nif || '', address: f.address || '' });
+    setBilling({ name: f.name, email: f.email, phone: f.phone, nif: f.nif || '', address: f.address || '', postalCode: f.postalCode || '', city: f.city || '' });
     setBookerTravels(Boolean(form.elements.bookerTravels?.checked));
     const btn = $('#step1Continue');
     const oldText = btn?.textContent || 'Continuar para passageiros';
@@ -149,7 +153,9 @@ async function syncProfileFields(f) {
     name: (!c.name || c.name === 'Cliente') ? f.name : c.name,
     phone: f.phone || c.phone || '',
     nif: c.nif || f.nif || '',
-    address: f.address || c.address || ''
+    address: f.address || c.address || '',
+    postalCode: f.postalCode || c.postalCode || '',
+    city: f.city || c.city || ''
   };
   const data = await api('/api/customer/profile', { method: 'POST', body: JSON.stringify({ ...c, ...updates }) });
   setExistingProfile(data.customer);
@@ -226,7 +232,7 @@ async function confirmEmailCode(emailValue) {
     // Guarda o que ja estava escrito no formulario antes de o recriar -
     // prefillFromExistingProfile() so preenche por cima do que faltar.
     const form = $('#checkoutStep1Form');
-    setBilling({ name: form.name.value.trim(), email: emailValue, phone: form.phone.value.trim(), nif: form.nif.value.trim(), address: form.address.value.trim() });
+    setBilling({ name: form.name.value.trim(), email: emailValue, phone: form.phone.value.trim(), nif: form.nif.value.trim(), address: form.address.value.trim(), postalCode: form.postalCode.value.trim(), city: form.city.value.trim() });
     await prefillFromExistingProfile();
     announceCustomerSessionChange();
     renderCheckoutStep1();
@@ -273,7 +279,9 @@ async function prefillFromExistingProfile() {
       email: current.email,
       phone: current.phone || c.phone || '',
       nif: current.nif || c.nif || '',
-      address: current.address || c.address || ''
+      address: current.address || c.address || '',
+      postalCode: current.postalCode || c.postalCode || '',
+      city: current.city || c.city || ''
     });
     setHasExistingPassword(Boolean(data.hasPassword));
   } catch {

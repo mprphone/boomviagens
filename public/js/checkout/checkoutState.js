@@ -5,7 +5,7 @@
 
 const STORAGE_KEY = 'boom_checkout_draft_v2';
 
-let billing = { name: '', email: '', phone: '', nif: '', address: '' };
+let billing = { name: '', email: '', phone: '', nif: '', address: '', city: '', postalCode: '' };
 let emailVerified = false;
 let verifyChallenge = null;
 let passengers = [];
@@ -94,7 +94,7 @@ export function setCheckoutOwnerEmail(value) {
     (!draftOwnerEmail && next && billingEmail && billingEmail !== next)
   );
   if (belongsToAnotherAccount) {
-    billing = { name: '', email: '', phone: '', nif: '', address: '' };
+    billing = { name: '', email: '', phone: '', nif: '', address: '', city: '', postalCode: '' };
     passengers = [];
     currentPassengerIndex = 0;
     existingProfile = null;
