@@ -462,8 +462,14 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
         const currencyMatches = !verification?.currency || verification.currency === 'EUR';
         if (verification?.paymentId === payment.id && amountMatches && currencyMatches) {
           await paymentConfirmation.confirmPayment(payment.id);
+        } else {
+          // Log deliberado (nao um erro) - sem isto, um "ainda nao confirmado"
+          // fica indistinguivel de "nunca tentamos verificar" nos logs, o que
+          // ja causou diagnostico as cegas mais que uma vez nesta reconciliacao.
+          console.log('[easypay] status ainda nao confirmado na reconciliacao direta', { paymentId: payment.id, gatewaySessionId: payment.gatewaySessionId, verifiedPaymentId: verification?.paymentId || null, amountMatches, currencyMatches });
         }
-      } catch {
+      } catch (err) {
+        console.error('[easypay] falha ao reconciliar diretamente', { paymentId: payment.id, error: err.message });
         // Reconciliacao best-effort - se a Easypay estiver indisponivel agora,
         // devolve o estado atual e o cliente pode voltar a tentar depois.
       }
