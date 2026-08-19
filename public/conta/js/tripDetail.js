@@ -6,7 +6,7 @@
 // (comprar extras/alteracoes/cancelamento, reclamacoes do cliente).
 
 import { $, esc, money, dateRange, shortDate, api } from './utils.js';
-import { uploadFormHtml, wireUploadForm, loadDocs } from './documents.js';
+import { renderReservationDocuments } from './documents.js';
 
 const TYPE_ICON = {
   VOO: 'VO', ALOJAMENTO: 'HT', TRANSFER: 'TR', CRUZEIRO: 'CR', RENT_A_CAR: 'RC',
@@ -168,15 +168,8 @@ async function renderTimelineTab(panel, r, reload, isActive) {
     </div>`;
 }
 
-function renderDocumentosTab(panel, r) {
-  panel.innerHTML = `
-    <div class="panel">
-      <div class="panel-head"><h2>Documentos desta viagem</h2></div>
-      <div class="doc-list" data-list></div>
-      ${uploadFormHtml()}
-    </div>`;
-  wireUploadForm(panel.querySelector('.panel'), r.id);
-  loadDocs(r.id, panel.querySelector('[data-list]'));
+async function renderDocumentosTab(panel, r) {
+  await renderReservationDocuments(panel, r.id);
 }
 
 function renderPagamentosTab(panel, r) {

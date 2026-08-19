@@ -31,6 +31,18 @@ export async function renderDocumentos() {
   ]);
 }
 
+// Reutiliza exatamente o mesmo bloco documental dentro do detalhe de uma
+// viagem. Mantem carregamento, passageiros, upload e acoes num unico modulo,
+// evitando imports de helpers privados que impediam toda a area de arrancar.
+export async function renderReservationDocuments(container, reservationId) {
+  container.innerHTML = `
+    <div class="panel doc-reservation" data-document-block data-reservation="${esc(reservationId)}">
+      <div class="panel-head"><h2>Documentos desta viagem</h2></div>
+      <div data-document-content><p class="muted">A carregar…</p></div>
+    </div>`;
+  await loadDocumentBlock(container.querySelector('[data-document-block]'), reservationId);
+}
+
 function reservationBlockHtml(reservation) {
   return `
     <div class="doc-reservation" data-document-block data-reservation="${esc(reservation.id)}">

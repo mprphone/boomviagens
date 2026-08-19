@@ -34,5 +34,8 @@
   "dependencies": {
     "dotenv": "^17.4.2",
     "nodemailer": "^9.0.5"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
   }
 }
