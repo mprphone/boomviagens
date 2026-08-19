@@ -57,10 +57,10 @@ export function renderCheckoutStep1() {
         </label>
       </div>
       ${nifLocked ? '<p class="muted small">NIF definido na sua conta. Para alterar, faça-o em "Os meus dados".</p>' : ''}
-      <label>Morada <span class="muted">(opcional, mas necessária para emitir fatura)</span> <input name="address" value="${esc(billing.address)}" placeholder="Rua, número" /></label>
+      <label>Morada <input name="address" value="${esc(billing.address)}" placeholder="Rua, número" required /></label>
       <div class="form-row">
-        <label>Código postal <input name="postalCode" value="${esc(billing.postalCode)}" placeholder="0000-000" /></label>
-        <label>Localidade <input name="city" value="${esc(billing.city)}" placeholder="Cidade" /></label>
+        <label>Código postal <input name="postalCode" value="${esc(billing.postalCode)}" placeholder="0000-000" required /></label>
+        <label>Localidade <input name="city" value="${esc(billing.city)}" placeholder="Cidade" required /></label>
       </div>
       <div class="booking-preferences">
         <label class="consent strong"><input type="checkbox" name="bookerTravels" ${getBookerTravels() ? 'checked' : ''} /><span><b>Eu também vou viajar</b><small>Se estiver assinalado, usamos estes dados para pré-preencher o primeiro passageiro.</small></span></label>

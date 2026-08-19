@@ -138,6 +138,14 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
     if (!customer.email || String(customer.email).trim().toLowerCase() !== String(verifiedEmail).trim().toLowerCase()) {
       return json(res, 403, { ok: false, error: 'O email da reserva tem de corresponder ao email verificado nesta sessão.' });
     }
+    // Morada/localidade/codigo postal sao exigidos pela API de faturacao
+    // (Facturalusa) - sem isto a fatura fica sempre por emitir (ver
+    // invoicing.js). O formulario do checkout ja os torna obrigatorios, mas
+    // validar aqui tambem garante que nenhuma reserva fica sem estes dados,
+    // seja qual for o caminho que a chamou.
+    if (!customer.address || !customer.city || !customer.postalCode) {
+      return json(res, 400, { ok: false, error: 'Indique morada, código postal e localidade para podermos emitir a fatura.' });
+    }
     const rawPassengers = Array.isArray(body.passengers) && body.passengers.length ? body.passengers : customer.passengers;
     const adults = Number(offer.adults || 1);
     const children = Number(offer.children || 0);
