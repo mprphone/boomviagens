@@ -5,6 +5,16 @@
 // a parecer "nao pago".
 
 const AUTO_CONFIRM_ENABLED = String(process.env.HBX_AUTO_CONFIRM_ENABLED || '').toLowerCase() === 'true';
+// Uma tentativa de reserva HBX demora 1-2s; se o gateway desistir de esperar
+// a nossa resposta e reenviar o mesmo webhook enquanto a primeira tentativa
+// ainda esta a decorrer, as duas nao podem chegar a chamar createBooking em
+// paralelo (reservava-se a dobrar). updateDb() (src/storage.js) le tudo,
+// muda, escreve - nao ha compare-and-swap ao nivel da base de dados, por
+// isso isto nao protege contra dois pedidos verdadeiramente simultaneos na
+// mesma fracao de segundo, mas fecha o caso real (retry de webhook a meio
+// de uma tentativa lenta). Uma trava a serio exigiria mudar updateDb para
+// todo o projeto - fora de escopo aqui.
+const LOCK_STALE_MS = 2 * 60 * 1000;
 
 module.exports = function createPaymentConfirmation(ctx) {
   const { readDb, updateDb, operators, reservationEmail, invoicing, voucherIssuing, domain } = ctx;
@@ -68,10 +78,32 @@ module.exports = function createPaymentConfirmation(ctx) {
     // comportamento com isto.
     let confirmation = null;
     if (AUTO_CONFIRM_ENABLED && adapter && validation.priceStillValid && validation.availabilityStillValid && !validation.needsHumanReview) {
-      try {
-        confirmation = await adapter.confirm({ reservation: paidReservation, payment: paidPayment });
-      } catch (err) {
-        confirmation = { ok: false, operator: adapter.name, locator: null, needsHumanReview: true, raw: { reason: err.message, operatorUnavailable: true } };
+      // 'locked' = outra tentativa esta mesmo a decorrer agora (back off,
+      // fica para revisao humana). 'already' = uma tentativa concorrente ja
+      // terminou com sucesso entretanto (idempotente - usa o locator real
+      // que ja existe, nunca sobrepor com HUMAN_REVIEW).
+      let outcome = 'proceed';
+      let existingLocator = null;
+      await updateDb(d => {
+        ensureCollections(d);
+        const r = d.reservations.find(x => x.id === reservation.id);
+        if (!r) return;
+        if (r.operatorLocator) { outcome = 'already'; existingLocator = r.operatorLocator; return; }
+        const lock = r.hbxBookingLock;
+        const stale = lock && Date.now() - new Date(lock.startedAt).getTime() > LOCK_STALE_MS;
+        if (lock && !stale) { outcome = 'locked'; return; }
+        r.hbxBookingLock = { startedAt: now() };
+      });
+      if (outcome === 'already') {
+        confirmation = { ok: true, operator: adapter.name, locator: existingLocator, needsHumanReview: false, raw: { idempotent: true } };
+      } else if (outcome === 'locked') {
+        confirmation = { ok: false, operator: adapter.name, locator: null, needsHumanReview: true, raw: { reason: 'Outra tentativa de confirmação automática já em curso para esta reserva.' } };
+      } else {
+        try {
+          confirmation = await adapter.confirm({ reservation: paidReservation, payment: paidPayment });
+        } catch (err) {
+          confirmation = { ok: false, operator: adapter.name, locator: null, needsHumanReview: true, raw: { reason: err.message, operatorUnavailable: true } };
+        }
       }
     }
     const canAutoConfirm = Boolean(confirmation?.ok && confirmation.locator && !confirmation.needsHumanReview);
@@ -82,6 +114,7 @@ module.exports = function createPaymentConfirmation(ctx) {
       const p = d.payments.find(x => x.id === payment.id);
       const r = d.reservations.find(x => x.id === reservation.id);
       if (!p || !r) return;
+      delete r.hbxBookingLock;
       if (canAutoConfirm) {
         r.status = 'CONFIRMED';
         r.confirmedAt = now();
