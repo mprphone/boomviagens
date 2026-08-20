@@ -219,6 +219,14 @@ create table if not exists public.reservations (
 create index if not exists reservations_status_idx on public.reservations(status);
 create index if not exists reservations_created_at_idx on public.reservations(created_at desc);
 
+-- Margem confirmada (no momento da aprovacao do processo) vs final (no
+-- pos-viagem, depois de custos reais de fornecedores) - ver separador
+-- Financeiro > Margem. Aditivo (ja existia em producao, faltava aqui).
+alter table public.reservations add column if not exists margin_confirmed numeric(12,2);
+alter table public.reservations add column if not exists margin_confirmed_at timestamptz;
+alter table public.reservations add column if not exists margin_final numeric(12,2);
+alter table public.reservations add column if not exists margin_final_at timestamptz;
+
 -- So pode ser adicionada agora que a tabela reservations existe (a
 -- oportunidade e criada antes da reserva, mas so fica ligada quando e
 -- convertida em processo, fase GANHO).
@@ -283,6 +291,17 @@ create table if not exists public.idempotency_keys (
   created_at timestamptz not null default now()
 );
 
+-- Torna o codigo de login do cliente de uso unico (ver auditoria: o mesmo
+-- codigo podia ser reutilizado repetidamente dentro da janela de
+-- validade). A chave e o "jti" gerado no pedido do codigo, nao o codigo em
+-- si - a insercao falha (conflito de chave) se o mesmo challenge ja tiver
+-- sido consumido. TABELA NOVA - precisa de ser criada manualmente no editor
+-- SQL da Supabase de producao antes de ativar esta correcao.
+create table if not exists public.used_login_challenges (
+  challenge_id text primary key,
+  created_at timestamptz not null default now()
+);
+
 -- Linhas de servico (compras/vendas) de uma reserva - separador "Servicos"
 -- da Ficha de Reserva. A soma destas linhas da os valores reais da
 -- reserva (custo/venda/margem), em contraste com a proposta original
@@ -316,6 +335,38 @@ create table if not exists public.reservation_service_lines (
 );
 
 create index if not exists reservation_service_lines_reservation_id_idx on public.reservation_service_lines(reservation_id);
+
+-- Recebimentos parciais de uma linha de servico (Financeiro > Conta do
+-- Processo) - ja existia em producao, faltava aqui.
+create table if not exists public.service_line_payments (
+  id text primary key,
+  created_at timestamptz not null default now(),
+  service_line_id text not null references public.reservation_service_lines(id) on delete cascade,
+  amount numeric(12,2) not null,
+  paid_at timestamptz,
+  method text,
+  reference text,
+  notes text
+);
+
+create index if not exists service_line_payments_service_line_id_idx on public.service_line_payments(service_line_id);
+
+-- Reembolsos/notas de credito, nos dois sentidos (cliente<->agencia,
+-- agencia<->fornecedor) - Financeiro > Conta do Processo. Ja existia em
+-- producao, faltava aqui.
+create table if not exists public.refunds (
+  id text primary key,
+  created_at timestamptz not null default now(),
+  reservation_id text not null references public.reservations(id) on delete cascade,
+  service_line_id text references public.reservation_service_lines(id) on delete set null,
+  direction text not null,
+  amount numeric(12,2) not null,
+  reason text,
+  notes text,
+  created_by text
+);
+
+create index if not exists refunds_reservation_id_idx on public.refunds(reservation_id);
 
 -- Historico/timeline de uma reserva: mudancas de estado, linhas de servico
 -- adicionadas/editadas/removidas e documentos anexados sao registados aqui

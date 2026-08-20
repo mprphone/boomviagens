@@ -3,6 +3,9 @@
 // sessao valida antes de chamar o handler, sem repetir a verificacao em
 // cada rota).
 
+const { safeError } = require('../httpUtils');
+const { sniffAndValidate } = require('../fileValidation');
+
 module.exports = function registerAdminRoutes(router, ctx) {
   const { json, parseBody, readDb, updateDb, operators, cleanText, numberInRange, domain, fileStorage, reservationEmail, invoicing, mailer } = ctx;
 
@@ -947,12 +950,14 @@ module.exports = function registerAdminRoutes(router, ctx) {
     }
 
     const buffer = Buffer.from(body.fileBase64, 'base64');
+    const sniffed = sniffAndValidate(buffer, { allowOffice: true });
+    if (!sniffed.ok) return json(res, 400, { ok: false, error: sniffed.error });
     const docId = id('doc');
     const storagePath = `${folder}/${docId}-${fileStorage.sanitizeFileName(fileName)}`;
     try {
-      await fileStorage.uploadFile(storagePath, buffer, body.mimeType);
+      await fileStorage.uploadFile(storagePath, buffer, sniffed.verifiedMimeType);
     } catch (err) {
-      return json(res, 502, { ok: false, error: `Falha ao guardar documento: ${err.message}` });
+      return json(res, 502, { ok: false, error: safeError(err, 'Falha ao guardar documento.') });
     }
 
     const document = {
@@ -1051,18 +1056,20 @@ module.exports = function registerAdminRoutes(router, ctx) {
     if (!customer) return json(res, 404, { ok: false, error: 'Cliente nao encontrado' });
     const leads = db.leads.filter(l => l.search?.email === customerEmail);
 
+    const canSeeFinance = financeRole(req);
     const reservations = db.reservations.filter(r => r.customer?.email === customerEmail)
       .map(r => {
         const offer = r.offer || {};
         const margin = Number(offer.marginValue ?? ((offer.finalPrice || 0) - (offer.costPrice || 0)));
         const marginPercent = offer.finalPrice ? (margin / offer.finalPrice) * 100 : 0;
         const occurrencesCount = db.reservationEvents.filter(e => e.reservationId === r.id && OCCURRENCE_EVENT_TYPES.includes(e.type)).length;
-        return {
+        return reservationViewFor(req, {
           ...r,
           processNumber: processNumber(r),
           payment: db.payments.find(p => p.reservationId === r.id) || null,
-          margin, marginPercent, occurrencesCount
-        };
+          occurrencesCount,
+          ...(canSeeFinance ? { margin, marginPercent } : {})
+        });
       })
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
@@ -1154,14 +1161,14 @@ module.exports = function registerAdminRoutes(router, ctx) {
       leads,
       reservations,
       documents: documentsWithUrls,
-      financialDocuments: financialDocumentsWithUrls,
+      ...(canSeeFinance ? { financialDocuments: financialDocumentsWithUrls } : {}),
       contacts,
       complaints,
       complaintDocuments: complaintDocumentsWithUrls,
       complaintStatuses: COMPLAINT_STATUSES.map(value => ({ value, label: complaintStatusLabel(value) })),
       complaintDirections: COMPLAINT_DIRECTIONS,
       suppliers: db.suppliers.map(s => ({ id: s.id, name: s.name })),
-      accountStatement,
+      ...(canSeeFinance ? { accountStatement } : {}),
       indicators
     });
   }, { admin: true });

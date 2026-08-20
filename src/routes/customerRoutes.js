@@ -8,9 +8,11 @@
 
 const crypto = require('crypto');
 const { isProductionDeployment } = require('../runtimeConfig');
+const { safeError } = require('../httpUtils');
+const { sniffAndValidate } = require('../fileValidation');
 
 module.exports = function registerCustomerRoutes(router, ctx) {
-  const { json, unauthorized, parseBody, readDb, updateDb, customerPayload, validateEmail, validatePassword, rateLimit, domain, cleanText, fileStorage, mailer, operators, offerRevalidation, offerTokens } = ctx;
+  const { json, unauthorized, parseBody, readDb, updateDb, customerPayload, validateEmail, validatePassword, rateLimit, domain, cleanText, fileStorage, mailer, operators, offerRevalidation, offerTokens, storage } = ctx;
   const { ensureCollections, audit, id, now, missingDocumentsFor, DOCUMENT_TYPES, sanitizeCustomer, customerReservationView, customerReservationDetailView, isCustomerVisibleDocument } = domain;
   const { signToken, verifyToken, customerSessionEmail, setCustomerSessionCookie, clearCustomerSessionCookie, safeEqual, hashPassword, verifyPassword, hashLoginCode, CUSTOMER_CODE_TTL_MS, SESSION_TTL_MS } = ctx.auth;
 
@@ -76,7 +78,11 @@ module.exports = function registerCustomerRoutes(router, ctx) {
     // auditoria) - de outro modo bastava descodificar o proprio challenge
     // (base64, nao encriptado) para ficar com o codigo, mesmo sem aceder
     // ao email.
-    const challenge = signToken({ scope: 'customer-code', email: customerEmail, codeHash: hashLoginCode(code), exp: Date.now() + CUSTOMER_CODE_TTL_MS });
+    // jti identifica este challenge especifico (nao o codigo em si) para o
+    // podermos marcar como consumido depois de verificado com sucesso - ver
+    // auditoria: sem isto o mesmo codigo podia ser reutilizado repetidamente
+    // dentro da janela de validade.
+    const challenge = signToken({ scope: 'customer-code', email: customerEmail, codeHash: hashLoginCode(code), jti: crypto.randomUUID(), exp: Date.now() + CUSTOMER_CODE_TTL_MS });
     const mail = loginCodeEmail({ email: customerEmail, code });
     const sent = await mailer.sendMail({ to: customerEmail, subject: mail.subject, body: mail.body });
     if (isProductionDeployment(process.env) && sent.mode !== 'smtp') {
@@ -105,6 +111,12 @@ module.exports = function registerCustomerRoutes(router, ctx) {
     const customerEmail = validateEmail(body.email);
     const pending = verifyToken(body.challenge);
     if (!pending || pending.scope !== 'customer-code' || pending.email !== customerEmail || !safeEqual(hashLoginCode(body.code || ''), String(pending.codeHash || ''))) {
+      return json(res, 401, { ok: false, error: 'Codigo invalido ou expirado' });
+    }
+    // Codigo de uso unico: a primeira verificacao bem sucedida consome o
+    // challenge (ver auditoria) - repetir o mesmo pedido com o mesmo codigo
+    // deixa de funcionar, mesmo dentro da janela de validade.
+    if (!(await storage.markLoginChallengeUsed(pending.jti))) {
       return json(res, 401, { ok: false, error: 'Codigo invalido ou expirado' });
     }
     const token = signToken({ scope: 'customer', email: customerEmail, exp: Date.now() + SESSION_TTL_MS });
@@ -550,18 +562,15 @@ module.exports = function registerCustomerRoutes(router, ctx) {
     }
 
     const buffer = Buffer.from(body.fileBase64, 'base64');
-    if (buffer.length < 4 || buffer.length > 7 * 1024 * 1024) return json(res, 400, { ok: false, error: 'O documento deve ter entre 4 bytes e 7 MB.' });
-    const isPdf = buffer.subarray(0, 4).toString('ascii') === '%PDF';
-    const isJpeg = buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
-    const isPng = buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
-    if (!isPdf && !isJpeg && !isPng) return json(res, 400, { ok: false, error: 'Formato não permitido. Use PDF, JPG ou PNG.' });
-    const verifiedMimeType = isPdf ? 'application/pdf' : isPng ? 'image/png' : 'image/jpeg';
+    const sniffed = sniffAndValidate(buffer);
+    if (!sniffed.ok) return json(res, 400, { ok: false, error: sniffed.error });
+    const verifiedMimeType = sniffed.verifiedMimeType;
     const docId = id('doc');
     const storagePath = `${folder}/${docId}-${fileStorage.sanitizeFileName(fileName)}`;
     try {
       await fileStorage.uploadFile(storagePath, buffer, verifiedMimeType);
     } catch (err) {
-      return json(res, 502, { ok: false, error: `Falha ao guardar documento: ${err.message}` });
+      return json(res, 502, { ok: false, error: safeError(err, 'Falha ao guardar documento.') });
     }
 
     const document = {
@@ -579,7 +588,7 @@ module.exports = function registerCustomerRoutes(router, ctx) {
       });
     } catch (err) {
       try { await fileStorage.deleteFile(storagePath); } catch { /* compensacao de melhor esforco */ }
-      return json(res, 502, { ok: false, error: `Falha ao registar documento: ${err.message}` });
+      return json(res, 502, { ok: false, error: safeError(err, 'Falha ao registar documento.') });
     }
     const { storagePath: _storagePath, ...safeDocument } = document;
     return json(res, 200, { ok: true, document: safeDocument });

@@ -158,7 +158,7 @@ async function testGatewayCheckoutContracts() {
     assert.equal(verifiedWebhook.paymentId, 'pay_1');
     assert.equal(verifiedWebhook.amount, 85);
     global.fetch = async () => ({ ok: false, status: 503 });
-    await assert.rejects(() => easypay.handleWebhook(JSON.stringify({ id: 'easy-single-1', key: 'pay_1' })), /verificar a notificação/);
+    await assert.rejects(() => easypay.handleWebhook(JSON.stringify({ id: 'easy-single-1', key: 'pay_1' })), /verificar o pagamento/);
   } finally {
     global.fetch = originalFetch;
   }

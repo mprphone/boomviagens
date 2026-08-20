@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const { paymentsMode } = require('../runtimeConfig');
+const { safeError } = require('../httpUtils');
 // Rotas publicas: nada disto exige sessao. Pesquisa, calendario de precos,
 // destaques da homepage, saude do servico e o chat local.
 
@@ -457,7 +458,7 @@ module.exports = function registerPublicRoutes(router, ctx) {
       const places = await cachedProviderCall('duffel-places', q.toLowerCase(), 24 * 60 * 60 * 1000, () => duffel.suggestPlaces(q, 10));
       return json(res, 200, { ok: true, places });
     } catch (err) {
-      return json(res, 502, { ok: false, error: err.message || 'Não foi possível procurar aeroportos.' });
+      return json(res, 502, { ok: false, error: safeError(err, 'Não foi possível procurar aeroportos.') });
     }
   });
 
@@ -752,7 +753,7 @@ module.exports = function registerPublicRoutes(router, ctx) {
       return json(res, 200, { ok: true, ...result });
     } catch (err) {
       const status = /desligad|configurad/i.test(err.message) ? 503 : 502;
-      return json(res, status, { ok: false, error: err.message });
+      return json(res, status, { ok: false, error: safeError(err, 'Não foi possível explorar esta zona.') });
     }
   });
 
@@ -913,7 +914,7 @@ module.exports = function registerPublicRoutes(router, ctx) {
           description: h.description, availabilityStatus: 'TO_CONFIRM', destination: destination.name, country: destination.country
         }));
       } catch (err) {
-        providerStates.push({ id: 'hbx-content', ok: false, error: err.message || 'Catálogo HBX indisponível' });
+        providerStates.push({ id: 'hbx-content', ok: false, error: safeError(err, 'Catálogo HBX indisponível') });
       }
     }
 

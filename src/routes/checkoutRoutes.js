@@ -1,4 +1,5 @@
 const { mockPaymentsAllowed, paymentsMode, gatewayPaymentsEnabled } = require('../runtimeConfig');
+const { safeError } = require('../httpUtils');
 // Checkout e pagamentos mock/gateway. Mesmo num pagamento real, a emissao
 // no operador so acontece depois da validacao operacional/backoffice.
 //
@@ -418,7 +419,7 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
         cancelUrl: `${baseUrl}/conta/?payment=cancelled&paymentId=${encodeURIComponent(payment.id)}`
       });
     } catch (err) {
-      return json(res, 502, { ok: false, code: err.code || 'PAYMENT_GATEWAY_ERROR', error: err.message || 'Não foi possível abrir o pagamento.' });
+      return json(res, 502, { ok: false, code: err.code || 'PAYMENT_GATEWAY_ERROR', error: safeError(err, 'Não foi possível abrir o pagamento.') });
     }
 
     session.method = payment.method;

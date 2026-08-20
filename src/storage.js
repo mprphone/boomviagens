@@ -20,6 +20,15 @@ if (process.env.DB_MODE === 'supabase' && !supabaseConfigured) {
   console.warn('[storage] DB_MODE=supabase mas SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY nao estao definidos corretamente. A usar data/db.json local (nao persistente em Vercel).');
 }
 
+// Em producao/Vercel o filesystem e efemero - se a Supabase nao ficar
+// configurada corretamente, cair para data/db.json local perde dados
+// silenciosamente a cada cold start. Recusar arrancar e mais seguro do que
+// servir trafego real contra um ficheiro que desaparece.
+const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL);
+if (IS_PRODUCTION && !useSupabase) {
+  throw new Error('DB_MODE=supabase mal configurado em producao/Vercel. O servidor recusou arrancar a escrever em data/db.json.');
+}
+
 // ---------------------------------------------------------------------------
 // Backend local: ficheiro JSON. So serve para desenvolvimento; em Vercel o
 // sistema de ficheiros e efemero, por isso este backend nao deve ser usado
@@ -1127,6 +1136,9 @@ async function updateDbSupabase(mutator) {
   const beforeServiceLineIds = new Set((before.serviceLines || []).map(s => s.id));
   const afterServiceLineIds = new Set((db.serviceLines || []).map(s => s.id));
   const removedServiceLineIds = [...beforeServiceLineIds].filter(lineId => !afterServiceLineIds.has(lineId));
+  const beforeTaskIds = new Set((before.tasks || []).map(t => t.id));
+  const afterTaskIds = new Set((db.tasks || []).map(t => t.id));
+  const removedTaskIds = [...beforeTaskIds].filter(taskId => !afterTaskIds.has(taskId));
   await Promise.all(firstTasks);
   await upsertRowsCompatible('payments', paymentRows, OPTIONAL_PAYMENT_COLUMNS);
   // opportunities.reservation_id pode apontar para uma reserva criada na
@@ -1151,6 +1163,7 @@ async function updateDbSupabase(mutator) {
     upsertRows('tasks', taskRows)
   ];
   if (removedDocIds.length) thirdTasks.push(deleteRows('documents', removedDocIds));
+  if (removedTaskIds.length) thirdTasks.push(deleteRows('tasks', removedTaskIds));
   await Promise.all(thirdTasks);
   // service_line_payments/refunds referenciam reservation_service_lines
   // (e refunds tambem reservations) - so podem ser gravados depois de
@@ -1179,6 +1192,48 @@ async function writeDb(db) {
   if (useSupabase) return writeDbSupabase(db);
   if (useSqlite) return writeDbSqlite(db);
   return writeDbLocal(db);
+}
+
+// Consulta pontual e leve (so active/role, uma linha) para revalidar a
+// sessao de um colaborador a cada pedido admin sem pagar o custo de um
+// readDb() completo (22 tabelas) so para isso - ver auditoria: um token
+// assinado guarda o cargo no momento do login e nunca era reconfirmado
+// contra a tabela staff, por isso uma conta desativada/despromovida
+// continuava com o acesso antigo ate o token expirar (ate 8h).
+async function getStaffAuthState(staffId) {
+  if (!staffId) return null;
+  if (useSupabase) {
+    const rows = await supabaseFetch('staff', { search: `?id=eq.${encodeURIComponent(staffId)}&select=active,role` });
+    if (!rows || !rows.length) return null;
+    return { active: rows[0].active !== false, role: rows[0].role || 'ADMIN' };
+  }
+  const db = useSqlite ? await readDbSqlite() : readDbLocal();
+  const staff = (db.staff || []).find(s => s.id === staffId);
+  if (!staff) return null;
+  return { active: staff.active !== false, role: staff.role || 'ADMIN' };
+}
+
+// Impede reutilizar o mesmo codigo de login do cliente varias vezes dentro
+// da janela de validade (ver auditoria: o challenge nunca era marcado como
+// consumido). Tem de ser persistido - o site corre em varias instancias
+// serverless na Vercel, um Set em memoria so bloquearia repeticoes que
+// calhassem na mesma instancia (mesma limitacao ja aceite para rateBuckets
+// em src/auth.js). Fora da Supabase (dev/sqlite local, processo unico) um
+// Set em memoria chega.
+const usedLoginChallengesLocal = new Set();
+async function markLoginChallengeUsed(challengeId) {
+  if (!challengeId) return false;
+  if (useSupabase) {
+    const rows = await supabaseFetch('used_login_challenges', {
+      method: 'POST',
+      body: [{ challenge_id: challengeId }],
+      prefer: 'resolution=ignore-duplicates,return=representation'
+    });
+    return Array.isArray(rows) && rows.length > 0;
+  }
+  if (usedLoginChallengesLocal.has(challengeId)) return false;
+  usedLoginChallengesLocal.add(challengeId);
+  return true;
 }
 
 async function updateDb(mutator) {
@@ -1213,4 +1268,4 @@ async function pruneOldRows(table, beforeIso, { dryRun = false } = {}) {
 }
 
 const mode = useSupabase ? 'supabase' : useSqlite ? 'sqlite' : 'local';
-module.exports = { readDb, writeDb, updateDb, DB_PATH, SQLITE_PATH, mode, pruneOldRows };
+module.exports = { readDb, writeDb, updateDb, DB_PATH, SQLITE_PATH, mode, pruneOldRows, getStaffAuthState, markLoginChallengeUsed };

@@ -4,7 +4,7 @@ const path = require('path');
 
 const { createRouter } = require('./src/http/router');
 const { createStaticServer } = require('./src/staticServer');
-const { json, unauthorized, parseBody, readRawBody } = require('./src/httpUtils');
+const { json, unauthorized, parseBody, readRawBody, safeError } = require('./src/httpUtils');
 const auth = require('./src/auth');
 const domain = require('./src/domain');
 const storage = require('./src/storage');
@@ -132,13 +132,22 @@ async function handleApi(req, res) {
   try {
     const route = router.find(method, url.pathname);
     if (!route) return json(res, 404, { ok: false, error: 'Endpoint não encontrado' });
-    if (route.admin && !auth.sessionUser(req)) return json(res, 401, { ok: false, error: 'Autenticação necessária' });
-    // ADMIN passa sempre, mesmo que nao esteja explicitamente na lista -
-    // e o perfil "faz tudo" (ver domain.js#STAFF_ROLES).
-    if (route.admin && route.roles) {
+    if (route.admin) {
       const staff = auth.sessionStaff(req);
-      if (!staff) return json(res, 403, { ok: false, error: 'Sessão sem perfil de colaborador válido' });
-      if (staff.role !== 'ADMIN' && !route.roles.includes(staff.role)) {
+      if (!staff) return json(res, 401, { ok: false, error: 'Autenticação necessária' });
+      // O token assinado guarda active/role no momento do login e fica
+      // valido ate 8h - sem isto, desativar ou mudar o cargo de um
+      // colaborador so tinha efeito na proxima vez que ele fizesse login
+      // (ver auditoria). Consulta pontual e leve, nao um readDb() completo.
+      const authState = await storage.getStaffAuthState(staff.id);
+      if (!authState || !authState.active) {
+        auth.clearSessionCookie(res);
+        return json(res, 401, { ok: false, error: 'Sessão inválida. Autentique-se novamente.' });
+      }
+      // ADMIN passa sempre, mesmo que nao esteja explicitamente na lista -
+      // e o perfil "faz tudo" (ver domain.js#STAFF_ROLES). Usa o cargo atual
+      // da base de dados, nao o que ficou gravado no token no login.
+      if (route.roles && authState.role !== 'ADMIN' && !route.roles.includes(authState.role)) {
         return json(res, 403, { ok: false, error: 'Sem permissão para esta ação' });
       }
     }
@@ -151,7 +160,8 @@ async function handleApi(req, res) {
     // rateLimit corrigido em src/auth.js/httpUtils.js) - esta guarda fica
     // como rede de seguranca para qualquer bug semelhante no futuro.
     if (res.headersSent) { console.error('Erro depois da resposta ja enviada:', e); return; }
-    return json(res, 500, { ok: false, error: e.message, stack: process.env.NODE_ENV === 'development' ? e.stack : undefined });
+    console.error('Erro nao tratado numa rota:', e);
+    return json(res, 500, { ok: false, error: safeError(e, 'Erro interno.'), stack: process.env.NODE_ENV === 'development' ? e.stack : undefined });
   }
 }
 

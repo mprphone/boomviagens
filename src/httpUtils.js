@@ -1,15 +1,34 @@
 // Utilitarios genericos de HTTP, sem nada especifico de nenhuma rota.
 
+function isProduction() {
+  return String(process.env.VERCEL_ENV || '').toLowerCase() === 'production' || (!process.env.VERCEL && String(process.env.NODE_ENV || '').toLowerCase() === 'production');
+}
+
+// Politica pragmatica: o frontend usa scripts/estilos inline nas paginas
+// publicas e de backoffice (sem infraestrutura de nonce) e carrega tipos de
+// letra do Google Fonts - uma politica mais estrita partia o site em vez de
+// o proteger.
+const CONTENT_SECURITY_POLICY = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://images.unsplash.com; connect-src 'self'";
+
 function securityHeaders() {
   const headers = {
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'SAMEORIGIN',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
-    'Permissions-Policy': 'camera=(), microphone=(), geolocation=(self)'
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=(self)',
+    'Content-Security-Policy': CONTENT_SECURITY_POLICY
   };
-  const live = String(process.env.VERCEL_ENV || '').toLowerCase() === 'production' || (!process.env.VERCEL && String(process.env.NODE_ENV || '').toLowerCase() === 'production');
-  if (live) headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains';
+  if (isProduction()) headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains';
   return headers;
+}
+
+// Mensagens de excecao internas (falhas de bibliotecas, erros de rede,
+// respostas inesperadas de APIs externas) podem conter detalhes que nao
+// devem chegar ao cliente em producao (stack traces, identificadores
+// internos, mensagens de driver de base de dados). Em desenvolvimento
+// mantem a mensagem real para facilitar depuracao.
+function safeError(err, fallback) {
+  return isProduction() ? fallback : ((err && err.message) || fallback);
 }
 
 function json(res, status, data) {
@@ -76,4 +95,4 @@ function readRawBody(req) {
   });
 }
 
-module.exports = { json, unauthorized, parseCookies, parseBody, readRawBody, clientIp, securityHeaders };
+module.exports = { json, unauthorized, parseCookies, parseBody, readRawBody, clientIp, securityHeaders, safeError, isProduction };
