@@ -44,14 +44,31 @@ module.exports = function registerOpportunitiesRoutes(router, ctx) {
     return all[0];
   }
 
+  // Mesma coisa que lastActivityAt(), mas para todas as oportunidades de
+  // uma vez (usado pela listagem /api/admin/opportunities) - agrupar uma so
+  // vez (O(events+contacts)) em vez de dois .filter() por oportunidade
+  // (O(oportunidades x (events+contacts))).
+  function buildLastActivityMap(db) {
+    const latest = new Map();
+    const consider = (opportunityId, createdAt) => {
+      if (!opportunityId || !createdAt) return;
+      const current = latest.get(opportunityId);
+      if (!current || new Date(createdAt) > new Date(current)) latest.set(opportunityId, createdAt);
+    };
+    for (const e of db.opportunityEvents) consider(e.opportunityId, e.createdAt);
+    for (const c of db.contactLog) consider(c.opportunityId, c.createdAt);
+    return latest;
+  }
+
   // Separador "Pipeline": todas as oportunidades + resumo do topo (secao
   // "Resumo no topo do Pipeline") + metadados para os filtros/formularios.
   router.get('/api/admin/opportunities', async (req, res) => {
     const db = ensureCollections(await readDb());
+    const lastActivityByOpportunity = buildLastActivityMap(db);
     const opportunities = db.opportunities.map(o => ({
       ...o,
       opportunityNumber: opportunityNumber(o),
-      health: opportunityHealth(o, { lastEventAt: lastActivityAt(db, o.id) })
+      health: opportunityHealth(o, { lastEventAt: lastActivityByOpportunity.get(o.id) })
     }));
 
     const active = opportunities.filter(o => o.stage !== 'GANHO' && o.stage !== 'PERDIDO');

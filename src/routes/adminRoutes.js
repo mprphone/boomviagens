@@ -261,14 +261,36 @@ module.exports = function registerAdminRoutes(router, ctx) {
 
   router.get('/api/admin/reservations', async (req, res) => {
     const db = ensureCollections(await readDb());
+    // Pipeline Operacional, indicadores online e a pesquisa da vista
+    // "Reservas" precisam mesmo de ver todo o conjunto ativo/pesquisavel -
+    // cortar para "as N mais recentes" partia essas vistas (confirmado a
+    // ler os consumidores antes de mexer, ver auditoria de escala). Em vez
+    // de limitar dados, agrupa payments/serviceLines/complaints uma so vez
+    // (O(P+S+C)) em vez de um .filter() por reserva (O(N x (P+S+C))) - mesmo
+    // resultado, sem o varrimento repetido que fica lento a medida que os
+    // dados crescem.
+    const paidByReservation = new Map();
+    for (const p of db.payments) {
+      if (p.status !== 'PAID') continue;
+      paidByReservation.set(p.reservationId, (paidByReservation.get(p.reservationId) || 0) + (p.amount || 0));
+    }
+    const serviceLineCountByReservation = new Map();
+    for (const s of db.serviceLines) {
+      serviceLineCountByReservation.set(s.reservationId, (serviceLineCountByReservation.get(s.reservationId) || 0) + 1);
+    }
+    const openComplaintCountByReservation = new Map();
+    for (const c of db.complaints) {
+      if (['RESOLVED', 'CLOSED'].includes(c.status)) continue;
+      openComplaintCountByReservation.set(c.reservationId, (openComplaintCountByReservation.get(c.reservationId) || 0) + 1);
+    }
     const reservations = db.reservations.map(r => {
-      const paidAmount = db.payments.filter(p => p.reservationId === r.id && p.status === 'PAID').reduce((sum, p) => sum + (p.amount || 0), 0);
+      const paidAmount = paidByReservation.get(r.id) || 0;
       return {
         ...r,
         processNumber: processNumber(r),
         missingDocuments: missingDocumentsFor(r, db.documents),
-        serviceLinesCount: db.serviceLines.filter(s => s.reservationId === r.id).length,
-        openComplaintsCount: db.complaints.filter(c => c.reservationId === r.id && !['RESOLVED', 'CLOSED'].includes(c.status)).length,
+        serviceLinesCount: serviceLineCountByReservation.get(r.id) || 0,
+        openComplaintsCount: openComplaintCountByReservation.get(r.id) || 0,
         // Usados no cartao do Pipeline Operacional ("Por receber") - evita
         // um pedido por reserva so para calcular isto.
         paidAmount,
@@ -999,10 +1021,25 @@ module.exports = function registerAdminRoutes(router, ctx) {
 
   router.get('/api/admin/customers', async (req, res) => {
     const db = ensureCollections(await readDb());
+    // Mesmo principio da otimizacao em /api/admin/reservations: agrupar uma
+    // so vez (O(leads+reservations)) em vez de um .filter() por cliente
+    // (O(clientes x (leads+reservations))).
+    const leadsCountByEmail = new Map();
+    for (const l of db.leads) {
+      const email = l.search?.email;
+      if (!email) continue;
+      leadsCountByEmail.set(email, (leadsCountByEmail.get(email) || 0) + 1);
+    }
+    const reservationsCountByEmail = new Map();
+    for (const r of db.reservations) {
+      const email = r.customer?.email;
+      if (!email) continue;
+      reservationsCountByEmail.set(email, (reservationsCountByEmail.get(email) || 0) + 1);
+    }
     const customers = db.customers.map(c => ({
       ...sanitizeCustomer(c),
-      leadsCount: db.leads.filter(l => l.search?.email === c.email).length,
-      reservationsCount: db.reservations.filter(r => r.customer?.email === c.email).length
+      leadsCount: leadsCountByEmail.get(c.email) || 0,
+      reservationsCount: reservationsCountByEmail.get(c.email) || 0
     }));
     return json(res, 200, { ok: true, customers });
   }, { admin: true });

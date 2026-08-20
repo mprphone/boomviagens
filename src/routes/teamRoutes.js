@@ -35,28 +35,49 @@ module.exports = function registerTeamRoutes(router, ctx) {
     return 'red';
   }
 
+  function groupBy(items, keyFn) {
+    const map = new Map();
+    for (const item of items) {
+      const key = keyFn(item);
+      if (!key) continue;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(item);
+    }
+    return map;
+  }
+
   router.get('/api/admin/team/overview', async (req, res) => {
     const db = ensureCollections(await readDb());
     const today = todayStr();
 
+    // Agrupar uma so vez por colaborador em vez de um .filter() sobre cada
+    // tabela dentro do map() de staff - O(staff x (opportunities+
+    // reservations+tasks+complaints+proposals)) vira O(mesma soma), com o
+    // mesmo resultado (ver auditoria de escala).
+    const opportunitiesByStaff = groupBy(db.opportunities, o => o.commercialStaffId);
+    const reservationsByStaff = groupBy(db.reservations, r => r.operationalStaffId);
+    const tasksByStaff = groupBy(db.tasks, t => t.assigneeStaffId);
+    const staffIdByReservationId = new Map(db.reservations.map(r => [r.id, r.operationalStaffId]));
+    const complaintsByStaff = groupBy(db.complaints, c => staffIdByReservationId.get(c.reservationId));
+    const staffIdByOpportunityId = new Map(db.opportunities.map(o => [o.id, o.commercialStaffId]));
+    const proposalsByStaff = groupBy(db.proposals, p => staffIdByOpportunityId.get(p.opportunityId));
+
     const overview = db.staff.filter(s => s.active).map(staff => {
-      const myOpportunities = db.opportunities.filter(o => o.commercialStaffId === staff.id);
+      const myOpportunities = opportunitiesByStaff.get(staff.id) || [];
       const openOpportunities = myOpportunities.filter(o => !CLOSED_OPPORTUNITY_STAGES.includes(o.stage));
       const wonOpportunities = myOpportunities.filter(o => o.stage === 'GANHO');
       const lostOpportunities = myOpportunities.filter(o => o.stage === 'PERDIDO');
 
-      const myReservations = db.reservations.filter(r => r.operationalStaffId === staff.id);
+      const myReservations = reservationsByStaff.get(staff.id) || [];
       const activeReservations = myReservations.filter(r => !INACTIVE_RESERVATION_STATUSES.includes(r.status));
       const upcomingTrips = activeReservations.filter(r => checkinWithinDays(r, UPCOMING_TRIP_DAYS));
 
       const followUpsToday = openOpportunities.filter(o => o.nextActionDate === today);
-      const overdueTasks = db.tasks.filter(t => t.assigneeStaffId === staff.id && !OPEN_TASK_STATUSES_EXCLUDED.includes(t.status) && t.dueDate && t.dueDate < today);
+      const overdueTasks = (tasksByStaff.get(staff.id) || []).filter(t => !OPEN_TASK_STATUSES_EXCLUDED.includes(t.status) && t.dueDate && t.dueDate < today);
 
-      const myReservationIds = new Set(myReservations.map(r => r.id));
-      const openComplaints = db.complaints.filter(c => myReservationIds.has(c.reservationId) && !OPEN_COMPLAINT_STATUSES_EXCLUDED.includes(c.status));
+      const openComplaints = (complaintsByStaff.get(staff.id) || []).filter(c => !OPEN_COMPLAINT_STATUSES_EXCLUDED.includes(c.status));
 
-      const myOpportunityIds = new Set(myOpportunities.map(o => o.id));
-      const proposalsSent = db.proposals.filter(p => myOpportunityIds.has(p.opportunityId) && p.status !== 'RASCUNHO').length;
+      const proposalsSent = (proposalsByStaff.get(staff.id) || []).filter(p => p.status !== 'RASCUNHO').length;
       const wonValue = wonOpportunities.reduce((sum, o) => sum + (Number(o.estimatedValue) || 0), 0);
       const conversionRate = (wonOpportunities.length + lostOpportunities.length)
         ? Number(((wonOpportunities.length / (wonOpportunities.length + lostOpportunities.length)) * 100).toFixed(1))
