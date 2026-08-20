@@ -387,6 +387,49 @@ class HbxClient {
     return rates[0];
   }
 
+  // Reserva real na Hotelbeds. Testado e confirmado contra o sandbox real
+  // desta conta em 2026-08-20 (scripts/test-hbx-booking-sandbox.js): a
+  // conta tem mesmo o produto de Reservas ativo, e a forma exata do pedido
+  // (holder/rooms/paxes/clientReference) e da resposta
+  // (booking.status="CONFIRMED"/booking.reference) bateram certo à
+  // primeira, exceto clientReference que tem limite de 20 caracteres (ver
+  // abaixo) - nao confirmado por documentacao, so pelo proprio erro 400
+  // devolvido pela API.
+  async createBooking({ rateKey, holder, paxes, clientReference, remark }) {
+    if (!this.isConfigured('hotels')) throw new Error('HBX Hotels não configurado.');
+    const key = String(rateKey || '').trim();
+    if (!key) throw new Error('rateKey HBX em falta.');
+    if (!holder?.name || !holder?.surname) throw new Error('Titular (nome/apelido) em falta para reservar.');
+    if (!Array.isArray(paxes) || !paxes.length) throw new Error('Ocupação (paxes) em falta para reservar.');
+    const body = {
+      holder: { name: holder.name, surname: holder.surname },
+      rooms: [{ rateKey: key, paxes: paxes.map((pax, index) => ({ roomId: 1, type: pax.type, age: pax.age, name: pax.name, surname: pax.surname })) }],
+      // Confirmado contra o sandbox real: a Hotelbeds rejeita
+      // clientReference com mais de 20 caracteres ("Attribute size must
+      // be between 1 and 20").
+      clientReference: String(clientReference || '').slice(0, 20),
+      ...(remark ? { remark: String(remark).slice(0, 200) } : {})
+    };
+    const { data } = await this.request('hotels', '/hotel-api/1.0/bookings', {
+      method: 'POST',
+      json: body,
+      headers: { 'Content-Type': 'application/json' },
+      timeoutMs: 20000
+    });
+    return data;
+  }
+
+  async cancelBooking(reference) {
+    if (!this.isConfigured('hotels')) throw new Error('HBX Hotels não configurado.');
+    const ref = String(reference || '').trim();
+    if (!ref) throw new Error('Localizador HBX em falta para cancelar.');
+    const { data } = await this.request('hotels', `/hotel-api/1.0/bookings/${encodeURIComponent(ref)}?cancellationFlag=CANCELLATION`, {
+      method: 'DELETE',
+      timeoutMs: 20000
+    });
+    return data;
+  }
+
   async searchHotels(input = {}) {
     if (!this.isConfigured('hotels')) throw new Error('HBX Hotels não configurado.');
     const portfolio = await this.hotelPortfolioByDestination(input.destinationCode, input.limit || 80);

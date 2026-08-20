@@ -28,11 +28,11 @@ function mealPlanLabel(code) {
  * especifico do formato XML da TourDiez, nao algo que um adapter novo
  * precise de copiar.
  *
- * De proposito NAO existem classes stub para outros fornecedores
- * (HotelbedsAdapter, DuffelAdapter, ...) - um adapter sem credenciais
- * nem sandbox para testar contra e codigo morto que nunca vai ser
- * validado. Escreve-se um adapter novo quando ha um contrato/sandbox
- * real para o testar, seguindo este mesmo padrao.
+ * De proposito nao se escreve um adapter novo (ex.: DuffelAdapter) sem
+ * credenciais/sandbox reais para o testar - codigo sem nada a validar
+ * contra e codigo morto. A HotelbedsAdapter (src/hotelbedsAdapter.js) e a
+ * primeira excecao: a HBX ja tinha pesquisa/checkrate reais nesta conta,
+ * so faltava a chamada de reserva - ver docs/OPERATOR_ADAPTERS.md.
  */
 class OperatorAdapter {
   /** @param {string} name Nome curto e unico do fornecedor (ex.: "TourDiez"). Usado por OperatorRegistry#getForOffer para escolher o adapter certo a partir de offer.operator - ver docs/OPERATOR_ADAPTERS.md. */
@@ -68,8 +68,11 @@ class OperatorAdapter {
 
   /**
    * Confirma a reserva definitivamente no fornecedor - chamado a partir
-   * de POST /api/admin/reservations/approve (src/routes/adminRoutes.js),
-   * so depois de o pagamento estar confirmado (PAID) e nunca automatico.
+   * de POST /api/admin/reservations/approve (src/routes/adminRoutes.js,
+   * clique manual), e tambem automaticamente logo apos o pagamento em
+   * src/paymentConfirmation.js quando HBX_AUTO_CONFIRM_ENABLED=true e o
+   * adapter devolveu um locator real - nunca inventado, ver
+   * HotelbedsAdapter#confirm.
    * @param {{ reservation: object, payment: object }} args
    * @returns {Promise<{ ok: boolean, operator: string, locator: string, raw: object, needsHumanReview?: boolean }>}
    *   `locator` e obrigatorio - fica guardado em reservation.operatorLocator

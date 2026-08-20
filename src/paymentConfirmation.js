@@ -4,8 +4,10 @@
 // operador. Se o operador falhar, o processo fica HUMAN_REVIEW, nunca volta
 // a parecer "nao pago".
 
+const AUTO_CONFIRM_ENABLED = String(process.env.HBX_AUTO_CONFIRM_ENABLED || '').toLowerCase() === 'true';
+
 module.exports = function createPaymentConfirmation(ctx) {
-  const { readDb, updateDb, operators, reservationEmail, invoicing, domain } = ctx;
+  const { readDb, updateDb, operators, reservationEmail, invoicing, voucherIssuing, domain } = ctx;
   const { ensureCollections, audit, addOperatorLog, id, now } = domain;
 
   async function confirmPayment(paymentId) {
@@ -17,10 +19,12 @@ module.exports = function createPaymentConfirmation(ctx) {
 
     // Webhooks podem repetir. Se este pagamento ja foi tratado, nao volta a
     // consultar o operador nem a gerar emails; apenas garante que a faturacao
-    // pendente tem oportunidade de recuperar de uma falha anterior.
+    // (e o voucher, se ja houver localizador real) tem oportunidade de
+    // recuperar de uma falha anterior.
     if (payment.status === 'PAID') {
       const invoice = await invoicing.issueInvoiceForPayment(reservation.id, payment.id);
-      return { ok: true, payment, reservation, idempotent: true, invoice };
+      const voucher = await voucherIssuing.issueVoucherForReservation(reservation.id, payment.id);
+      return { ok: true, payment, reservation, idempotent: true, invoice, voucher };
     }
 
     let paidPayment;
@@ -56,23 +60,49 @@ module.exports = function createPaymentConfirmation(ctx) {
       validation = { ok: false, operator: reservation.offer?.operator || null, priceStillValid: false, availabilityStillValid: false, needsHumanReview: true, raw: { reason: err.message, operatorUnavailable: true } };
     }
 
+    // So tenta confirmar sozinho quando o flag esta ligado e a valorizacao
+    // veio limpa - usa o mesmo portao ok+locator+!needsHumanReview ja usado
+    // no botao manual de aprovacao (adminRoutes.js). A TourDiezAdapter nunca
+    // devolve locator (ver operatorAdapters.js), por isso este caminho fica
+    // sempre inacessivel para ela - nenhuma reserva TourDiez muda de
+    // comportamento com isto.
+    let confirmation = null;
+    if (AUTO_CONFIRM_ENABLED && adapter && validation.priceStillValid && validation.availabilityStillValid && !validation.needsHumanReview) {
+      try {
+        confirmation = await adapter.confirm({ reservation: paidReservation, payment: paidPayment });
+      } catch (err) {
+        confirmation = { ok: false, operator: adapter.name, locator: null, needsHumanReview: true, raw: { reason: err.message, operatorUnavailable: true } };
+      }
+    }
+    const canAutoConfirm = Boolean(confirmation?.ok && confirmation.locator && !confirmation.needsHumanReview);
+
     let resultPayload;
     await updateDb(d => {
       ensureCollections(d);
       const p = d.payments.find(x => x.id === payment.id);
       const r = d.reservations.find(x => x.id === reservation.id);
       if (!p || !r) return;
-      r.status = validation.priceStillValid && validation.availabilityStillValid && !validation.needsHumanReview ? 'IN_VALIDATION' : 'HUMAN_REVIEW';
-      r.operatorValidation = validation.raw?.mock ? 'MOCK_VALUE_OK' : (validation.raw?.operatorUnavailable ? 'VALUE_ERROR' : 'VALUE_SENT');
-      r.operatorValidationAt = now();
+      if (canAutoConfirm) {
+        r.status = 'CONFIRMED';
+        r.confirmedAt = now();
+        r.operatorLocator = confirmation.locator;
+        r.operatorConfirmation = confirmation.raw?.mock ? 'MOCK_CONFIRM_OK' : 'CONFIRM_SENT';
+        addOperatorLog(d, 'CONFIRM', confirmation);
+        audit(d, 'system', 'RESERVATION_AUTO_CONFIRMED', { reservationId: r.id, paymentId: p.id, operatorLocator: r.operatorLocator });
+      } else {
+        r.status = validation.priceStillValid && validation.availabilityStillValid && !validation.needsHumanReview ? 'IN_VALIDATION' : 'HUMAN_REVIEW';
+        r.operatorValidation = validation.raw?.mock ? 'MOCK_VALUE_OK' : (validation.raw?.operatorUnavailable ? 'VALUE_ERROR' : 'VALUE_SENT');
+        r.operatorValidationAt = now();
+        addOperatorLog(d, 'VALUE', validation);
+        audit(d, 'system', 'PAYMENT_CONFIRMED_PENDING_OPERATOR', { reservationId: r.id, paymentId: p.id, status: r.status });
+      }
       const email = reservationEmail({ reservation: r, payment: p });
       d.emails.unshift({ id: id('email'), createdAt: now(), to: r.customer?.email || 'cliente@exemplo.pt', status: 'GERADO_DEMO', ...email });
-      addOperatorLog(d, 'VALUE', validation);
-      audit(d, 'system', 'PAYMENT_CONFIRMED_PENDING_OPERATOR', { reservationId: r.id, paymentId: p.id, status: r.status });
-      resultPayload = { ok: true, payment: { ...p }, reservation: { ...r }, validation, next: 'Pagamento registado; processo aguarda validacao/confirmacao operacional.' };
+      resultPayload = { ok: true, payment: { ...p }, reservation: { ...r }, validation, confirmation, next: canAutoConfirm ? 'Reserva confirmada automaticamente.' : 'Pagamento registado; processo aguarda validacao/confirmacao operacional.' };
     });
 
     resultPayload.invoice = await invoicing.issueInvoiceForPayment(reservation.id, payment.id);
+    if (canAutoConfirm) resultPayload.voucher = await voucherIssuing.issueVoucherForReservation(reservation.id, payment.id);
     return resultPayload;
   }
 

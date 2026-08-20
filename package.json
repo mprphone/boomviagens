@@ -11,6 +11,7 @@
     "test": "npm run check && npm run test:integrations && npm run test:operational && npm run test:global && npm run test:frontoffice && npm run test:frontoffice:v8 && npm run test:customer-journeys:v9",
     "test:api": "node scripts/test-api.js",
     "test:gateway:sandbox": "node scripts/test-payment-gateways-sandbox.js",
+    "test:hbx-booking:sandbox": "node scripts/test-hbx-booking-sandbox.js",
     "supabase:import": "node scripts/supabase-import-json.js",
     "test:operational": "node scripts/test-operational-v4.js",
     "test:global": "node scripts/test-operational-v5.js",
@@ -33,7 +34,8 @@
   },
   "dependencies": {
     "dotenv": "^17.4.2",
-    "nodemailer": "^9.0.5"
+    "nodemailer": "^9.0.5",
+    "pdfkit": "^0.19.1"
   },
   "devDependencies": {
     "esbuild": "^0.28.2",

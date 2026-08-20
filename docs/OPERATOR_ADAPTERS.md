@@ -7,11 +7,12 @@ documentado em JSDoc em `src/operatorAdapters.js` (classe
 "offer" que o resto da aplicação espera, como o registo/routing
 funciona, e um passo a passo.
 
-Não existem classes stub pré-criadas para fornecedores futuros
-(`HotelbedsAdapter`, `DuffelAdapter`, ...). Um adapter sem credenciais
-nem sandbox para testar é código morto que nunca é validado - o
-padrão neste projeto é escrever o adapter quando há um contrato real
-para o testar, seguindo este guia.
+Não se escreve um adapter novo (ex.: `DuffelAdapter`) sem credenciais
+nem sandbox reais para o testar - código sem nada a validar contra é
+código morto. `HotelbedsAdapter` (`src/hotelbedsAdapter.js`) já existe:
+a HBX já tinha pesquisa/checkrate reais nesta conta, só faltava a
+chamada de reserva (`confirm()`) - ver o próprio ficheiro para o
+padrão a seguir num fornecedor novo com API em JSON.
 
 ## As três peças do sistema
 
@@ -59,7 +60,8 @@ nesta forma.
 | `score` | number (0-99) | recomendado | Vem de `computeScore(offer, parsedSearch)` em `src/pricing.js` - chamar depois de a oferta ter `finalPrice`/`rating`/`freeCancellation`/etc. preenchidos. Alimenta os cartões "Melhor escolha" nos resultados. |
 | `label` | string | não | Badge curto (ex.: "Preço real TourDiez"). |
 | `trace` | string | não | Texto de depuração interno, mostrado só no backoffice/auditoria. |
-| `tourdiez` | object | não | Específico da TourDiez (`idOperation`/`code`/`idDistributions` para as chamadas `value`/`confirm`). Um fornecedor novo guarda os seus próprios identificadores necessários para `value()`/`confirm()` num campo com o seu próprio nome (ex.: `hotelbeds: { rateKey: ... }`), não reaproveitar `tourdiez`. |
+| `tourdiez` | object | não | Específico da TourDiez (`idOperation`/`code`/`idDistributions` para as chamadas `value`/`confirm`). Um fornecedor novo guarda os seus próprios identificadores necessários para `value()`/`confirm()` num campo com o seu próprio nome. |
+| `hbx` | object | não | Específico da `HotelbedsAdapter` (`rateKey`/`rateType`/`roomCode`/`hotelCode` para `value`/`confirm`). Chama-se `hbx`, não `hotelbeds`, porque o campo já existia (pesquisa/checkrate) antes do adapter de confirmação - não vale a pena um rename só por convenção de nomes. |
 
 `themes` (array de palavras-chave) existe só nas ofertas demo de
 `src/mockOperators.js`, para o motor de pesquisa local decidir que

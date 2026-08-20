@@ -11,12 +11,14 @@ const { readDb, updateDb } = require('./src/storage');
 const { baseOffers, searchOffers, getOfferById } = require('./src/mockOperators');
 const { proposalEmail, reservationEmail, loginCodeEmail } = require('./src/emailTemplates');
 const { OperatorRegistry, TourDiezAdapter } = require('./src/operatorAdapters');
+const { HotelbedsAdapter } = require('./src/hotelbedsAdapter');
 const { cleanText, searchPayload, customerPayload, passengerPayload, validatePassengerForTrip, paymentMethod, numberInRange, email: validateEmail, password: validatePassword } = require('./src/validation');
 const fileStorage = require('./src/fileStorage');
 const mailer = require('./src/mailer');
 const { normalize, applyMargin } = require('./src/pricing');
 const { FacturalusaClient } = require('./src/facturalusaClient');
 const createInvoicing = require('./src/invoicing');
+const createVoucherIssuing = require('./src/voucherIssuing');
 const createPaymentConfirmation = require('./src/paymentConfirmation');
 const { StripeGatewayAdapter, EasyPayGatewayAdapter, PaymentGatewayRegistry } = require('./src/paymentGatewayAdapters');
 const { DuffelClient } = require('./src/integrations/duffelClient');
@@ -42,11 +44,12 @@ const registerPaymentsRoutes = require('./src/routes/paymentsRoutes');
 const PORT = Number(process.env.PORT || 3000);
 const PUBLIC = path.join(__dirname, 'public');
 const tourdiezAdapter = new TourDiezAdapter(process.env);
-const operators = new OperatorRegistry([tourdiezAdapter]);
 const facturalusa = new FacturalusaClient(process.env);
 const paymentGateways = new PaymentGatewayRegistry([new StripeGatewayAdapter(process.env), new EasyPayGatewayAdapter(process.env)]);
 const duffel = new DuffelClient(process.env);
 const hbx = new HbxClient(process.env);
+const hotelbedsAdapter = new HotelbedsAdapter(hbx);
+const operators = new OperatorRegistry([tourdiezAdapter, hotelbedsAdapter]);
 const weather = new OpenWeatherClient(process.env);
 const ticketmaster = new TicketmasterClient(process.env);
 const googlePlaces = new GooglePlacesClient(process.env);
@@ -67,6 +70,7 @@ const ctx = {
   updateDb,
   operators,
   tourdiezAdapter,
+  hotelbedsAdapter,
   auth,
   domain,
   fileStorage,
@@ -102,6 +106,7 @@ const ctx = {
   offerRevalidation
 };
 ctx.invoicing = createInvoicing(ctx);
+ctx.voucherIssuing = createVoucherIssuing(ctx);
 ctx.paymentConfirmation = createPaymentConfirmation(ctx);
 
 const router = createRouter();
