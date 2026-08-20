@@ -51,7 +51,7 @@ function writeDbLocal(db) {
 // data/db.json) e as tabelas relacionais de docs/supabase-schema.sql.
 // ---------------------------------------------------------------------------
 
-async function supabaseFetch(table, { method = 'GET', search = '', body, prefer, headers: extraHeaders } = {}) {
+async function supabaseFetch(table, { method = 'GET', search = '', body, prefer, headers: extraHeaders, returnCount = false } = {}) {
   const url = `${SUPABASE_URL.replace(/\/$/, '')}/rest/v1/${table}${search}`;
   const headers = {
     apikey: SUPABASE_SERVICE_ROLE_KEY,
@@ -62,9 +62,17 @@ async function supabaseFetch(table, { method = 'GET', search = '', body, prefer,
   if (prefer) headers.Prefer = prefer;
   const res = await fetch(url, { method, headers, body: body !== undefined ? JSON.stringify(body) : undefined });
   if (!res.ok) throw new Error(`Supabase ${table} ${method}: ${res.status} ${await res.text()}`);
-  if (res.status === 204) return null;
+  if (res.status === 204) return returnCount ? { data: null, count: parseCount(res.headers.get('content-range')) } : null;
   const text = await res.text();
-  return text ? JSON.parse(text) : null;
+  const data = text ? JSON.parse(text) : null;
+  return returnCount ? { data, count: parseCount(res.headers.get('content-range')) } : data;
+}
+
+// "0-0/1234" -> 1234; "*/1234" -> 1234; sem total conhecido -> null.
+function parseCount(contentRange) {
+  if (!contentRange) return null;
+  const total = contentRange.split('/')[1];
+  return total && total !== '*' ? Number(total) : null;
 }
 
 // O PostgREST da Supabase limita por defeito quantas linhas devolve por
@@ -1182,5 +1190,27 @@ async function updateDb(mutator) {
   return result;
 }
 
+// Purga de tabelas que so crescem (operator_logs, audit_logs, contact_log,
+// reservation_events - ver auditoria de escala). Apaga diretamente na
+// Supabase por data, sem passar por readDb/updateDb (nao faz sentido
+// carregar a tabela toda para a memoria so para apagar linhas antigas).
+// Chamado a partir de uma rota HTTP (Vercel Cron so sabe invocar rotas, nao
+// scripts) - ver src/routes/adminRoutes.js.
+async function pruneOldRows(table, beforeIso, { dryRun = false } = {}) {
+  if (!useSupabase) return { table, skipped: true, reason: `Purga so implementada para DB_MODE=supabase (modo atual: ${mode}).` };
+  const filter = `?created_at=lt.${encodeURIComponent(beforeIso)}`;
+  if (dryRun) {
+    const { count } = await supabaseFetch(table, {
+      search: `${filter}&select=id`,
+      prefer: 'count=exact',
+      headers: { Range: '0-0' },
+      returnCount: true
+    });
+    return { table, dryRun: true, wouldDelete: count ?? 0 };
+  }
+  const { data } = await supabaseFetch(table, { method: 'DELETE', search: filter, prefer: 'return=representation', returnCount: true });
+  return { table, deletedCount: Array.isArray(data) ? data.length : 0 };
+}
+
 const mode = useSupabase ? 'supabase' : useSqlite ? 'sqlite' : 'local';
-module.exports = { readDb, writeDb, updateDb, DB_PATH, SQLITE_PATH, mode };
+module.exports = { readDb, writeDb, updateDb, DB_PATH, SQLITE_PATH, mode, pruneOldRows };

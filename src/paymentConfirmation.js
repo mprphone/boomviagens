@@ -17,8 +17,25 @@ const AUTO_CONFIRM_ENABLED = String(process.env.HBX_AUTO_CONFIRM_ENABLED || '').
 const LOCK_STALE_MS = 2 * 60 * 1000;
 
 module.exports = function createPaymentConfirmation(ctx) {
-  const { readDb, updateDb, operators, reservationEmail, invoicing, voucherIssuing, domain } = ctx;
+  const { readDb, updateDb, operators, reservationEmail, invoicing, voucherIssuing, mailer, domain } = ctx;
   const { ensureCollections, audit, addOperatorLog, id, now } = domain;
+
+  // sendMail() e' assincrono (SMTP real) - nunca pode correr dentro do
+  // mutator sincrono do updateDb (ver storage.js). Chamado a seguir, com o
+  // conteudo ja decidido dentro do mutator. Nunca deixa uma falha aqui
+  // reverter o pagamento/confirmacao ja gravados - so fica registada para
+  // deteção, mesmo padrao de invoicing.js/voucherIssuing.js.
+  async function sendReservationEmail(pending) {
+    if (!pending) return;
+    try {
+      await mailer.sendMail(pending);
+    } catch (err) {
+      await updateDb(d => {
+        ensureCollections(d);
+        d.reservationEvents.unshift({ id: id('evt'), createdAt: now(), reservationId: pending.reservationId, actor: 'sistema', type: 'EMAIL_SEND_FAILED', description: err.message });
+      });
+    }
+  }
 
   async function confirmPayment(paymentId) {
     const db = ensureCollections(await readDb());
@@ -109,6 +126,7 @@ module.exports = function createPaymentConfirmation(ctx) {
     const canAutoConfirm = Boolean(confirmation?.ok && confirmation.locator && !confirmation.needsHumanReview);
 
     let resultPayload;
+    let pendingEmail = null;
     await updateDb(d => {
       ensureCollections(d);
       const p = d.payments.find(x => x.id === payment.id);
@@ -130,10 +148,13 @@ module.exports = function createPaymentConfirmation(ctx) {
         audit(d, 'system', 'PAYMENT_CONFIRMED_PENDING_OPERATOR', { reservationId: r.id, paymentId: p.id, status: r.status });
       }
       const email = reservationEmail({ reservation: r, payment: p });
-      d.emails.unshift({ id: id('email'), createdAt: now(), to: r.customer?.email || 'cliente@exemplo.pt', status: 'GERADO_DEMO', ...email });
+      const to = r.customer?.email || 'cliente@exemplo.pt';
+      d.emails.unshift({ id: id('email'), createdAt: now(), to, status: mailer.isConfigured() ? 'ENVIADO' : 'GERADO_DEMO', ...email });
+      pendingEmail = { to, subject: email.subject, body: email.body, reservationId: r.id };
       resultPayload = { ok: true, payment: { ...p }, reservation: { ...r }, validation, confirmation, next: canAutoConfirm ? 'Reserva confirmada automaticamente.' : 'Pagamento registado; processo aguarda validacao/confirmacao operacional.' };
     });
 
+    await sendReservationEmail(pendingEmail);
     resultPayload.invoice = await invoicing.issueInvoiceForPayment(reservation.id, payment.id);
     if (canAutoConfirm) resultPayload.voucher = await voucherIssuing.issueVoucherForReservation(reservation.id, payment.id);
     return resultPayload;

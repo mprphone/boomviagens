@@ -7,7 +7,8 @@ const { createStaticServer } = require('./src/staticServer');
 const { json, unauthorized, parseBody, readRawBody } = require('./src/httpUtils');
 const auth = require('./src/auth');
 const domain = require('./src/domain');
-const { readDb, updateDb } = require('./src/storage');
+const storage = require('./src/storage');
+const { readDb, updateDb } = storage;
 const { baseOffers, searchOffers, getOfferById } = require('./src/mockOperators');
 const { proposalEmail, reservationEmail, loginCodeEmail } = require('./src/emailTemplates');
 const { OperatorRegistry, TourDiezAdapter } = require('./src/operatorAdapters');
@@ -40,6 +41,7 @@ const registerOpportunitiesRoutes = require('./src/routes/opportunitiesRoutes');
 const registerTeamRoutes = require('./src/routes/teamRoutes');
 const registerBranchesRoutes = require('./src/routes/branchesRoutes');
 const registerPaymentsRoutes = require('./src/routes/paymentsRoutes');
+const registerCronRoutes = require('./src/routes/cronRoutes');
 
 const PORT = Number(process.env.PORT || 3000);
 const PUBLIC = path.join(__dirname, 'public');
@@ -68,6 +70,7 @@ const ctx = {
   readRawBody,
   readDb,
   updateDb,
+  storage,
   operators,
   tourdiezAdapter,
   hotelbedsAdapter,
@@ -119,6 +122,7 @@ registerOpportunitiesRoutes(router, ctx);
 registerTeamRoutes(router, ctx);
 registerBranchesRoutes(router, ctx);
 registerPaymentsRoutes(router, ctx);
+registerCronRoutes(router, ctx);
 
 const serveStatic = createStaticServer(PUBLIC);
 

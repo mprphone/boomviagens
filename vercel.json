@@ -6,5 +6,8 @@
   },
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/index" }
+  ],
+  "crons": [
+    { "path": "/api/cron/prune-logs", "schedule": "0 3 1 * *" }
   ]
 }

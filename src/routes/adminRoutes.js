@@ -4,7 +4,23 @@
 // cada rota).
 
 module.exports = function registerAdminRoutes(router, ctx) {
-  const { json, parseBody, readDb, updateDb, operators, cleanText, numberInRange, domain, fileStorage, reservationEmail, invoicing } = ctx;
+  const { json, parseBody, readDb, updateDb, operators, cleanText, numberInRange, domain, fileStorage, reservationEmail, invoicing, mailer } = ctx;
+
+  // sendMail() e' assincrono - nunca pode correr dentro de um mutator
+  // sincrono do updateDb (ver storage.js/paymentConfirmation.js). Mesmo
+  // padrao ali: conteudo decidido dentro do mutator, envio chamado a
+  // seguir, falha nunca reverte o que ja foi gravado.
+  async function sendReservationEmail(pending) {
+    if (!pending) return;
+    try {
+      await mailer.sendMail(pending);
+    } catch (err) {
+      await updateDb(d => {
+        ensureCollections(d);
+        d.reservationEvents.unshift({ id: id('evt'), createdAt: now(), reservationId: pending.reservationId, actor: 'sistema', type: 'EMAIL_SEND_FAILED', description: err.message });
+      });
+    }
+  }
   const {
     ensureCollections, audit, addOperatorLog, missingDocumentsFor, statusLabel, leadStage, leadStageLabel, id, now,
     RESERVATION_STATUSES, LEAD_STAGES, DOCUMENT_TYPES, CUSTOMER_FINANCIAL_DOC_TYPES, CONTACT_TYPES, COMPLAINT_STATUSES, COMPLAINT_DIRECTIONS,
@@ -213,6 +229,7 @@ module.exports = function registerAdminRoutes(router, ctx) {
       // foi chamada. Sem isto, o localizador ficava sempre inventado.
       const canAutoConfirm = confirmation.ok && confirmation.locator && !confirmation.needsHumanReview;
       let resultPayload = null;
+      let pendingEmail = null;
 
       await updateDb(d => {
         ensureCollections(d);
@@ -225,7 +242,9 @@ module.exports = function registerAdminRoutes(router, ctx) {
           r.operatorLocator = confirmation.locator;
           r.operatorConfirmation = confirmation.raw?.mock ? 'MOCK_CONFIRM_OK' : 'CONFIRM_SENT';
           const email = reservationEmail({ reservation: r, payment: p });
-          d.emails.unshift({ id: id('email'), createdAt: now(), to: r.customer?.email || 'cliente@exemplo.pt', status: 'GERADO_DEMO', ...email });
+          const to = r.customer?.email || 'cliente@exemplo.pt';
+          d.emails.unshift({ id: id('email'), createdAt: now(), to, status: mailer.isConfigured() ? 'ENVIADO' : 'GERADO_DEMO', ...email });
+          pendingEmail = { to, subject: email.subject, body: email.body, reservationId: r.id };
           audit(d, sessionUser(req), 'RESERVATION_APPROVED', { reservationId: r.id, operatorLocator: r.operatorLocator });
         } else {
           r.operatorConfirmation = 'NEEDS_HUMAN_REVIEW';
@@ -233,6 +252,7 @@ module.exports = function registerAdminRoutes(router, ctx) {
         }
         resultPayload = { reservation: r, payment: p, confirmation, needsHumanReview: !canAutoConfirm };
       });
+      await sendReservationEmail(pendingEmail);
       return json(res, 200, { ok: true, ...resultPayload, reservation: reservationViewFor(req, resultPayload.reservation) });
     } finally {
       approvalsInProgress.delete(reservationId);
@@ -278,6 +298,7 @@ module.exports = function registerAdminRoutes(router, ctx) {
       return json(res, 400, { ok: false, error: 'Para confirmar manualmente indique o localizador real do operador e o motivo/forma de confirmacao.' });
     }
     let resultPayload = null;
+    let pendingEmail = null;
 
     await updateDb(d => {
       ensureCollections(d);
@@ -297,13 +318,16 @@ module.exports = function registerAdminRoutes(router, ctx) {
       }
       const p = d.payments.find(x => x.reservationId === r.id);
       const email = reservationEmail({ reservation: r, payment: p });
-      d.emails.unshift({ id: id('email'), createdAt: now(), to: r.customer?.email || 'cliente@exemplo.pt', status: 'GERADO_DEMO', ...email });
+      const to = r.customer?.email || 'cliente@exemplo.pt';
+      d.emails.unshift({ id: id('email'), createdAt: now(), to, status: mailer.isConfigured() ? 'ENVIADO' : 'GERADO_DEMO', ...email });
+      pendingEmail = { to, subject: email.subject, body: email.body, reservationId: r.id };
       if (previousStatus !== status) {
         d.reservationEvents.unshift({ id: id('evt'), createdAt: now(), reservationId: r.id, actor: sessionUser(req), type: 'STATUS_CHANGE', description: `De "${statusLabel(previousStatus)}" para "${statusLabel(status)}"` });
       }
       audit(d, sessionUser(req), 'RESERVATION_STATUS_UPDATED', { reservationId: r.id, from: previousStatus, to: status });
       resultPayload = { reservation: r };
     });
+    await sendReservationEmail(pendingEmail);
     return json(res, 200, { ok: true, reservation: reservationViewFor(req, resultPayload.reservation) });
   }, { admin: true, roles: ['OPERACIONAL', 'SUPERVISOR', 'ADMIN'] });
 
