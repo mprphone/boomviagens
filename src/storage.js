@@ -51,12 +51,13 @@ function writeDbLocal(db) {
 // data/db.json) e as tabelas relacionais de docs/supabase-schema.sql.
 // ---------------------------------------------------------------------------
 
-async function supabaseFetch(table, { method = 'GET', search = '', body, prefer } = {}) {
+async function supabaseFetch(table, { method = 'GET', search = '', body, prefer, headers: extraHeaders } = {}) {
   const url = `${SUPABASE_URL.replace(/\/$/, '')}/rest/v1/${table}${search}`;
   const headers = {
     apikey: SUPABASE_SERVICE_ROLE_KEY,
     Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    ...(extraHeaders || {})
   };
   if (prefer) headers.Prefer = prefer;
   const res = await fetch(url, { method, headers, body: body !== undefined ? JSON.stringify(body) : undefined });
@@ -66,8 +67,33 @@ async function supabaseFetch(table, { method = 'GET', search = '', body, prefer 
   return text ? JSON.parse(text) : null;
 }
 
-function selectAll(table, search) {
-  return supabaseFetch(table, { search: `?select=*${search || ''}` });
+// O PostgREST da Supabase limita por defeito quantas linhas devolve por
+// pedido (Max Rows do projeto, tipicamente 1000) - confirmado empiricamente
+// nesta conta (respostas 206 Partial Content + Content-Range). Sem paginar
+// aqui, uma tabela que ultrapasse esse limite ficava com as linhas mais
+// antigas invisiveis para sempre em toda a aplicacao, sem erro nenhum -
+// nao e lentidao, e comportamento errado silencioso (ver auditoria de
+// escala). Pagina sempre ate a Supabase devolver uma pagina mais curta que
+// o pedido, para garantir que readDb() ve mesmo a tabela toda.
+const SELECT_PAGE_SIZE = 1000;
+
+async function selectAll(table, search, { paginate = true } = {}) {
+  // operator_logs/audit_logs ja pedem um limite intencional (as N mais
+  // recentes, nao a tabela toda) via `&limit=` no proprio `search` - nao
+  // fazem sentido paginados por cima disso.
+  if (!paginate) return (await supabaseFetch(table, { search: `?select=*${search || ''}` })) || [];
+  let offset = 0;
+  let all = [];
+  for (;;) {
+    const page = (await supabaseFetch(table, {
+      search: `?select=*${search || ''}`,
+      headers: { Range: `${offset}-${offset + SELECT_PAGE_SIZE - 1}` }
+    })) || [];
+    all = all.concat(page);
+    if (page.length < SELECT_PAGE_SIZE) break;
+    offset += SELECT_PAGE_SIZE;
+  }
+  return all;
 }
 
 async function upsertRows(table, rows, onConflict = 'id') {
@@ -950,8 +976,8 @@ async function readDbSupabase() {
     selectAll('reservations', '&order=created_at.desc'),
     selectAll('payments', '&order=created_at.desc'),
     selectAll('emails', '&order=created_at.desc'),
-    selectAll('operator_logs', '&order=created_at.desc&limit=100'),
-    selectAll('audit_logs', '&order=created_at.desc&limit=200'),
+    selectAll('operator_logs', '&order=created_at.desc&limit=100', { paginate: false }),
+    selectAll('audit_logs', '&order=created_at.desc&limit=200', { paginate: false }),
     selectAll('idempotency_keys', ''),
     selectAll('documents', '&order=created_at.desc'),
     selectAll('contact_log', '&order=created_at.desc'),
