@@ -726,3 +726,111 @@ footer { background: #062b47; color: #fff; }
   .extra-option-card { grid-template-columns: 38px 1fr; }
   .extra-option-price { grid-column: 1 / -1; align-items: center; flex-direction: row; justify-content: space-between; }
 }
+
+.checkout-step-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.checkout-step-heading h3 { margin: 0; }
+.checkout-cta-bar, .passenger-nav { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; margin-top: 8px; }
+.checkout-cta-bar .btn, .checkout-cta-bar .ghost, .passenger-nav .btn, .passenger-nav .ghost { flex: 1 1 140px; min-height: 48px; width: auto; }
+.checkout-summary-more { margin-top: 10px; }
+.checkout-summary-more summary { cursor: pointer; color: var(--blue); font-size: 12px; font-weight: 800; }
+.checkout-summary-more .summary-facts { margin-top: 10px; }
+
+@media (min-width: 901px) {
+  .checkout-summary-more summary { display: none; }
+}
+
+/* Mobile checkout + trip review: keep "continuar" on screen and avoid nested-scroll traps. */
+@media (max-width: 900px) {
+  .checkout-overlay {
+    padding: 0;
+    display: flex;
+    align-items: stretch;
+    justify-content: stretch;
+    overflow: hidden;
+  }
+  .checkout-modal {
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    max-height: 100dvh;
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: 0;
+    padding: calc(12px + env(safe-area-inset-top)) 14px 0;
+  }
+  .checkout-brand { padding-right: 40px; }
+  .checkout-brand img { width: 124px; }
+  .checkout-modal > .stepper {
+    flex: 0 0 auto;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 4px;
+    margin: 14px 0 12px;
+  }
+  .checkout-modal .stepper-step {
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 4px;
+    font-size: 0;
+    text-align: center;
+  }
+  .checkout-modal .stepper-step:after { left: calc(50% + 16px); right: -50%; top: 14px; }
+  .checkout-modal .stepper-step.is-active,
+  .checkout-modal .stepper-step.is-done { font-size: 9px; line-height: 1.2; }
+  .checkout-layout {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-bottom: 12px;
+  }
+  .checkout-summary { order: -1; position: static; padding: 14px; }
+  .checkout-main, .checkout-summary { min-width: 0; }
+  .checkout-cta-bar, .passenger-nav {
+    position: sticky;
+    bottom: 0;
+    z-index: 6;
+    margin: 12px -8px 0;
+    padding: 10px 8px calc(12px + env(safe-area-inset-bottom));
+    background: linear-gradient(180deg, rgba(255,255,255,0), #fff 18%);
+    border-top: 1px solid var(--line-soft);
+  }
+  .verify-field, .checkout-login-row { display: grid; grid-template-columns: 1fr; }
+  .verify-field .ghost, .checkout-login-row .ghost { width: 100%; min-height: 44px; }
+  .session-verified-badge { justify-content: center; white-space: normal; }
+  .checkout-open .chat-widget { display: none; }
+
+  .is-review .review-page { padding-bottom: 168px; }
+  .is-review .trip-price-card {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 80;
+    margin: 0;
+    border-radius: 18px 18px 0 0;
+    padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+    box-shadow: 0 -12px 32px rgba(10, 45, 68, .16);
+  }
+  .is-review .trip-price-route,
+  .is-review .trip-price-card > .muted,
+  .is-review .sticky-trust { display: none; }
+  .is-review .trip-price-main { flex-direction: row; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+  .is-review .trip-price-note { display: none; }
+  .is-review #saveTripAsideBtn { min-height: 40px; box-shadow: none; }
+  .is-review .chat-widget { bottom: calc(118px + env(safe-area-inset-bottom)); }
+  .is-review .compare-bar { display: none; }
+
+  .search-field, .search-pills button, .product-switch button { min-height: 44px; }
+  .hero-copy h1 { font-size: clamp(28px, 8vw, 42px); }
+}
+
+@media (max-width: 620px) {
+  .checkout-modal .passenger-card-grid { grid-template-columns: 1fr; }
+  .passport-dialog .modal-actions, .modal-actions { flex-wrap: wrap; }
+  .passport-dialog .modal-actions .btn, .passport-dialog .modal-actions .ghost { flex: 1 1 140px; min-height: 48px; }
+}

@@ -33,14 +33,44 @@ let sessionCheckRunning = false;
 let paymentReturnHandled = false;
 let sessionRevision = 0;
 
+function closeMobileNav() {
+  $('#appShell')?.classList.remove('is-nav-open');
+  const toggle = $('#menuToggle');
+  if (toggle) toggle.setAttribute('aria-expanded', 'false');
+  const backdrop = $('#sidebarBackdrop');
+  if (backdrop) backdrop.hidden = true;
+}
+
+function openMobileNav() {
+  $('#appShell')?.classList.add('is-nav-open');
+  const toggle = $('#menuToggle');
+  if (toggle) toggle.setAttribute('aria-expanded', 'true');
+  const backdrop = $('#sidebarBackdrop');
+  if (backdrop) backdrop.hidden = false;
+}
+
+function toggleMobileNav() {
+  if ($('#appShell')?.classList.contains('is-nav-open')) closeMobileNav();
+  else openMobileNav();
+}
+
+const TAB_VIEWS = new Set(['dashboard', 'viagens', 'documentos', 'pagamentos']);
+
 function switchView(name) {
   const view = VIEWS[name];
   if (!view) return;
   document.querySelectorAll('.nav-item[data-view]').forEach(btn => {
     btn.classList.toggle('is-active', btn.dataset.view === name);
   });
+  document.querySelectorAll('.tab-item[data-view]').forEach(btn => {
+    btn.classList.toggle('is-active', btn.dataset.view === name);
+  });
+  const moreBtn = $('#moreMenuBtn');
+  if (moreBtn) moreBtn.classList.toggle('is-active', !TAB_VIEWS.has(name));
   document.querySelectorAll('.view').forEach(sec => { sec.hidden = sec.id !== `view-${name}`; });
   $('#pageTitle').textContent = view.title;
+  closeMobileNav();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
   view.render();
 }
 
@@ -83,8 +113,15 @@ function showLogin() {
   $('#appShell').hidden = true;
 }
 
-document.querySelectorAll('.nav-item[data-view]').forEach(btn => {
+document.querySelectorAll('.nav-item[data-view], .tab-item[data-view]').forEach(btn => {
   btn.addEventListener('click', () => switchView(btn.dataset.view));
+});
+
+$('#menuToggle')?.addEventListener('click', toggleMobileNav);
+$('#moreMenuBtn')?.addEventListener('click', openMobileNav);
+$('#sidebarBackdrop')?.addEventListener('click', closeMobileNav);
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') closeMobileNav();
 });
 
 async function activateSession(session = {}) {

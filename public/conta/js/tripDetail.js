@@ -32,6 +32,9 @@ const TABS = [
 
 export async function openTripDetail(reservationId, backView = 'viagens') {
   document.querySelectorAll('.nav-item[data-view]').forEach(btn => btn.classList.toggle('is-active', btn.dataset.view === backView));
+  document.querySelectorAll('.tab-item[data-view]').forEach(btn => btn.classList.toggle('is-active', btn.dataset.view === backView));
+  const moreBtn = document.getElementById('moreMenuBtn');
+  if (moreBtn) moreBtn.classList.toggle('is-active', !['dashboard', 'viagens', 'documentos', 'pagamentos'].includes(backView));
   document.querySelectorAll('.view').forEach(sec => { sec.hidden = sec.id !== 'view-viagem'; });
   const pageTitle = $('#pageTitle');
 

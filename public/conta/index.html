@@ -2,7 +2,7 @@
 <html lang="pt">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="referrer" content="no-referrer" />
   <script>
     // Defesa imediata para URLs criados por versoes antigas/caches: dados de
@@ -54,7 +54,8 @@
   </div>
 
   <div id="appShell" class="app-shell" hidden>
-    <aside class="sidebar">
+    <div class="sidebar-backdrop" id="sidebarBackdrop" hidden></div>
+    <aside class="sidebar" id="accountSidebar">
       <a class="sidebar-brand" href="/"><img src="/logo.svg" alt="Boomviagens" /></a>
       <div class="sidebar-profile">
         <div class="sidebar-avatar" id="avatarInitial">?</div>
@@ -115,6 +116,9 @@
 
     <div class="main">
       <header class="topbar">
+        <button type="button" class="menu-toggle" id="menuToggle" aria-label="Abrir menu" aria-controls="accountSidebar" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
         <h1 id="pageTitle">Dashboard</h1>
       </header>
 
@@ -133,6 +137,24 @@
         <section id="view-emergencia" class="view" hidden></section>
       </main>
     </div>
+
+    <nav class="mobile-tabbar" aria-label="Navegação principal">
+      <button type="button" class="tab-item is-active" data-view="dashboard">
+        <span class="tab-icon" aria-hidden="true"></span>Início
+      </button>
+      <button type="button" class="tab-item" data-view="viagens">
+        <span class="tab-icon" aria-hidden="true"></span>Viagens
+      </button>
+      <button type="button" class="tab-item" data-view="documentos">
+        <span class="tab-icon" aria-hidden="true"></span>Docs
+      </button>
+      <button type="button" class="tab-item" data-view="pagamentos">
+        <span class="tab-icon" aria-hidden="true"></span>Pagamentos
+      </button>
+      <button type="button" class="tab-item" id="moreMenuBtn">
+        <span class="tab-icon tab-icon-more" aria-hidden="true"></span>Menu
+      </button>
+    </nav>
   </div>
 
   <script type="module" src="/conta/js/main.js"></script>

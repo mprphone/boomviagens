@@ -56,8 +56,10 @@ function renderPaymentChoice(data) {
       ${methods.length ? '' : `<div class="legal-notice"><span class="legal-notice-icon">!</span><p>${paymentAvailability === 'misconfigured' ? 'Os pagamentos de teste estão ativos, mas as credenciais Stripe/Easypay não estão disponíveis neste servidor. A configuração do deployment tem de ser atualizada.' : 'Os pagamentos online ainda não estão disponíveis neste ambiente. A reserva pode ser guardada e retomada mais tarde.'}</p></div>`}
       <label class="consent"><input type="checkbox" id="termsCheck" /><span>Li e aceito os <a href="#legal">Termos e Condições</a> e a <a href="#legal">Política de Privacidade</a>.</span></label>
       <div id="checkoutPaymentError"></div>
-      <button class="btn wide" id="paymentContinue" type="button" ${methods.length ? '' : 'disabled'}>${methods.length ? `Continuar com ${esc(selectedMethod)}` : 'Pagamento indisponível'}</button>
-      <button class="ghost wide" id="saveForLater" type="button">Guardar e pagar mais tarde</button>
+      <div class="checkout-cta-bar">
+        <button class="btn wide" id="paymentContinue" type="button" ${methods.length ? '' : 'disabled'}>${methods.length ? `Continuar com ${esc(selectedMethod)}` : 'Pagamento indisponível'}</button>
+        <button class="ghost wide" id="saveForLater" type="button">Guardar e pagar mais tarde</button>
+      </div>
       <p class="trust-note">O estado “pago” só é aceite pelo servidor após confirmação autenticada do gateway. Nunca introduza dados de cartão diretamente na Boomviagens.</p>
     </div>`;
 

@@ -9,6 +9,7 @@ export function setCheckoutStep(step) {
     el.classList.toggle('is-active', n === step);
     el.classList.toggle('is-done', n < step);
   });
+  document.querySelector('.checkout-layout')?.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 export function renderCheckoutSummary(offer) {
@@ -23,19 +24,22 @@ export function renderCheckoutSummary(offer) {
       </div>
       <span class="pill ${offer.live ? 'live' : ''}">${offer.live ? 'Preço do operador' : 'Estimativa'}</span>
     </div>
-    ${trip ? `<div class="summary-dates">${trip}</div>` : ''}
-    <ul class="summary-facts">
-      <li><span>PX</span>${esc(pax)}</li>
-      <li><span>NT</span>${offer.nights || '-'} noites</li>
-      <li><span>RG</span>${esc(offer.board || 'Regime a confirmar')}</li>
-      <li><span>${offer.freeCancellation ? '✓' : '!'}</span>${offer.freeCancellation ? 'Cancelamento flexível' : 'Tarifa com restrições de cancelamento'}</li>
-    </ul>
     <div class="summary-total"><span>Total da viagem</span><strong id="summaryTotalValue">${money(offer.finalPrice)}</strong></div>
-    <div class="checkout-confidence-list">
-      <div>✓ Preço revisto antes do pagamento</div>
-      <div>✓ Dados validados antes de avançar</div>
-      <div>✓ Apoio humano se alguma etapa exigir confirmação</div>
-    </div>`;
+    <details class="checkout-summary-more" open>
+      <summary>Detalhes da viagem</summary>
+      ${trip ? `<div class="summary-dates">${trip}</div>` : ''}
+      <ul class="summary-facts">
+        <li><span>PX</span>${esc(pax)}</li>
+        <li><span>NT</span>${offer.nights || '-'} noites</li>
+        <li><span>RG</span>${esc(offer.board || 'Regime a confirmar')}</li>
+        <li><span>${offer.freeCancellation ? '✓' : '!'}</span>${offer.freeCancellation ? 'Cancelamento flexível' : 'Tarifa com restrições de cancelamento'}</li>
+      </ul>
+      <div class="checkout-confidence-list">
+        <div>✓ Preço revisto antes do pagamento</div>
+        <div>✓ Dados validados antes de avançar</div>
+        <div>✓ Apoio humano se alguma etapa exigir confirmação</div>
+      </div>
+    </details>`;
 }
 
 export function setAutosaveStatus(text = 'Guardado automaticamente') {
@@ -45,10 +49,12 @@ export function setAutosaveStatus(text = 'Guardado automaticamente') {
 
 export function openCheckoutModal() {
   $('#checkoutModal').hidden = false;
+  document.body.classList.add('modal-open', 'checkout-open');
   document.body.style.overflow = 'hidden';
 }
 
 export function closeCheckoutModal() {
   $('#checkoutModal').hidden = true;
+  document.body.classList.remove('modal-open', 'checkout-open');
   document.body.style.overflow = '';
 }

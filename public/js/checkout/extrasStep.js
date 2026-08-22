@@ -33,8 +33,10 @@ export function renderCheckoutExtras(data) {
         <label class="extra-option"><input type="checkbox" value="EXPERIENCE" /><span><b>Experiências</b><small>Tours, eventos e atividades</small></span></label>
       </div>
       <div id="checkoutExtrasFeedback" class="inline-feedback" aria-live="polite"></div>
-      <button class="btn wide" type="button" id="extrasContinue">Continuar para pagamento</button>
-      <button class="ghost wide" type="button" id="extrasSkip">Continuar sem pedir extras</button>
+      <div class="checkout-cta-bar">
+        <button class="btn wide" type="button" id="extrasContinue">Continuar para pagamento</button>
+        <button class="ghost wide" type="button" id="extrasSkip">Continuar sem pedir extras</button>
+      </div>
     </div>`;
 
   $('#extrasContinue').onclick = () => continueFromExtras(data, true);

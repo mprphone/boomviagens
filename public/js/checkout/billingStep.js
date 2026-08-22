@@ -67,7 +67,9 @@ export function renderCheckoutStep1() {
         ${verified ? '<label class="consent"><input type="checkbox" name="saveProfile" checked /><span>Guardar/atualizar estes dados na minha conta para a próxima reserva</span></label>' : ''}
       </div>
       <div id="checkoutFormError"></div>
-      <button class="btn wide" type="submit" id="step1Continue" ${verified ? '' : 'disabled'}>Continuar para passageiros</button>
+      <div class="checkout-cta-bar">
+        <button class="btn wide" type="submit" id="step1Continue" ${verified ? '' : 'disabled'}>Continuar para passageiros</button>
+      </div>
       <p class="autosave-line" id="checkoutAutosaveStatus">✓ Guardado automaticamente neste checkout</p><p class="trust-note">Ligação encriptada. Os seus dados servem apenas para tratar esta reserva.</p>
     </form>`;
 

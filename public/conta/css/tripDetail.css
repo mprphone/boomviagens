@@ -71,4 +71,12 @@
 @media (max-width: 640px) {
   .timeline-item { grid-template-columns: 40px 28px 1fr; }
   .timeline-item .pill { grid-column: 1 / -1; justify-self: start; }
+  .trip-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .trip-tab { flex: 0 0 auto; min-height: 44px; }
+  .back-link { min-height: 44px; padding: 8px 0 12px; }
 }

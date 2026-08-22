@@ -147,4 +147,7 @@
 @media (max-width: 760px) {
   .next-trip { padding: 20px; }
   .next-trip h2 { font-size: 22px; }
+  .next-trip-actions { width: 100%; }
+  .next-trip-actions .btn,
+  .next-trip-actions .ghost { flex: 1 1 140px; min-height: 44px; }
 }

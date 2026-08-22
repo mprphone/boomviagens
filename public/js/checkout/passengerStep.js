@@ -138,7 +138,7 @@ export async function renderPassengerStep() {
       <label class="consent"><input type="checkbox" id="saveToWalletCheck" /><span>Guardar este passageiro na minha lista para futuras viagens</span></label>
       ${isLast ? '<div class="ready-to-pay"><b>Próximo passo: extras</b><span>Revise os serviços da viagem antes de escolher o método de pagamento.</span></div>' : ''}
       <div id="passengerFormError"></div>
-      <div class="passenger-nav"><button class="ghost" type="button" id="passengerBack">Voltar</button><button class="btn wide" type="submit">${isLast ? 'Validar passageiros e continuar' : 'Guardar e seguinte'}</button></div>
+      <div class="passenger-nav checkout-cta-bar"><button class="ghost" type="button" id="passengerBack">Voltar</button><button class="btn" type="submit">${isLast ? 'Validar passageiros e continuar' : 'Guardar e seguinte'}</button></div>
       <p class="autosave-line" id="checkoutAutosaveStatus">✓ Guardado automaticamente neste checkout</p>
     </form>`;
 

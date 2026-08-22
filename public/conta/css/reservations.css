@@ -48,6 +48,7 @@
 
 @media (max-width: 640px) {
   .trip-card { grid-template-columns: 1fr; }
-  .trip-card-media { width: 100%; }
-  .trip-card-side { align-items: flex-start; }
+  .trip-card-media { width: 100%; height: 56px; }
+  .trip-card-side { align-items: stretch; }
+  .trip-card-side .btn { min-height: 44px; width: 100%; }
 }
