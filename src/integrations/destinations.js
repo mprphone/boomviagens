@@ -25,7 +25,9 @@ const DESTINATIONS = [
   { name: 'Marrakech', country: 'Marrocos', countryCode: 'MA', iata: 'RAK', hbxCode: 'RAK', eventCity: 'Marrakech', lat: 31.6295, lon: -7.9811, icon: '🕌', aliases: ['marraquexe'] },
   { name: 'Atenas', country: 'Grécia', countryCode: 'GR', iata: 'ATH', hbxCode: 'ATH', eventCity: 'Athens', lat: 37.9838, lon: 23.7275, icon: '🏛️', aliases: ['athens'] },
   { name: 'Santorini', country: 'Grécia', countryCode: 'GR', iata: 'JTR', hbxCode: 'JTR', eventCity: 'Santorini', lat: 36.3932, lon: 25.4615, icon: '🌅', aliases: [] },
-  { name: 'São Miguel', country: 'Portugal', countryCode: 'PT', iata: 'PDL', hbxCode: 'PDL', eventCity: 'Ponta Delgada', lat: 37.7412, lon: -25.6756, icon: '🌿', aliases: ['acores', 'açores', 'ponta delgada'] }
+  { name: 'São Miguel', country: 'Portugal', countryCode: 'PT', iata: 'PDL', hbxCode: 'PDL', eventCity: 'Ponta Delgada', lat: 37.7412, lon: -25.6756, icon: '🌿', aliases: ['acores', 'açores', 'ponta delgada'] },
+  { name: 'Lisboa', country: 'Portugal', countryCode: 'PT', iata: 'LIS', hbxCode: 'LIS', eventCity: 'Lisbon', lat: 38.7223, lon: -9.1393, icon: '🎶', aliases: ['lisbon'] },
+  { name: 'Porto', country: 'Portugal', countryCode: 'PT', iata: 'OPO', hbxCode: 'OPO', eventCity: 'Porto', lat: 41.1579, lon: -8.6291, icon: '🍷', aliases: ['oporto'] }
 ];
 
 const ORIGINS = {

@@ -103,11 +103,27 @@ const emailProvider = defineProvider({
     && Boolean(env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASSWORD)
 });
 
+// Cruzeiros: ainda nao existe API ligada. O produto funciona como pedido
+// assistido (formulario proprio no frontoffice, entra no CRM com tipo
+// CRUISE), por isso o stub regista o modo comercial "assisted" em vez de
+// um modo vazio. Para ligar uma futura API de cruzeiros basta criar
+// cruiseClient.js com o provider kit e substituir este bloco pelo provider
+// exportado - ver docs/INTEGRACOES.md, seccao "Cruzeiros".
+const cruiseProvider = defineProvider({
+  id: 'cruise',
+  label: 'Cruzeiros (pedido assistido)',
+  kind: 'operator',
+  envPrefix: 'CRUISE',
+  requiredEnv: ['CRUISE_API_KEY'],
+  optionalEnv: ['CRUISE_API_BASE_URL'],
+  baseUrlEnv: 'CRUISE_API_BASE_URL',
+  mode: env => String(env.CRUISE_MODE || '').trim() || 'assisted'
+});
+
 // Placeholders de futuras integracoes (convencao ja existente em
 // .env.example e docs/SERVICE_INTEGRATIONS.md): aparecem desde ja no estado
 // do backoffice como "por configurar", sem cliente associado.
 const futureProviders = [
-  ['cruise', 'Cruzeiros', 'CRUISE'],
   ['car', 'Rent-a-car', 'CAR'],
   ['train', 'Comboios', 'TRAIN'],
   ['ferry', 'Ferries', 'FERRY'],
@@ -133,6 +149,7 @@ const futureProviders = [
   openWeatherProvider,
   ticketmasterProvider,
   googlePlacesProvider,
+  cruiseProvider,
   ...futureProviders
 ].forEach(provider => providerRegistry.register(provider));
 

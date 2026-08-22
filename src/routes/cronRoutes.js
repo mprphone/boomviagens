@@ -1,9 +1,13 @@
-// Rotas chamadas so pelo Vercel Cron (nunca por um cliente/staff) - a Vercel
-// autentica-se sozinha enviando "Authorization: Bearer $CRON_SECRET" quando
-// essa variavel de ambiente esta definida no projeto. Sem ela, a rota
-// recusa tudo (fail closed), nunca corre a purga por engano.
+// Rotas chamadas so pelo agendador (nunca por um cliente/staff). Na Vercel
+// e o Vercel Cron, que se autentica sozinho enviando
+// "Authorization: Bearer $CRON_SECRET" quando essa variavel de ambiente
+// esta definida no projeto; num VPS e o cron do sistema a chamar o mesmo
+// endpoint, ex.:
+//   0 * * * * curl -sf -H "Authorization: Bearer $CRON_SECRET" https://dominio/api/cron/payment-reconciliation
+//   0 8 * * * curl -sf -H "Authorization: Bearer $CRON_SECRET" https://dominio/api/cron/customer-notifications
+// Sem CRON_SECRET a rota recusa tudo (fail closed), nunca corre por engano.
 
-const PRUNE_TABLES = ['operator_logs', 'audit_logs', 'contact_log', 'reservation_events'];
+const PRUNE_TABLES = ['operator_logs', 'audit_logs', 'contact_log', 'reservation_events', 'rate_limits'];
 const RETENTION_MONTHS = 12;
 // Lembrete de documentacao: so faz sentido chatear o cliente passados
 // alguns dias a espera, e nunca mais do que uma vez por janela (o registo
@@ -96,5 +100,27 @@ module.exports = function registerCronRoutes(router, ctx) {
       });
     }
     return json(res, 200, { ok: true, sent, skipped });
+  });
+
+  // Reconciliacao de pagamentos pendentes (ver src/paymentReconciliation.js)
+  // - apanha pagamentos cujo webhook se perdeu. ?hours= ajusta a janela
+  // (default 2h). Agendar de hora em hora (vercel.json / cron do sistema).
+  router.get('/api/cron/payment-reconciliation', async (req, res, url) => {
+    if (!isAuthorizedCron(req)) return json(res, 401, { ok: false, error: 'Nao autorizado' });
+    const hoursParam = Number(url.searchParams.get('hours'));
+    const olderThanHours = Number.isFinite(hoursParam) && hoursParam > 0 ? hoursParam : 2;
+    const summary = await ctx.paymentReconciliation.reconcilePendingPayments({ olderThanHours });
+    return json(res, 200, { ok: true, ...summary });
+  });
+
+  // Notificacoes proativas ao cliente (ver src/customerNotifications.js) -
+  // lembrete de pagamento pendente (>24h) e alerta de viagem proxima
+  // (check-in a 7 dias), cada um uma unica vez por reserva. Agendar uma
+  // vez por dia (vercel.json / cron do sistema).
+  router.get('/api/cron/customer-notifications', async (req, res) => {
+    if (!isAuthorizedCron(req)) return json(res, 401, { ok: false, error: 'Nao autorizado' });
+    const paymentReminders = await ctx.customerNotifications.sendPendingPaymentReminders();
+    const tripAlerts = await ctx.customerNotifications.sendUpcomingTripAlerts();
+    return json(res, 200, { ok: true, paymentReminders, tripAlerts });
   });
 };

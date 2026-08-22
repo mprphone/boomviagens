@@ -37,4 +37,36 @@ function documentRequestEmail({ reservation, missingDocuments = [], reminder = f
   };
 }
 
-module.exports = { proposalEmail, reservationEmail, loginCodeEmail, documentRequestEmail };
+// Lembrete unico por reserva de pagamento pendente (cron
+// /api/cron/customer-notifications) - aponta sempre para a Area de
+// Cliente, onde a reserva pode ser retomada e paga.
+function paymentReminderEmail({ reservation, payment, accountUrl }) {
+  const destination = reservation.offer?.destination || reservation.offer?.hotel || 'a sua viagem';
+  return {
+    subject: `Lembrete: pagamento pendente - Reserva ${reservation.id}`,
+    body: `Olá ${reservation.customer?.name || ''},\n\nA sua reserva para ${destination} continua guardada, mas ainda não recebemos o pagamento${payment?.amount ? ` de ${Number(payment.amount).toFixed(2)} €` : ''}.\n\nPara não perder a reserva, conclua o pagamento na sua Área de Cliente:\n${accountUrl}\n\nSe já pagou ou precisar de ajuda, responda a este email.\n\nObrigado,\nBoomviagens`
+  };
+}
+
+// Alerta unico por reserva de viagem proxima (7 dias antes do check-in,
+// cron /api/cron/customer-notifications) - um resumo simples do essencial.
+function tripReminderEmail({ reservation, accountUrl }) {
+  const offer = reservation.offer || {};
+  const destination = offer.destination || offer.hotel || 'o seu destino';
+  return {
+    subject: `A sua viagem aproxima-se - Reserva ${reservation.id}`,
+    body: `Olá ${reservation.customer?.name || ''},\n\nFaltam poucos dias para a sua viagem! Aqui fica um resumo:\n\nDestino: ${destination}${offer.hotel ? `\nAlojamento: ${offer.hotel}` : ''}\nCheck-in: ${offer.checkin || '-'}\nCheck-out: ${offer.checkout || '-'}${reservation.operatorLocator ? `\nLocalizador: ${reservation.operatorLocator}` : ''}\n\nConfirme que tem os documentos de viagem consigo. Pode consultar todos os detalhes e documentos na sua Área de Cliente:\n${accountUrl}\n\nBoa viagem!\nBoomviagens`
+  };
+}
+
+// Aviso de voucher emitido (src/voucherIssuing.js) - o PDF fica guardado
+// na Area de Cliente; este email e so o aviso, sem anexo.
+function voucherEmail({ reservation, accountUrl }) {
+  const offer = reservation.offer || {};
+  return {
+    subject: `Voucher da sua viagem - Reserva ${reservation.id}`,
+    body: `Olá ${reservation.customer?.name || ''},\n\nO voucher da sua viagem para ${offer.destination || offer.hotel || 'o seu destino'} já está disponível (localizador ${reservation.operatorLocator}).\n\nPode consultá-lo e descarregá-lo na sua Área de Cliente, separador Documentos:\n${accountUrl}\n\nApresente o voucher (impresso ou digital) no check-in do alojamento.\n\nObrigado,\nBoomviagens`
+  };
+}
+
+module.exports = { proposalEmail, reservationEmail, loginCodeEmail, documentRequestEmail, paymentReminderEmail, tripReminderEmail, voucherEmail };

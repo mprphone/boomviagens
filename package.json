@@ -9,7 +9,7 @@
     "check": "node scripts/check-js.js && eslint public/js public/conta/js public/backoffice/js",
     "test:integrations": "node scripts/test-integrations.js",
     "test:provider-kit": "node scripts/test-provider-kit.js",
-    "test": "npm run check && npm run test:integrations && npm run test:operational && npm run test:global && npm run test:frontoffice && npm run test:frontoffice:v8 && npm run test:customer-journeys:v9 && npm run test:provider-kit && npm run test:automations",
+    "test": "npm run check && npm run test:integrations && npm run test:operational && npm run test:global && npm run test:frontoffice && npm run test:frontoffice:v8 && npm run test:customer-journeys:v9 && npm run test:provider-kit && npm run test:automations && npm run test:reconciliation",
     "test:api": "node scripts/test-api.js",
     "test:gateway:sandbox": "node scripts/test-payment-gateways-sandbox.js",
     "test:hbx-booking:sandbox": "node scripts/test-hbx-booking-sandbox.js",
@@ -19,7 +19,8 @@
     "test:frontoffice": "node scripts/test-frontoffice-v7.js",
     "test:frontoffice:v8": "node scripts/test-frontoffice-v8.js",
     "test:customer-journeys:v9": "node scripts/test-customer-journeys-v9.js",
-    "test:automations": "node scripts/test-automations.js"
+    "test:automations": "node scripts/test-automations.js",
+    "test:reconciliation": "node scripts/test-reconciliation-notifications.js"
   },
   "keywords": [
     "viagens",

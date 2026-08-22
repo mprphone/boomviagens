@@ -335,6 +335,21 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .assisted-request-form { display: grid; grid-template-columns: 1.2fr 1.4fr 1fr auto; gap: 7px; margin-top: 12px; }
 .assisted-request-form input { min-width: 0; border: 1px solid var(--line); border-radius: 9px; padding: 9px; }
 .assisted-feedback { margin-top: 8px; color: var(--success); font-size: 11px; }
+/* Cartões de evento (Ticketmaster) e formulário de cruzeiro: alvos de
+   toque >= 44px e grelha que colapsa para uma coluna no telemóvel. */
+.event-category { display: inline-block; border-radius: 999px; padding: 4px 9px; background: var(--sky); color: var(--blue); font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
+.event-card .mini-action, .experience-fallback .mini-action { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+.experience-fallback { min-height: 0; padding: 20px; }
+.experience-fallback .mini-action { margin-top: 8px; }
+.cruise-request { background: linear-gradient(180deg,#f1f9fc,#fff); }
+.cruise-form { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; margin-top: 14px; }
+.cruise-form label { display: grid; gap: 4px; min-width: 0; }
+.cruise-form label > span { font-size: 10px; font-weight: 700; color: var(--ink-2); }
+.cruise-form input, .cruise-form select, .cruise-form textarea { min-width: 0; width: 100%; min-height: 44px; border: 1px solid var(--line); border-radius: 9px; padding: 10px; font: inherit; background: #fff; }
+.cruise-form textarea { min-height: 72px; resize: vertical; }
+.cruise-form .full { grid-column: 1 / -1; }
+.cruise-form .form-feedback { margin: 0; color: var(--success); font-size: 11px; }
+.cruise-form .btn.wide { min-height: 48px; }
 .empty-search, .search-loading { min-height: 190px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border: 1px dashed #bdcfda; border-radius: 15px; padding: 28px; background: #fff; color: var(--muted); text-align: center; }
 .search-loading-bar { width: min(360px,90%); height: 5px; overflow: hidden; border-radius: 5px; background: #e8eef2; }
 .search-loading-bar span { display: block; width: 35%; height: 100%; border-radius: inherit; background: linear-gradient(90deg,var(--blue),#59bfd8); animation: load 1.2s ease-in-out infinite; }
@@ -587,6 +602,8 @@ footer { background: #062b47; color: #fff; }
   .flight-results-context { align-items: flex-start; flex-direction: column; }
   .highlight-grid, .catalog-teaser-grid, .experience-grid, .event-grid, .compare-grid { grid-template-columns: 1fr; }
   .assisted-request-form { grid-template-columns: 1fr; }
+  .cruise-form { grid-template-columns: 1fr 1fr; }
+  .cruise-form .full { grid-column: 1 / -1; }
   .trip-builder-head { grid-template-columns: 1fr; }
   .trip-builder-actions { flex-direction: row; }
   .modal-overlay { align-items: start; padding: 10px; }

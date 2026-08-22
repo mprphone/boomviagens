@@ -7,8 +7,15 @@
 const { buildVoucherPdf } = require('./voucherPdf');
 
 module.exports = function createVoucherIssuing(ctx) {
-  const { readDb, updateDb, fileStorage, domain } = ctx;
+  const { readDb, updateDb, fileStorage, mailer, voucherEmail, domain } = ctx;
   const { id, now, ensureCollections, audit } = domain;
+
+  // Link para a Area de Cliente (mesma regra de customerNotifications.js):
+  // sem PUBLIC_BASE_URL fica o caminho relativo, suficiente em mock/dev.
+  function accountUrl() {
+    const base = String(process.env.PUBLIC_BASE_URL || process.env.BASE_URL || '').trim().replace(/\/$/, '');
+    return base ? `${base}/conta/` : '/conta/';
+  }
 
   async function issueVoucherForReservation(reservationId, paymentId) {
     const db = ensureCollections(await readDb());
@@ -33,6 +40,10 @@ module.exports = function createVoucherIssuing(ctx) {
       const storagePath = `${reservationId}/viagem/${docId}-${fileName}`;
       await fileStorage.uploadFile(storagePath, buffer, 'application/pdf');
 
+      // O aviso ao cliente fica decidido dentro do mutator (padrao de
+      // paymentConfirmation.js), mas o sendMail - assincrono - corre so
+      // depois da gravacao; uma falha de envio nunca reverte o voucher.
+      let pendingEmail = null;
       await updateDb(d => {
         ensureCollections(d);
         d.documents.unshift({
@@ -48,7 +59,23 @@ module.exports = function createVoucherIssuing(ctx) {
         });
         d.reservationEvents.unshift({ id: id('evt'), createdAt: now(), reservationId, actor: 'sistema', type: 'VOUCHER_ISSUED', description: `Voucher emitido automaticamente · localizador ${reservation.operatorLocator}` });
         audit(d, 'sistema', 'VOUCHER_ISSUED', { reservationId, paymentId, locator: reservation.operatorLocator });
+        const to = reservation.customer?.email;
+        if (to && voucherEmail && mailer) {
+          const email = voucherEmail({ reservation, accountUrl: accountUrl() });
+          d.emails.unshift({ id: id('email'), createdAt: now(), to, status: mailer.isConfigured() ? 'ENVIADO' : 'GERADO_DEMO', ...email });
+          pendingEmail = { to, subject: email.subject, body: email.body };
+        }
       });
+      if (pendingEmail) {
+        try {
+          await mailer.sendMail(pendingEmail);
+        } catch (err) {
+          await updateDb(d => {
+            ensureCollections(d);
+            d.reservationEvents.unshift({ id: id('evt'), createdAt: now(), reservationId, actor: 'sistema', type: 'EMAIL_SEND_FAILED', description: err.message });
+          });
+        }
+      }
       return { ok: true, documentId: docId };
     } catch (err) {
       await updateDb(d => {

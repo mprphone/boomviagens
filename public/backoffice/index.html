@@ -2,7 +2,7 @@
 <html lang="pt">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Backoffice - Boomviagens</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -123,6 +123,47 @@
         <section id="view-emails" class="view" hidden></section>
         <section id="view-operador" class="view" hidden></section>
       </main>
+    </div>
+
+    <!-- Navegacao movel (<=900px): tab bar fixa com as areas principais e
+         "Mais" a abrir a folha com todos os workspaces/menus - mesmo
+         padrao da area de cliente (public/conta). Os grupos da folha sao
+         gerados em main.js a partir da propria sidebar. -->
+    <nav class="mobile-tabbar" aria-label="Navegação principal">
+      <button type="button" class="tab-item is-active" data-area="comercial">
+        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="4.5" height="16" rx="1"/><rect x="10" y="4" width="4.5" height="10" rx="1"/><rect x="16" y="4" width="4.5" height="6" rx="1"/></svg>
+        Comercial
+      </button>
+      <button type="button" class="tab-item" data-area="operacao">
+        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="16" rx="2"/><path d="M9 12l2 2 4-4"/></svg>
+        Operação
+      </button>
+      <button type="button" class="tab-item" data-area="online">
+        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c3 3 3 13 0 16-3-3-3-13 0-16z"/></svg>
+        Online
+        <span class="workspace-alert-dot" hidden></span>
+      </button>
+      <button type="button" class="tab-item" data-area="equipa">
+        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3.5 19c1-3 3-4.5 5.5-4.5S13.5 16 14.5 19"/><circle cx="16.5" cy="9" r="2.4"/><path d="M16 14.6c2.2.2 3.8 1.6 4.5 4"/></svg>
+        Equipa
+      </button>
+      <button type="button" class="tab-item" id="moreMenuBtn" aria-controls="boSheet" aria-expanded="false">
+        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+        Mais
+      </button>
+    </nav>
+
+    <div class="bo-sheet" id="boSheet" hidden>
+      <button type="button" class="bo-sheet-backdrop" id="boSheetBackdrop" aria-label="Fechar menu"></button>
+      <div class="bo-sheet-panel" role="dialog" aria-label="Áreas de trabalho e mais opções">
+        <div class="bo-sheet-handle" aria-hidden="true"></div>
+        <div id="boSheetGroups"></div>
+        <div class="bo-sheet-group">
+          <h3>Geral</h3>
+          <a class="sheet-link" href="/">← Voltar ao site</a>
+          <button type="button" id="sheetLogoutBtn" class="sheet-link is-danger">Terminar sessão</button>
+        </div>
+      </div>
     </div>
   </div>
 

@@ -10,7 +10,7 @@ const domain = require('./src/domain');
 const storage = require('./src/storage');
 const { readDb, updateDb } = storage;
 const { baseOffers, searchOffers, getOfferById } = require('./src/mockOperators');
-const { proposalEmail, reservationEmail, loginCodeEmail, documentRequestEmail } = require('./src/emailTemplates');
+const { proposalEmail, reservationEmail, loginCodeEmail, documentRequestEmail, paymentReminderEmail, tripReminderEmail, voucherEmail } = require('./src/emailTemplates');
 const { OperatorRegistry, TourDiezAdapter } = require('./src/operatorAdapters');
 const { HotelbedsAdapter } = require('./src/hotelbedsAdapter');
 const { cleanText, searchPayload, customerPayload, passengerPayload, validatePassengerForTrip, paymentMethod, numberInRange, email: validateEmail, password: validatePassword } = require('./src/validation');
@@ -21,6 +21,8 @@ const { FacturalusaClient } = require('./src/facturalusaClient');
 const createInvoicing = require('./src/invoicing');
 const createVoucherIssuing = require('./src/voucherIssuing');
 const createPaymentConfirmation = require('./src/paymentConfirmation');
+const createPaymentReconciliation = require('./src/paymentReconciliation');
+const createCustomerNotifications = require('./src/customerNotifications');
 const { StripeGatewayAdapter, EasyPayGatewayAdapter, PaymentGatewayRegistry } = require('./src/paymentGatewayAdapters');
 const { DuffelClient } = require('./src/integrations/duffelClient');
 const { HbxClient } = require('./src/integrations/hbxClient');
@@ -86,6 +88,9 @@ const ctx = {
   reservationEmail,
   loginCodeEmail,
   documentRequestEmail,
+  paymentReminderEmail,
+  tripReminderEmail,
+  voucherEmail,
   cleanText,
   searchPayload,
   customerPayload,
@@ -114,6 +119,8 @@ const ctx = {
 ctx.invoicing = createInvoicing(ctx);
 ctx.voucherIssuing = createVoucherIssuing(ctx);
 ctx.paymentConfirmation = createPaymentConfirmation(ctx);
+ctx.paymentReconciliation = createPaymentReconciliation(ctx);
+ctx.customerNotifications = createCustomerNotifications(ctx);
 
 const router = createRouter();
 registerPublicRoutes(router, ctx);

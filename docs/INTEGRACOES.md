@@ -93,7 +93,7 @@ Já existem placeholders de ambiente em `.env.example` e entradas no registo
 
 | id | Produto | Variáveis |
 |---|---|---|
-| `cruise` | Cruzeiros | `CRUISE_API_KEY`, `CRUISE_API_BASE_URL` |
+| `cruise` | Cruzeiros (pedido assistido) | `CRUISE_API_KEY`, `CRUISE_API_BASE_URL` |
 | `car` | Rent-a-car | `CAR_API_KEY`, `CAR_API_BASE_URL` |
 | `train` | Comboios | `TRAIN_API_KEY`, `TRAIN_API_BASE_URL` |
 | `ferry` | Ferries | `FERRY_API_KEY`, `FERRY_API_BASE_URL` |
@@ -104,6 +104,36 @@ Para ligar um destes fornecedores: criar o cliente com o provider kit
 cliente, e seguir os passos 3-6. Enquanto não houver confirmação real
 testada, o produto continua em modo `ASSISTED` no catálogo (pedido de
 proposta no CRM) — nunca stock ou preço inventado.
+
+### Cruzeiros: do pedido assistido à API
+
+Hoje o separador "Cruzeiros" do site abre um **formulário de pedido
+assistido** próprio (`renderCruiseRequest` em `public/js/results.js`) com
+região/itinerário, data de partida, duração, companhia preferida, tipo de
+cabine e passageiros. O pedido entra no CRM via `POST /api/assisted-request`
+com `kind: 'CRUISE'` e as preferências estruturadas nas notas — aparece no
+backoffice como lead `WEBSITE_ASSISTED` e no registo como
+`cruise · mode: assisted`.
+
+Para ligar uma futura API de cruzeiros (ex.: um operador com feed de
+itinerários/tarifas):
+
+1. Criar `src/integrations/cruiseClient.js` com o padrão do provider kit
+   (classe com `isConfigured()`, `searchCruises({ region, departureDate, nights, adults, children, cabin, limit })`
+   e `testConnection()`), exportando `cruiseProvider` via `defineProvider`.
+2. No `registry.js`, substituir o stub `cruiseProvider` pelo import do
+   cliente novo (manter o id `cruise` e o prefixo `CRUISE`).
+3. No `ServiceCatalog.liveProducts()`, fazer `live.add('CRUISE')` quando o
+   cliente estiver configurado — o serviço passa de `ASSISTED` para
+   pesquisável.
+4. Criar `POST /api/cruises/search` em `publicRoutes.js` (seguir o padrão
+   de `/api/experiences/search`: rate limit, `Promise.allSettled`, pricing
+   só no servidor com `applyMargin`, `productType: 'CRUISE'`).
+5. No frontoffice, trocar `renderCruiseRequest` por uma lista de resultados
+   **mantendo** o formulário assistido como fallback quando a API falhar ou
+   não houver resultados.
+6. Testes em `scripts/test-integrations.js` (normalização) sem consumir
+   quota externa.
 
 ## Regras obrigatórias (inalteradas)
 

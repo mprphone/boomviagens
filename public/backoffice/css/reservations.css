@@ -566,3 +566,35 @@
   .toolbar { grid-template-columns: 1fr; }
   .process-flag { margin-left: 0; }
 }
+
+/* Telemovel: barra de estado da reserva fica fixa em baixo (acima da tab
+   bar) para as acoes principais estarem sempre acessiveis; campos e
+   uploads a 100% de largura; sub-separadores com scroll horizontal. */
+@media (max-width: 900px) {
+  .reservation-status-row {
+    position: sticky;
+    bottom: calc(66px + env(safe-area-inset-bottom));
+    z-index: 40;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    background: var(--card);
+    box-shadow: var(--shadow-sm);
+  }
+  .reservation-status-row label { flex: 1 1 100%; }
+  .reservation-status-row .btn { flex: 1 1 100%; }
+  .bo-subtabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .bo-subtab { white-space: nowrap; min-height: 36px; }
+  .doc-upload-form { flex-direction: column; align-items: stretch; }
+  .doc-upload-form select,
+  .doc-upload-form input[type="text"],
+  .doc-upload-form input[type="date"],
+  .doc-upload-form input[type="file"] { width: 100%; }
+  .drawer-field-grid { grid-template-columns: 1fr; }
+  .reservation-actions select { flex: 1 1 auto; }
+  .mini-action { min-height: 44px; }
+}

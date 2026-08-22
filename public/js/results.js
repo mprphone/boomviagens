@@ -2,7 +2,7 @@
 // interativa. A pesquisa base continua barata: APIs de enriquecimento como
 // Duffel/Weather/Ticketmaster só entram quando o cliente abre uma viagem.
 
-import { $, esc, money, dateRange, api, formToJson, safeImageUrl, safeExternalUrl, cssImageUrl, notify } from './utils.js';
+import { $, esc, money, dateRange, shortDate, api, formToJson, safeImageUrl, safeExternalUrl, cssImageUrl, notify } from './utils.js';
 import { goHome, goToResults } from './router.js';
 import { applyRoomOption, computeHighlights } from './offers.js';
 import { showReview } from './review.js';
@@ -389,28 +389,133 @@ function renderFlightResults(data) {
     renderFlightResults({results:currentSearchResults,parsed:currentParsed,mode:data.mode});
   });
 }
+function eventPriceLabel(e = {}) {
+  const min = Number(e.priceMin || 0); const max = Number(e.priceMax || 0);
+  if (min > 0 && max > min) return `${money(min)} – ${money(max)}`;
+  if (min > 0) return `desde ${money(min)}`;
+  return '';
+}
+
+function eventWhenWhere(e = {}) {
+  const date = e.date ? shortDate(e.date) : '';
+  const time = /^\d{2}:\d{2}/.test(String(e.time || '')) ? String(e.time).slice(0, 5) : '';
+  const where = [e.venue, e.city].filter(Boolean).join(' · ');
+  return [date && time ? `${date} · ${time}` : date, where].filter(Boolean);
+}
+
+function renderEventCard(e = {}) {
+  const url = safeExternalUrl(e.url || '');
+  const price = eventPriceLabel(e);
+  const whenWhere = eventWhenWhere(e);
+  return `<article class="event-card">
+    ${e.image ? `<img src="${esc(safeImageUrl(e.image))}" loading="lazy" alt=""/>` : '<div class="experience-placeholder"></div>'}
+    <div>
+      ${e.category ? `<span class="event-category">${esc(e.category)}</span>` : ''}
+      <h4>${esc(e.name || e.title || 'Evento')}</h4>
+      ${whenWhere.length ? `<p class="muted">${esc(whenWhere.join(' — '))}</p>` : ''}
+      <div class="experience-card-bottom">
+        <strong>${esc(price || 'Preço no site oficial')}</strong>
+        ${url ? `<a class="btn mini-action" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Ver bilhetes</a>` : ''}
+      </div>
+    </div>
+  </article>`;
+}
+
+// Estado por fonte (atividades/eventos): se a API não estiver configurada
+// mostramos um caminho assistido em vez de um erro ou de um vazio ambíguo.
+function experienceSourceFallback(kind, status) {
+  const notConfigured = status && status.configured === false;
+  if (kind === 'events') {
+    return `<div class="empty-search experience-fallback">
+      <b>${notConfigured ? 'Bilhetes online a caminho.' : 'Sem eventos publicados nestas datas.'}</b>
+      <span>${notConfigured ? 'A ligação direta à bilheteira ainda não está ativa neste ambiente. Diga-nos o evento que procura e a equipa trata dos bilhetes consigo.' : 'Não encontrámos eventos neste destino para o período escolhido. Experimente outras datas ou peça ajuda à equipa.'}</span>
+      <button type="button" class="btn mini-action" data-event-request>Pedir bilhetes com ajuda</button>
+    </div>`;
+  }
+  return `<div class="empty-search experience-fallback">
+    <b>${notConfigured ? 'Atividades online a caminho.' : 'Sem atividades publicadas nestas datas.'}</b>
+    <span>${notConfigured ? 'A reserva direta de atividades ainda não está ativa neste ambiente, mas podemos organizar tudo por pedido assistido.' : 'Não encontrámos atividades neste destino para o período escolhido.'}</span>
+    <button type="button" class="btn mini-action" data-activity-request>Pedir proposta de atividades</button>
+  </div>`;
+}
+
 function renderExperienceResults(data) {
   currentSearchResults=[]; currentParsed=data.parsed||{}; currentCatalogTeasers=[];
   const activities=data.activities||[]; const events=data.events||[];
+  const status=data.providerStatus||[];
+  const activitiesStatus=status.find(x=>x.provider==='activities');
+  const eventsStatus=status.find(x=>x.provider==='events');
   updateTripSummary(currentParsed);
   $('#resultsRecapTitle').textContent=`Experiências em ${currentParsed.destination||''}`;
   $('#resultsRecapDetails').textContent=`${dateRange(currentParsed.checkin,currentParsed.checkout)} · ${currentParsed.adults||1} adulto(s)`;
-  $('#parsedBox').innerHTML=`<div class="search-confidence"><span class="search-confidence-icon">✓</span><div><b>${activities.length+events.length} sugestões encontradas</b><span>Atividades HBX e eventos Ticketmaster aparecem separados para saber exatamente o que está disponível.</span></div></div>`;
+  $('#parsedBox').innerHTML=`<div class="search-confidence"><span class="search-confidence-icon">✓</span><div><b>${activities.length+events.length} sugestões encontradas</b><span>Atividades e bilhetes de eventos aparecem separados para saber exatamente o que está disponível.</span></div></div>`;
   $('#resultsFilters').hidden=true; $('#resultsHighlights').innerHTML=''; $('#resultCount').textContent=`${activities.length+events.length} opções`; $('#resultsToolbar').innerHTML='';
-  const activityHtml=activities.length?`<section class="experience-source"><div class="experience-source-head"><div><p class="eyebrow">Atividades</p><h3>Experiências reserváveis no destino</h3></div><span>HBX Activities</span></div><div class="experience-grid">${activities.map((a,i)=>`<article class="experience-card">${a.image?`<img src="${esc(safeImageUrl(a.image))}" loading="lazy" alt=""/>`:'<div class="experience-placeholder"></div>'}<div><h4>${esc(a.name)}</h4><p>${esc(a.description||'')}</p><div class="experience-card-bottom"><strong>${a.finalPrice>0?money(a.finalPrice):'Preço a confirmar'}</strong><button type="button" class="ghost mini-action activity-interest" data-activity-index="${i}">Tenho interesse</button></div></div></article>`).join('')}</div></section>`:'';
-  const eventHtml=events.length?`<section class="experience-source"><div class="experience-source-head"><div><p class="eyebrow">Durante a sua estadia</p><h3>Eventos que acontecem nestas datas</h3></div><span>Ticketmaster</span></div><div class="event-grid">${events.map(e=>{const url=safeExternalUrl(e.url||'');return `<article class="event-card">${e.image?`<img src="${esc(safeImageUrl(e.image))}" loading="lazy" alt=""/>`:'<div class="experience-placeholder"></div>'}<div><h4>${esc(e.name||e.title||'Evento')}</h4><p class="muted">${esc([e.date,e.time,e.venue].filter(Boolean).join(' · '))}</p>${url?`<a class="btn mini-action" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Ver bilhetes</a>`:''}</div></article>`}).join('')}</div></section>`:'';
-  $('#results').innerHTML=(activityHtml+eventHtml)||`<div class="empty-search"><b>Não encontrámos atividades ou eventos para estas datas.</b><span>Isto não significa falha da API: pode simplesmente não existir oferta publicada neste período.</span></div>`;
+  const activityHtml=`<section class="experience-source"><div class="experience-source-head"><div><p class="eyebrow">Atividades</p><h3>Experiências reserváveis no destino</h3></div><span>HBX Activities</span></div>${activities.length?`<div class="experience-grid">${activities.map((a,i)=>`<article class="experience-card">${a.image?`<img src="${esc(safeImageUrl(a.image))}" loading="lazy" alt=""/>`:'<div class="experience-placeholder"></div>'}<div><h4>${esc(a.name)}</h4><p>${esc(a.description||'')}</p><div class="experience-card-bottom"><strong>${a.finalPrice>0?money(a.finalPrice):'Preço a confirmar'}</strong><button type="button" class="ghost mini-action activity-interest" data-activity-index="${i}">Tenho interesse</button></div></div></article>`).join('')}</div>`:experienceSourceFallback('activities',activitiesStatus)}</section>`;
+  const eventHtml=`<section class="experience-source"><div class="experience-source-head"><div><p class="eyebrow">Durante a sua estadia</p><h3>Eventos e bilhetes nestas datas</h3></div><span>Ticketmaster</span></div>${events.length?`<div class="event-grid">${events.map(renderEventCard).join('')}</div>`:experienceSourceFallback('events',eventsStatus)}</section>`;
+  $('#results').innerHTML=activityHtml+eventHtml;
 }
 
+const CRUISE_REGIONS = ['Mediterrâneo', 'Ilhas Gregas', 'Caraíbas', 'Norte da Europa e Fjords', 'Canárias e Madeira', 'Transatlântico', 'Cruzeiros fluviais', 'Volta ao mundo', 'Ainda não sei / outra'];
+const CRUISE_LINES = ['Sem preferência', 'MSC Cruzeiros', 'Costa Cruzeiros', 'Royal Caribbean', 'Norwegian Cruise Line', 'Celebrity Cruises', 'Princess Cruises', 'Outra'];
+const CRUISE_CABINS = ['Sem preferência', 'Interior', 'Exterior com janela', 'Varanda', 'Suite'];
+const CRUISE_NIGHTS = ['3 a 5 noites', '6 a 8 noites', '9 a 14 noites', '15 ou mais noites'];
+
+function cruiseOptions(list, selected) {
+  return list.map(x => `<option value="${esc(x)}" ${x === selected ? 'selected' : ''}>${esc(x)}</option>`).join('');
+}
+
+// Cruzeiros não têm API ligada: em vez de um beco sem saída, o separador
+// "Cruzeiros" abre um pedido assistido com campos próprios. O pedido entra
+// no CRM com tipo CRUISE e as preferências estruturadas nas notas.
 function renderCruiseRequest(payload) {
   currentParsed=payload; currentSearchResults=[]; currentCatalogTeasers=[];
   updateTripSummary(payload);
   $('#resultsRecapTitle').textContent='Cruzeiros à sua medida';
-  $('#resultsRecapDetails').textContent=`${payload.destination||'Destino flexível'} · ${dateRange(payload.checkin,payload.checkout)}`;
-  $('#parsedBox').innerHTML='<div class="search-confidence"><span class="search-confidence-icon">⚓</span><div><b>Pedido especializado</b><span>Ainda não temos um inventário de cruzeiros por API. Em vez de um erro, registamos o pedido para a equipa tratar.</span></div></div>';
+  $('#resultsRecapDetails').textContent=`${payload.destination||'Destino flexível'} · ${dateRange(payload.checkin,payload.checkout)||'Datas flexíveis'}`;
+  $('#parsedBox').innerHTML='<div class="search-confidence"><span class="search-confidence-icon">⚓</span><div><b>Pedido especializado</b><span>Os cruzeiros são tratados por um especialista: preenche o pedido e recebes uma proposta com itinerário, cabine e preço final.</span></div></div>';
   $('#resultsFilters').hidden=true;$('#resultsHighlights').innerHTML='';$('#resultsToolbar').innerHTML='';$('#resultCount').textContent='Pedido assistido';
-  $('#results').innerHTML=assistedRequestHtml('CRUZEIRO',{destination:payload.destination,notes:'Pedido de cruzeiro através do site.'});
+  const knownRegion = CRUISE_REGIONS.find(r => r.toLowerCase() === String(payload.destination || '').trim().toLowerCase());
+  $('#results').innerHTML=`<section class="assisted-request-card cruise-request">
+    <div><p class="eyebrow">Pedido de cruzeiro</p><h3>Encontre o cruzeiro certo para si</h3><p class="muted">Trabalhamos com as principais companhias. Conte-nos o que imagina e um especialista responde com propostas reais — sem compromisso.</p></div>
+    <form class="cruise-form">
+      <label><span>Região ou itinerário</span><select name="cruiseRegion">${cruiseOptions(CRUISE_REGIONS, knownRegion || (payload.destination ? 'Ainda não sei / outra' : CRUISE_REGIONS[0]))}</select></label>
+      <label><span>Data de partida pretendida</span><input name="checkin" type="date" value="${esc(payload.checkin || '')}" /></label>
+      <label><span>Duração</span><select name="cruiseNights">${cruiseOptions(CRUISE_NIGHTS, CRUISE_NIGHTS[1])}</select></label>
+      <label><span>Companhia preferida</span><select name="cruiseLine">${cruiseOptions(CRUISE_LINES, CRUISE_LINES[0])}</select></label>
+      <label><span>Tipo de cabine</span><select name="cruiseCabin">${cruiseOptions(CRUISE_CABINS, CRUISE_CABINS[0])}</select></label>
+      <label><span>Adultos</span><input name="adults" type="number" min="1" max="20" value="${Number(payload.adults || 2)}" /></label>
+      <label><span>Crianças</span><input name="children" type="number" min="0" max="10" value="${Number(payload.children || 0)}" /></label>
+      <label><span>Nome</span><input name="name" required maxlength="120" autocomplete="name" /></label>
+      <label><span>Email</span><input name="email" type="email" autocomplete="email" /></label>
+      <label><span>Telefone</span><input name="phone" type="tel" autocomplete="tel" /></label>
+      <label class="full"><span>Observações</span><textarea name="notes" rows="3" placeholder="Porto de embarque, ocasião especial, orçamento por pessoa, acessibilidade...">${payload.destination && !knownRegion ? `Itinerário pretendido: ${esc(payload.destination)}` : ''}</textarea></label>
+      <p class="form-feedback full" data-cruise-feedback aria-live="polite"></p>
+      <button class="btn wide full" type="submit">Pedir proposta de cruzeiro</button>
+    </form></section>`;
 }
+
+document.addEventListener('submit', async e => {
+  const form=e.target.closest('.cruise-form'); if(!form)return;
+  e.preventDefault();
+  const feedback=form.querySelector('[data-cruise-feedback]'); const button=form.querySelector('button[type="submit"]');
+  const fd=formToJson(form);
+  if (!fd.email && !fd.phone) { feedback.textContent='Indique pelo menos um email ou telefone.'; return; }
+  const parts=[
+    `Região/itinerário: ${fd.cruiseRegion}`,
+    fd.checkin ? `Partida pretendida: ${fd.checkin}` : '',
+    `Duração: ${fd.cruiseNights}`,
+    `Companhia preferida: ${fd.cruiseLine}`,
+    `Tipo de cabine: ${fd.cruiseCabin}`
+  ].filter(Boolean);
+  const notes=[parts.join(' · '), String(fd.notes||'').trim()].filter(Boolean).join('\n');
+  button.disabled=true; button.textContent='A registar o pedido…'; feedback.textContent='';
+  try {
+    const data=await api('/api/assisted-request',{method:'POST',body:JSON.stringify({kind:'CRUISE',name:fd.name,email:fd.email,phone:fd.phone,destination:fd.cruiseRegion,checkin:fd.checkin,checkout:'',adults:fd.adults,children:fd.children,notes})});
+    feedback.innerHTML=`<b>✓ Pedido registado</b> · referência ${esc(data.requestId)}. Um especialista de cruzeiros vai entrar em contacto consigo.`;
+    form.querySelectorAll('input,select,textarea').forEach(el=>{el.disabled=true;});
+    button.hidden=true;
+  } catch(err){ feedback.textContent=err.message; button.disabled=false; button.textContent='Pedir proposta de cruzeiro'; }
+});
 
 document.addEventListener('submit', async e => {
   const form=e.target.closest('.assisted-request-form'); if(!form)return;
@@ -422,6 +527,8 @@ document.addEventListener('submit', async e => {
 document.addEventListener('click', e => {
   const cat=e.target.closest('.catalog-interest'); if(cat){ const h=currentCatalogTeasers[Number(cat.dataset.catalogIndex)]; if(!h)return; const container=document.createElement('div');container.innerHTML=assistedRequestHtml('HOTEL',{destination:currentParsed.destination,notes:`Pedido de cotação para ${h.name}.`});cat.closest('.catalog-teaser-card')?.appendChild(container.firstElementChild);cat.disabled=true; }
   const act=e.target.closest('.activity-interest'); if(act){ const box=act.closest('.experience-card'); const name=box?.querySelector('h4')?.textContent||'Experiência'; const container=document.createElement('div');container.innerHTML=assistedRequestHtml('EXPERIENCIA',{destination:currentParsed.destination,notes:`Interesse na experiência: ${name}.`});box?.appendChild(container.firstElementChild);act.disabled=true; }
+  const evReq=e.target.closest('[data-event-request]'); if(evReq){ const box=evReq.closest('.experience-source'); const container=document.createElement('div');container.innerHTML=assistedRequestHtml('EXPERIENCIA',{destination:currentParsed.destination,notes:'Pedido de bilhetes para evento (bilheteira online por configurar).'});box?.appendChild(container.firstElementChild);evReq.disabled=true; }
+  const actReq=e.target.closest('[data-activity-request]'); if(actReq){ const box=actReq.closest('.experience-source'); const container=document.createElement('div');container.innerHTML=assistedRequestHtml('EXPERIENCIA',{destination:currentParsed.destination,notes:'Pedido de proposta de atividades (reserva online por configurar).'});box?.appendChild(container.firstElementChild);actReq.disabled=true; }
 });
 
 const SEARCH_STAGES = ['A consultar disponibilidade…', 'A organizar tarifas e condições…', 'A comparar preço e flexibilidade…', 'A ordenar as opções mais relevantes…', 'A preparar a sua viagem…'];

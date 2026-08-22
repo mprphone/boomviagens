@@ -303,6 +303,11 @@ button:focus-visible,
 
 .view[hidden] { display: none; }
 
+/* Navegacao movel - escondida no desktop, aparece so em <=900px (ver o
+   bloco de media query no fim deste ficheiro). */
+.mobile-tabbar,
+.bo-sheet { display: none; }
+
 .error {
   margin: 0;
   border: 1px solid #f3c6c6;
@@ -312,17 +317,6 @@ button:focus-visible,
   color: var(--red);
   font-size: 13px;
   font-weight: 600;
-}
-
-@media (max-width: 900px) {
-  .app-shell { flex-direction: column; }
-  .sidebar { width: 100%; flex: 0 0 auto; flex-direction: row; flex-wrap: wrap; align-items: center; }
-  .sidebar-brand { padding: 6px 10px; }
-  .sidebar-nav { flex-direction: row; flex-wrap: wrap; }
-  .nav-section-title { display: none; }
-  .sidebar-footer { flex-direction: row; border-top: 0; }
-  .content { padding: 20px 16px 32px; }
-  .topbar { padding: 16px; }
 }
 
 /* Navegação por área de trabalho: evita uma sidebar gigante e separa
@@ -342,7 +336,135 @@ button:focus-visible,
 .sidebar-nav { padding-top:6px; }
 .topbar { padding-top:18px; padding-bottom:18px; }
 
-@media (max-width:900px) {
-  .workspace-switcher { overflow-x:auto; padding:6px 12px 0; }
-  .workspace-tab { white-space:nowrap; }
+/* Telemovel (<=900px): a sidebar escura e o selector de workspaces dao
+   lugar a uma tab bar fixa em baixo (4 areas principais + "Mais") e a
+   uma folha inferior com todos os menus - o mesmo padrao da area de
+   cliente (public/conta/css/shell.css). O desktop (>=901px) fica igual. */
+@media (max-width: 900px) {
+  .app-shell { flex-direction: column; min-height: 100dvh; }
+  .app-shell.is-sheet-open { overflow: hidden; }
+  .sidebar,
+  .workspace-switcher { display: none !important; }
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 80;
+    padding: 10px 16px;
+    padding-top: max(10px, env(safe-area-inset-top));
+    gap: 12px;
+  }
+  .topbar h1 { font-size: 17px; }
+  .content { padding: 12px 14px calc(88px + env(safe-area-inset-bottom)); }
+
+  .mobile-tabbar {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 90;
+    gap: 2px;
+    border-top: 1px solid var(--line);
+    padding: 5px 4px calc(6px + env(safe-area-inset-bottom));
+    background: rgba(255, 255, 255, .97);
+    backdrop-filter: blur(14px);
+  }
+  .tab-item {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-height: 50px;
+    border: 0;
+    border-radius: 12px;
+    padding: 5px 2px;
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .tab-item.is-active { color: var(--accent-dark); background: #eef1fb; }
+  .tab-icon {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+  }
+  .tab-item .workspace-alert-dot { position: absolute; top: 7px; left: calc(50% + 6px); margin-left: 0; }
+
+  .bo-sheet:not([hidden]) {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 240;
+  }
+  .bo-sheet-backdrop {
+    position: absolute;
+    inset: 0;
+    border: 0;
+    background: rgba(15, 23, 42, .44);
+  }
+  .bo-sheet-panel {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-height: min(76dvh, 620px);
+    overflow-y: auto;
+    border-radius: 20px 20px 0 0;
+    padding: 8px 16px calc(86px + env(safe-area-inset-bottom));
+    background: #fff;
+    box-shadow: 0 -16px 40px rgba(15, 23, 42, .16);
+  }
+  .bo-sheet-handle {
+    width: 40px;
+    height: 4px;
+    margin: 6px auto 14px;
+    border-radius: 99px;
+    background: #d5dee6;
+  }
+  .bo-sheet-group { margin-bottom: 16px; }
+  .bo-sheet-group h3 {
+    margin: 0 0 6px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+  .sheet-link {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 46px;
+    border: 0;
+    border-bottom: 1px solid var(--line-soft);
+    padding: 10px 2px;
+    background: none;
+    color: var(--ink);
+    font: inherit;
+    font-size: 15px;
+    font-weight: 650;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .sheet-link:last-child { border-bottom: 0; }
+  .sheet-link.is-active { color: var(--accent-dark); }
+  .sheet-link.is-danger { color: var(--red); }
+
+  .login-gate { padding: 20px 16px; padding-bottom: max(20px, env(safe-area-inset-bottom)); }
+  .login-card { padding: 24px 20px; }
+  /* Alvos de toque confortaveis (>=44px) em qualquer botao da app. */
+  .btn, .ghost { min-height: 44px; }
+  .panel { padding: 14px; margin-bottom: 12px; }
+  .panel-head { margin-bottom: 12px; }
 }

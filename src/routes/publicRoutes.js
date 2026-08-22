@@ -449,7 +449,7 @@ module.exports = function registerPublicRoutes(router, ctx) {
   // uma lista hardcoded. Incluem o aeroporto de referência usado pelo motor
   // de voos, mas nunca credenciais de fornecedores.
   router.get('/api/airports/suggest', async (req, res, url) => {
-    const limited = rateLimit(req, res, 'airports-suggest', 120, 60 * 1000);
+    const limited = await rateLimit(req, res, 'airports-suggest', 120, 60 * 1000);
     if (limited) return limited;
     const q = String(url.searchParams.get('q') || '').trim().slice(0, 80);
     if (q.length < 2) return json(res, 200, { ok: true, places: [] });
@@ -463,7 +463,7 @@ module.exports = function registerPublicRoutes(router, ctx) {
   });
 
   router.get('/api/destinations/suggest', async (req, res, url) => {
-    const limited = rateLimit(req, res, 'destinations-suggest', 120, 60 * 1000);
+    const limited = await rateLimit(req, res, 'destinations-suggest', 120, 60 * 1000);
     if (limited) return limited;
     const q = String(url.searchParams.get('q') || '').slice(0, 80);
     const local = travelIntelligence.suggest(q, 10);
@@ -500,7 +500,7 @@ module.exports = function registerPublicRoutes(router, ctx) {
   }
 
   router.post('/api/flights/search', async (req, res) => {
-    const limited = rateLimit(req, res, 'flight-search', 20, 60 * 1000);
+    const limited = await rateLimit(req, res, 'flight-search', 20, 60 * 1000);
     if (limited) return limited;
     const raw = await ctx.parseBody(req);
     const db = await readDb();
@@ -557,34 +557,47 @@ module.exports = function registerPublicRoutes(router, ctx) {
   });
 
   router.post('/api/experiences/search', async (req, res) => {
-    const limited = rateLimit(req, res, 'experience-search', 20, 60 * 1000);
+    const limited = await rateLimit(req, res, 'experience-search', 20, 60 * 1000);
     if (limited) return limited;
     const body = searchPayload(await ctx.parseBody(req));
     const parsed = searchOffers(body, (await readDb()).margins).parsed;
-    const destination = resolveDestination(parsed.destination);
-    if (!destination) return json(res, 400, { ok: false, error: 'Escolha um destino válido para procurar experiências.' });
+    const rawDestination = String(parsed.destination || '').trim();
+    if (!rawDestination) return json(res, 400, { ok: false, error: 'Escolha um destino válido para procurar experiências.' });
+    const destination = resolveDestination(rawDestination);
     const db = await readDb();
     const tasks = [];
-    if (hbx?.isConfigured('activities') && destination.hbxCode) tasks.push(['activities', hbx.searchActivities({ destinationCode: destination.hbxCode, from: parsed.checkin, to: parsed.checkout, adults: parsed.adults, children: parsed.children, infants: parsed.infants, childAges: parsed.childAges, infantAges: parsed.infantAges, limit: 12 })]);
-    if (travelIntelligence?.ticketmaster?.isConfigured?.() && destination.eventCity) tasks.push(['events', travelIntelligence.ticketmaster.searchEvents({ city: destination.eventCity, countryCode: destination.countryCode, startDate: parsed.checkin, endDate: parsed.checkout, limit: 12 })]);
-    const settled = await Promise.allSettled(tasks.map(x => x[1]));
     const activities = []; const events = []; const providerStatus = [];
+    // Atividades HBX precisam do código interno do destino; sem catálogo
+    // ficam simplesmente de fora, com o estado reportado ao frontoffice.
+    if (hbx?.isConfigured('activities')) {
+      if (destination?.hbxCode) tasks.push(['activities', hbx.searchActivities({ destinationCode: destination.hbxCode, from: parsed.checkin, to: parsed.checkout, adults: parsed.adults, children: parsed.children, infants: parsed.infants, childAges: parsed.childAges, infantAges: parsed.infantAges, limit: 12 })]);
+      else providerStatus.push({ provider: 'activities', ok: false, configured: true, error: 'Destino sem catálogo de atividades.' });
+    } else {
+      providerStatus.push({ provider: 'activities', ok: false, configured: false, error: 'Por configurar' });
+    }
+    // A Ticketmaster aceita qualquer cidade em texto livre: quando o destino
+    // não está no catálogo interno usamos o texto pesquisado como cidade, para
+    // que pesquisas como "Lisboa" ou "Porto" mostrem bilhetes na mesma.
+    const eventCity = destination?.eventCity || rawDestination;
+    if (travelIntelligence?.ticketmaster?.isConfigured?.()) tasks.push(['events', travelIntelligence.ticketmaster.searchEvents({ city: eventCity, countryCode: destination?.countryCode, startDate: parsed.checkin, endDate: parsed.checkout, limit: 12 })]);
+    else providerStatus.push({ provider: 'events', ok: false, configured: false, error: 'Por configurar' });
+    const settled = await Promise.allSettled(tasks.map(x => x[1]));
     settled.forEach((r, i) => {
       const name = tasks[i][0];
-      if (r.status === 'rejected') { providerStatus.push({ provider: name, ok: false, error: r.reason?.message || 'Indisponível' }); return; }
-      providerStatus.push({ provider: name, ok: true });
+      if (r.status === 'rejected') { providerStatus.push({ provider: name, ok: false, configured: true, error: r.reason?.message || 'Indisponível' }); return; }
+      providerStatus.push({ provider: name, ok: true, configured: true });
       if (name === 'activities') {
         for (const [index, a] of (r.value.activities || []).entries()) {
-          const base = Number(a.fromPrice || 0); const pricing = base > 0 ? applyMargin(base, destination.name, db.margins, { operator: 'HBX Activities', channel: 'ONLINE', productType: 'ACTIVITY' }) : { finalPrice: 0 };
+          const base = Number(a.fromPrice || 0); const pricing = base > 0 ? applyMargin(base, destination?.name || rawDestination, db.margins, { operator: 'HBX Activities', channel: 'ONLINE', productType: 'ACTIVITY' }) : { finalPrice: 0 };
           activities.push({ id: a.code || `act-${index}`, name: a.name || 'Experiência', description: String(a.description || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 320), image: a.image || '', finalPrice: Number(pricing.finalPrice || 0), currency: a.currency || 'EUR', source: 'HBX Activities' });
         }
       } else if (name === 'events') events.push(...(r.value.events || []).map(e => ({ ...e, source: 'Ticketmaster' })));
     });
-    return json(res, 200, { ok: true, parsed: { ...parsed, destination: destination.name }, activities, events, providerStatus });
+    return json(res, 200, { ok: true, parsed: { ...parsed, destination: destination?.name || rawDestination }, activities, events, providerStatus });
   });
 
   router.post('/api/assisted-request', async (req, res) => {
-    const limited = rateLimit(req, res, 'assisted-request', 10, 60 * 60 * 1000);
+    const limited = await rateLimit(req, res, 'assisted-request', 10, 60 * 60 * 1000);
     if (limited) return limited;
     const body = await ctx.parseBody(req);
     const kind = String(body.kind || 'VIAGEM').toUpperCase().slice(0, 30);
@@ -606,7 +619,7 @@ module.exports = function registerPublicRoutes(router, ctx) {
   // chamadas a APIs externas. Uma falha de Duffel/Weather/Ticketmaster não
   // impede o cliente de continuar a reservar o produto principal.
   router.post('/api/travel-intelligence', async (req, res) => {
-    const limited = rateLimit(req, res, 'travel-intelligence', 8, 60 * 1000);
+    const limited = await rateLimit(req, res, 'travel-intelligence', 8, 60 * 1000);
     if (limited) return limited;
     const body = await ctx.parseBody(req);
     const signed = openToken(body.offer?.offerToken || body.offerToken || '');
@@ -677,7 +690,7 @@ module.exports = function registerPublicRoutes(router, ctx) {
   // Construtor de viagem: troca/adiciona componentes sem confiar em preço
   // vindo do browser. O componente e a oferta base têm ambos tokens assinados.
   router.post('/api/trip-builder/update', async (req, res) => {
-    const limited = rateLimit(req, res, 'trip-builder-update', 20, 60 * 1000);
+    const limited = await rateLimit(req, res, 'trip-builder-update', 20, 60 * 1000);
     if (limited) return limited;
     const body = await ctx.parseBody(req);
     const signed = openToken(body.offerToken || '');
@@ -742,7 +755,7 @@ module.exports = function registerPublicRoutes(router, ctx) {
   // Só há custo quando o utilizador pede explicitamente para explorar a zona
   // e a integração estiver ativada por GOOGLE_PLACES_ENABLED=true.
   router.post('/api/explore-zone', async (req, res) => {
-    const limited = rateLimit(req, res, 'explore-zone', 4, 60 * 1000);
+    const limited = await rateLimit(req, res, 'explore-zone', 4, 60 * 1000);
     if (limited) return limited;
     const body = await ctx.parseBody(req);
     const signed = openToken(body.offerToken || '');
@@ -763,7 +776,7 @@ module.exports = function registerPublicRoutes(router, ctx) {
   // Também evitamos 60 chamadas reais aos fornecedores por simples abertura
   // do calendário.
   router.post('/api/price-calendar', async (req, res) => {
-    const limited = rateLimit(req, res, 'price-calendar', 30, 60 * 1000);
+    const limited = await rateLimit(req, res, 'price-calendar', 30, 60 * 1000);
     if (limited) return limited;
     const allowDemo = demoDataEnabled();
     if (!allowDemo) {
@@ -781,7 +794,7 @@ module.exports = function registerPublicRoutes(router, ctx) {
   });
 
   router.post('/api/search', async (req, res) => {
-    const limited = rateLimit(req, res, 'search', 30, 60 * 1000);
+    const limited = await rateLimit(req, res, 'search', 30, 60 * 1000);
     if (limited) return limited;
     const rawSearchBody = await ctx.parseBody(req);
     const body = searchPayload(rawSearchBody);
@@ -952,7 +965,7 @@ module.exports = function registerPublicRoutes(router, ctx) {
   // proposta antes do checkout. O offerToken original continua a mandar na
   // validade do preco; se expirar, o checkout pede nova pesquisa/revalidacao.
   router.post('/api/share-trip', async (req, res) => {
-    const limited = rateLimit(req, res, 'share-trip', 30, 60 * 1000);
+    const limited = await rateLimit(req, res, 'share-trip', 30, 60 * 1000);
     if (limited) return limited;
     const body = await ctx.parseBody(req);
     const offer = body.offer || {};
@@ -987,7 +1000,7 @@ module.exports = function registerPublicRoutes(router, ctx) {
   });
 
   router.post('/api/chat', async (req, res) => {
-    const limited = rateLimit(req, res, 'chat', 60, 60 * 1000);
+    const limited = await rateLimit(req, res, 'chat', 60, 60 * 1000);
     if (limited) return limited;
     const body = await ctx.parseBody(req);
     const msg = String(body.message || '').toLowerCase();

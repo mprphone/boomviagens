@@ -1,6 +1,6 @@
 ﻿const fs = require('fs');
 const path = require('path');
-const { readDbSqlite, writeDbSqlite, updateDbSqlite, SQLITE_PATH } = require('./storageSqlite');
+const { readDbSqlite, writeDbSqlite, updateDbSqlite, incrementRateBucketSqlite, markLoginChallengeUsedSqlite, SQLITE_PATH } = require('./storageSqlite');
 
 const DB_PATH = path.join(__dirname, '..', 'data', 'db.json');
 const DB_EXAMPLE_PATH = path.join(__dirname, '..', 'data', 'db.example.json');
@@ -1231,9 +1231,78 @@ async function markLoginChallengeUsed(challengeId) {
     });
     return Array.isArray(rows) && rows.length > 0;
   }
+  if (useSqlite) return markLoginChallengeUsedSqlite(challengeId);
   if (usedLoginChallengesLocal.has(challengeId)) return false;
   usedLoginChallengesLocal.add(challengeId);
   return true;
+}
+
+// ---------------------------------------------------------------------------
+// Rate limiting partilhado (usado por src/auth.js#rateLimit). Em memoria,
+// os buckets so eram visiveis na instancia serverless que os escreveu - com
+// varias instancias (Vercel) o limite multiplicava-se pelo numero de
+// instancias ativas. Agora persistem na tabela rate_limits (Supabase) ou no
+// ficheiro SQLite; o Map em memoria fica so como fallback de desenvolvimento
+// local (backend JSON, processo unico - ai a memoria e mesmo partilhada) e
+// como rede de seguranca se a tabela ainda nao existir na Supabase.
+// ---------------------------------------------------------------------------
+
+const rateBucketsLocal = new Map();
+
+function incrementRateBucketLocal(key, windowMs) {
+  const nowMs = Date.now();
+  let bucket = rateBucketsLocal.get(key);
+  if (!bucket || bucket.resetAt < nowMs) bucket = { count: 0, resetAt: nowMs + windowMs };
+  bucket.count += 1;
+  rateBucketsLocal.set(key, bucket);
+  // Limpeza oportunistica para o Map nao crescer sem fim em dev.
+  if (rateBucketsLocal.size > 5000) {
+    for (const [bucketKey, value] of rateBucketsLocal) {
+      if (value.resetAt < nowMs) rateBucketsLocal.delete(bucketKey);
+    }
+  }
+  return bucket;
+}
+
+let warnedRateLimitFallback = false;
+
+// Ler-modificar-escrever via PostgREST nao e atomico entre instancias (sem
+// RPC no banco nao ha como fazer um incremento transacional). Aceita-se
+// como "melhor esforco": rate limiting e mitigacao de abuso, nao contagem
+// exata - o pior caso de uma corrida e um pedido extra passar dentro da
+// janela, nunca um bloqueio indevido permanente.
+async function incrementRateBucketSupabase(key, windowMs) {
+  const nowMs = Date.now();
+  const rows = await supabaseFetch('rate_limits', { search: `?key=eq.${encodeURIComponent(key)}&select=count,reset_at` });
+  const existing = (rows || [])[0];
+  const existingResetAt = existing ? new Date(existing.reset_at).getTime() : 0;
+  const fresh = !existing || existingResetAt < nowMs;
+  const row = {
+    key,
+    count: fresh ? 1 : Number(existing.count) + 1,
+    reset_at: fresh ? new Date(nowMs + windowMs).toISOString() : existing.reset_at
+  };
+  await upsertRows('rate_limits', [row], 'key');
+  return { count: row.count, resetAt: new Date(row.reset_at).getTime() };
+}
+
+async function incrementRateBucket(key, windowMs) {
+  if (useSupabase) {
+    try {
+      return await incrementRateBucketSupabase(key, windowMs);
+    } catch (error) {
+      // Tipicamente a tabela rate_limits ainda nao foi criada na Supabase
+      // (ver docs/supabase-schema.sql). Cai para memoria neste processo em
+      // vez de derrubar pedidos legitimos por causa de infraestrutura.
+      if (!warnedRateLimitFallback) {
+        warnedRateLimitFallback = true;
+        console.warn(`[storage] rate_limits indisponivel na Supabase (${error.message}); a usar buckets em memoria nesta instancia.`);
+      }
+      return incrementRateBucketLocal(key, windowMs);
+    }
+  }
+  if (useSqlite) return incrementRateBucketSqlite(key, windowMs);
+  return incrementRateBucketLocal(key, windowMs);
 }
 
 async function updateDb(mutator) {
@@ -1254,18 +1323,28 @@ async function updateDb(mutator) {
 async function pruneOldRows(table, beforeIso, { dryRun = false } = {}) {
   if (!useSupabase) return { table, skipped: true, reason: `Purga so implementada para DB_MODE=supabase (modo atual: ${mode}).` };
   const filter = `?created_at=lt.${encodeURIComponent(beforeIso)}`;
-  if (dryRun) {
-    const { count } = await supabaseFetch(table, {
-      search: `${filter}&select=id`,
-      prefer: 'count=exact',
-      headers: { Range: '0-0' },
-      returnCount: true
-    });
-    return { table, dryRun: true, wouldDelete: count ?? 0 };
+  try {
+    if (dryRun) {
+      const { count } = await supabaseFetch(table, {
+        search: `${filter}&select=id`,
+        prefer: 'count=exact',
+        headers: { Range: '0-0' },
+        returnCount: true
+      });
+      return { table, dryRun: true, wouldDelete: count ?? 0 };
+    }
+    const { data } = await supabaseFetch(table, { method: 'DELETE', search: filter, prefer: 'return=representation', returnCount: true });
+    return { table, deletedCount: Array.isArray(data) ? data.length : 0 };
+  } catch (error) {
+    // Tabela ainda nao criada na Supabase (ex.: rate_limits antes de a
+    // migracao manual ser aplicada) - salta em vez de falhar a purga toda.
+    const message = String(error?.message || '');
+    if (message.includes('PGRST205') || message.includes(': 404')) {
+      return { table, skipped: true, reason: 'Tabela inexistente na Supabase (migracao pendente).' };
+    }
+    throw error;
   }
-  const { data } = await supabaseFetch(table, { method: 'DELETE', search: filter, prefer: 'return=representation', returnCount: true });
-  return { table, deletedCount: Array.isArray(data) ? data.length : 0 };
 }
 
 const mode = useSupabase ? 'supabase' : useSqlite ? 'sqlite' : 'local';
-module.exports = { readDb, writeDb, updateDb, DB_PATH, SQLITE_PATH, mode, pruneOldRows, getStaffAuthState, markLoginChallengeUsed };
+module.exports = { readDb, writeDb, updateDb, DB_PATH, SQLITE_PATH, mode, pruneOldRows, getStaffAuthState, markLoginChallengeUsed, incrementRateBucket };

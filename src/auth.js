@@ -6,6 +6,7 @@
 
 const crypto = require('crypto');
 const { json, parseCookies } = require('./httpUtils');
+const storage = require('./storage');
 
 const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL);
 if (IS_PRODUCTION && !process.env.SESSION_SECRET) {
@@ -19,13 +20,6 @@ const SESSION_COOKIE = 'bdv_admin_session';
 const CUSTOMER_SESSION_COOKIE = 'bdv_customer_session';
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 const CUSTOMER_CODE_TTL_MS = 10 * 60 * 1000;
-
-// Nota (ver auditoria): em memoria, nao sobrevive a multiplas instancias
-// serverless - o mesmo problema que as sessoes ja tiveram e foram
-// corrigidas para HMAC sem estado. Aceitavel como "melhor esforco" por
-// agora; para ficar correto em Vercel precisa de um backend partilhado
-// (ex.: uma tabela no Supabase/SQLite com TTL).
-const rateBuckets = new Map();
 
 function safeEqual(a, b) {
   const left = Buffer.from(String(a || ''));
@@ -168,16 +162,16 @@ const LOOPBACK_IPS = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1', 'local']);
 // Vercel os pedidos nunca vem de loopback (chegam via proxy com um IP
 // publico real em x-forwarded-for), por isso isto nao abre nenhuma
 // excecao em producao.
-function rateLimit(req, res, scope, limit, windowMs) {
+// Os buckets vivem no armazenamento partilhado (Supabase/SQLite via
+// storage.js#incrementRateBucket) para o limite valer em todas as
+// instancias serverless, nao so na que atendeu o pedido anterior; em
+// desenvolvimento local (backend JSON) fica o fallback em memoria, que ai
+// chega porque ha um unico processo. Passou a ser async por causa disso -
+// todos os chamadores fazem `await rateLimit(...)`.
+async function rateLimit(req, res, scope, limit, windowMs) {
   if (LOOPBACK_IPS.has(clientIp(req))) return null;
   const key = `${scope}:${clientIp(req)}`;
-  const current = rateBuckets.get(key) || { count: 0, resetAt: Date.now() + windowMs };
-  if (current.resetAt < Date.now()) {
-    current.count = 0;
-    current.resetAt = Date.now() + windowMs;
-  }
-  current.count += 1;
-  rateBuckets.set(key, current);
+  const current = await storage.incrementRateBucket(key, windowMs);
   if (current.count > limit) {
     // Nao depender do valor de retorno de json() aqui - devolver
     // explicitamente true garante que o `if (limited) return limited;`

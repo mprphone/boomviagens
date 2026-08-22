@@ -34,7 +34,7 @@ module.exports = function registerCustomerRoutes(router, ctx) {
   // bastava conhecer o email de outra pessoa para reescrever o seu perfil
   // (nome/telefone/NIF/morada/passageiros) atraves deste endpoint.
   router.post('/api/customer/register', async (req, res) => {
-    const limited = rateLimit(req, res, 'customer-register', 20, 15 * 60 * 1000);
+    const limited = await rateLimit(req, res, 'customer-register', 20, 15 * 60 * 1000);
     if (limited) return limited;
     const body = customerPayload(await parseBody(req));
     const sessionEmail = customerSessionEmail(req);
@@ -68,7 +68,7 @@ module.exports = function registerCustomerRoutes(router, ctx) {
   router.post('/api/customer/login/request', async (req, res) => {
     // Ver nota equivalente em adminRoutes.js: este limite e partilhado
     // por IP entre testes automaticos e uso real em desenvolvimento local.
-    const limited = rateLimit(req, res, 'customer-login-request', 15, 15 * 60 * 1000);
+    const limited = await rateLimit(req, res, 'customer-login-request', 15, 15 * 60 * 1000);
     if (limited) return limited;
     const { loginCodeEmail } = ctx;
     const body = await parseBody(req);
@@ -105,7 +105,7 @@ module.exports = function registerCustomerRoutes(router, ctx) {
   });
 
   router.post('/api/customer/login/verify', async (req, res) => {
-    const limited = rateLimit(req, res, 'customer-login-verify', 25, 15 * 60 * 1000);
+    const limited = await rateLimit(req, res, 'customer-login-verify', 25, 15 * 60 * 1000);
     if (limited) return limited;
     const body = await parseBody(req);
     const customerEmail = validateEmail(body.email);
@@ -132,7 +132,7 @@ module.exports = function registerCustomerRoutes(router, ctx) {
   // definido uma password (ver /api/customer/set-password). Quem nao tem
   // continua a usar o codigo normalmente.
   router.post('/api/customer/login/password', async (req, res) => {
-    const limited = rateLimit(req, res, 'customer-login-password', 15, 15 * 60 * 1000);
+    const limited = await rateLimit(req, res, 'customer-login-password', 15, 15 * 60 * 1000);
     if (limited) return limited;
     const body = await parseBody(req);
     const customerEmail = validateEmail(body.email);
@@ -153,7 +153,7 @@ module.exports = function registerCustomerRoutes(router, ctx) {
   router.post('/api/customer/set-password', async (req, res) => {
     const customerEmail = customerSessionEmail(req);
     if (!customerEmail) return unauthorized(res);
-    const limited = rateLimit(req, res, 'customer-set-password', 10, 15 * 60 * 1000);
+    const limited = await rateLimit(req, res, 'customer-set-password', 10, 15 * 60 * 1000);
     if (limited) return limited;
     const body = await parseBody(req);
     const newPassword = validatePassword(body.password);
@@ -209,7 +209,7 @@ module.exports = function registerCustomerRoutes(router, ctx) {
   router.post('/api/customer/reservations/resume', async (req, res) => {
     const customerEmail = customerSessionEmail(req);
     if (!customerEmail) return unauthorized(res);
-    const limited = rateLimit(req, res, 'customer-reservation-resume', 20, 60 * 1000);
+    const limited = await rateLimit(req, res, 'customer-reservation-resume', 20, 60 * 1000);
     if (limited) return limited;
     const body = await parseBody(req);
     const reservationId = cleanText(body.reservationId, 120);
@@ -289,7 +289,7 @@ module.exports = function registerCustomerRoutes(router, ctx) {
   router.post('/api/customer/support-request', async (req, res) => {
     const customerEmail = customerSessionEmail(req);
     if (!customerEmail) return unauthorized(res);
-    const limited = rateLimit(req, res, 'customer-support-request', 12, 60 * 60 * 1000);
+    const limited = await rateLimit(req, res, 'customer-support-request', 12, 60 * 60 * 1000);
     if (limited) return limited;
     const body = await parseBody(req);
     const allowedKinds = new Set(['APOIO', 'ALTERACAO', 'CANCELAMENTO', 'RECLAMACAO', 'PAGAMENTO', 'DOCUMENTOS']);
@@ -530,7 +530,7 @@ module.exports = function registerCustomerRoutes(router, ctx) {
   router.post('/api/customer/documents/upload', async (req, res) => {
     const customerEmail = customerSessionEmail(req);
     if (!customerEmail) return unauthorized(res);
-    const limited = rateLimit(req, res, 'customer-document-upload', 20, 60 * 60 * 1000);
+    const limited = await rateLimit(req, res, 'customer-document-upload', 20, 60 * 60 * 1000);
     if (limited) return limited;
     const body = await parseBody(req);
     const reservationId = cleanText(body.reservationId, 120);

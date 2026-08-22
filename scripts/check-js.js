@@ -3,7 +3,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const esbuild = require('esbuild');
 
-const roots = ['server.js', 'src', 'scripts', path.join('public', 'js'), path.join('public', 'conta', 'js'), path.join('public', 'backoffice', 'js')];
+const roots = ['server.js', 'src', 'scripts', path.join('public', 'js'), path.join('public', 'conta', 'js'), path.join('public', 'backoffice', 'js'), path.join('public', 'shared')];
 const files = [];
 
 function walk(target) {

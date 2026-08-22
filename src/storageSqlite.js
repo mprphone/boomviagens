@@ -152,6 +152,12 @@ CREATE TABLE IF NOT EXISTS complaints (
   claimed_amount REAL, received_amount REAL, paid_to_customer REAL, resolution TEXT, resolved_at TEXT
 );
 CREATE INDEX IF NOT EXISTS complaints_customer_idx ON complaints(customer_email);
+CREATE TABLE IF NOT EXISTS rate_limits (
+  key TEXT PRIMARY KEY, count INTEGER, reset_at INTEGER
+);
+CREATE TABLE IF NOT EXISTS used_login_challenges (
+  challenge_id TEXT PRIMARY KEY, created_at TEXT
+);
 `;
 
 const DEFAULT_COMPANY = () => ({
@@ -585,4 +591,34 @@ function updateDbSqlite(mutator) {
   return result;
 }
 
-module.exports = { readDbSqlite, writeDbSqlite, updateDbSqlite, SQLITE_PATH };
+// Contagem de rate limit atomica num unico statement (INSERT .. ON
+// CONFLICT): dois pedidos simultaneos no mesmo processo nunca se pisam, ao
+// contrario de um ler-modificar-escrever. reset_at guarda-se em ms epoch
+// (inteiro) para as comparacoes serem triviais.
+function incrementRateBucketSqlite(key, windowMs) {
+  const conn = getDb();
+  const nowMs = Date.now();
+  conn.prepare(`INSERT INTO rate_limits (key, count, reset_at) VALUES (?, 1, ?)
+    ON CONFLICT(key) DO UPDATE SET
+      count = CASE WHEN rate_limits.reset_at < ? THEN 1 ELSE rate_limits.count + 1 END,
+      reset_at = CASE WHEN rate_limits.reset_at < ? THEN ? ELSE rate_limits.reset_at END`)
+    .run(key, nowMs + windowMs, nowMs, nowMs, nowMs + windowMs);
+  const row = conn.prepare('SELECT count, reset_at FROM rate_limits WHERE key = ?').get(key);
+  // Limpeza oportunistica: sem isto a tabela crescia para sempre com
+  // buckets ha muito expirados (uma linha por IP+escopo).
+  conn.prepare('DELETE FROM rate_limits WHERE reset_at < ?').run(nowMs - 24 * 60 * 60 * 1000);
+  return { count: Number(row.count), resetAt: Number(row.reset_at) };
+}
+
+// Mesmo contrato de storage.js#markLoginChallengeUsed: true na primeira
+// utilizacao, false se o challenge ja tinha sido consumido. INSERT OR
+// IGNORE + changes torna a verificacao atomica (a chave primaria e que
+// decide), sem race entre ler e inserir.
+function markLoginChallengeUsedSqlite(challengeId) {
+  const conn = getDb();
+  const result = conn.prepare('INSERT OR IGNORE INTO used_login_challenges (challenge_id, created_at) VALUES (?, ?)')
+    .run(challengeId, new Date().toISOString());
+  return Number(result.changes) > 0;
+}
+
+module.exports = { readDbSqlite, writeDbSqlite, updateDbSqlite, incrementRateBucketSqlite, markLoginChallengeUsedSqlite, SQLITE_PATH };

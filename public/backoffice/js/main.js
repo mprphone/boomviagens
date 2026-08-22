@@ -51,11 +51,63 @@ const WORKSPACES = {
 };
 let currentWorkspace = 'comercial';
 
+// Areas com botao proprio na tab bar movel; as restantes (Financeiro,
+// Gestao) acendem o botao "Mais".
+const PRIMARY_AREAS = new Set(['comercial', 'operacao', 'online', 'equipa']);
+
+function closeMobileSheet() {
+  const sheet = $('#boSheet');
+  if (sheet) sheet.hidden = true;
+  $('#appShell')?.classList.remove('is-sheet-open');
+  $('#moreMenuBtn')?.setAttribute('aria-expanded', 'false');
+}
+
+function toggleMobileSheet() {
+  const sheet = $('#boSheet');
+  if (!sheet) return;
+  const opening = sheet.hidden;
+  sheet.hidden = !opening;
+  $('#appShell')?.classList.toggle('is-sheet-open', opening);
+  $('#moreMenuBtn')?.setAttribute('aria-expanded', String(opening));
+}
+
+// Constroi a folha "Mais" a partir da propria sidebar - assim os dois
+// menus nunca ficam dessincronizados quando se adiciona uma vista.
+function buildMobileSheet() {
+  const host = $('#boSheetGroups');
+  if (!host) return;
+  document.querySelectorAll('.nav-area').forEach(area => {
+    const group = document.createElement('div');
+    group.className = 'bo-sheet-group';
+    const title = area.querySelector('.nav-section-title')?.textContent || '';
+    group.innerHTML = `<h3>${title}</h3>`;
+    area.querySelectorAll('.nav-item[data-view]').forEach(item => {
+      const link = document.createElement('button');
+      link.type = 'button';
+      link.className = 'sheet-link';
+      link.dataset.area = area.dataset.area;
+      link.dataset.view = item.dataset.view;
+      // So os nos de texto - sem o icone nem o badge "em breve".
+      link.textContent = [...item.childNodes]
+        .filter(n => n.nodeType === Node.TEXT_NODE)
+        .map(n => n.textContent.trim())
+        .join(' ');
+      link.addEventListener('click', () => switchWorkspace(link.dataset.area, link.dataset.view));
+      group.appendChild(link);
+    });
+    host.appendChild(group);
+  });
+}
+
 function switchWorkspace(area, preferredView = null) {
   if (!WORKSPACES[area]) return;
   currentWorkspace = area;
   document.querySelectorAll('.workspace-tab').forEach(btn => btn.classList.toggle('is-active', btn.dataset.area === area));
   document.querySelectorAll('.nav-area').forEach(group => { group.hidden = group.dataset.area !== area; });
+  document.querySelectorAll('.tab-item[data-area]').forEach(btn => btn.classList.toggle('is-active', btn.dataset.area === area));
+  const moreBtn = $('#moreMenuBtn');
+  if (moreBtn) moreBtn.classList.toggle('is-active', !PRIMARY_AREAS.has(area));
+  closeMobileSheet();
   const view = preferredView || WORKSPACES[area].defaultView;
   switchView(view);
 }
@@ -66,8 +118,13 @@ function switchView(name) {
   document.querySelectorAll('.nav-item[data-view]').forEach(btn => {
     btn.classList.toggle('is-active', btn.dataset.view === name);
   });
+  document.querySelectorAll('.sheet-link[data-view]').forEach(btn => {
+    btn.classList.toggle('is-active', btn.dataset.view === name && btn.dataset.area === currentWorkspace);
+  });
   document.querySelectorAll('.view').forEach(sec => { sec.hidden = sec.id !== `view-${name}`; });
   $('#pageTitle').textContent = view.title;
+  closeMobileSheet();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
   view.render();
 }
 
@@ -76,8 +133,12 @@ async function refreshOnlineIndicator() {
     const data = await api('/api/admin/reservations');
     const online = (data.reservations || []).filter(r => r.origin === 'WEBSITE' || r.source === 'site');
     const requiresAttention = online.filter(r => ['PENDING_PAYMENT','IN_VALIDATION','HUMAN_REVIEW'].includes(r.status));
-    const dot = document.getElementById('onlineSalesDot');
-    if (dot) { dot.hidden = requiresAttention.length === 0; dot.title = `${requiresAttention.length} entrada(s) online por tratar`; }
+    // Ha dois pontos de alerta: no selector de workspaces (desktop) e na
+    // tab bar movel - atualizam-se os dois de uma vez.
+    document.querySelectorAll('.workspace-alert-dot').forEach(dot => {
+      dot.hidden = requiresAttention.length === 0;
+      dot.title = `${requiresAttention.length} entrada(s) online por tratar`;
+    });
   } catch {}
 }
 
@@ -100,6 +161,19 @@ document.querySelectorAll('.nav-item[data-view]').forEach(btn => {
 document.querySelectorAll('.workspace-tab').forEach(btn => {
   btn.addEventListener('click', () => switchWorkspace(btn.dataset.area));
 });
+
+// Navegacao movel: tab bar (areas principais) + folha "Mais".
+document.querySelectorAll('.tab-item[data-area]').forEach(btn => {
+  btn.addEventListener('click', () => switchWorkspace(btn.dataset.area));
+});
+$('#moreMenuBtn')?.addEventListener('click', toggleMobileSheet);
+$('#boSheetBackdrop')?.addEventListener('click', closeMobileSheet);
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') closeMobileSheet();
+});
+// Reutiliza o handler de logout ligado em auth.js ao botao da sidebar.
+$('#sheetLogoutBtn')?.addEventListener('click', () => $('#logoutBtn')?.click());
+buildMobileSheet();
 
 wireLogin(showApp);
 

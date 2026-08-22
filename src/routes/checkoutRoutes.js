@@ -82,7 +82,7 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
   }
 
   router.post('/api/checkout', async (req, res) => {
-    const limited = rateLimit(req, res, 'checkout', 30, 60 * 1000);
+    const limited = await rateLimit(req, res, 'checkout', 30, 60 * 1000);
     if (limited) return limited;
     const body = await parseBody(req);
     const db = ensureCollections(await readDb());
@@ -381,7 +381,7 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
   });
 
   router.post('/api/payment/session', async (req, res) => {
-    const limited = rateLimit(req, res, 'payment-session', 20, 60 * 1000);
+    const limited = await rateLimit(req, res, 'payment-session', 20, 60 * 1000);
     if (limited) return limited;
     if (!gatewayPaymentsEnabled(process.env)) {
       return json(res, 409, { ok: false, error: `A criação de sessões reais está desativada (modo ${paymentsMode(process.env)}).` });
@@ -492,7 +492,7 @@ module.exports = function registerCheckoutRoutes(router, ctx) {
   });
 
   router.post('/api/payment/confirm', async (req, res) => {
-    const limited = rateLimit(req, res, 'payment-confirm', 40, 60 * 1000);
+    const limited = await rateLimit(req, res, 'payment-confirm', 40, 60 * 1000);
     if (limited) return limited;
     if (!mockPaymentsAllowed(process.env)) {
       return json(res, 405, { ok: false, error: `Confirmacao manual de pagamento desativada (modo ${paymentsMode(process.env)}). O estado pago deve vir do gateway.` });

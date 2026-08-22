@@ -302,6 +302,20 @@ create table if not exists public.used_login_challenges (
   created_at timestamptz not null default now()
 );
 
+-- Buckets de rate limiting partilhados entre instancias serverless (ver
+-- src/auth.js#rateLimit e src/storage.js#incrementRateBucket). Uma linha
+-- por par escopo:IP; reset_at marca o fim da janela atual. A purga periodica
+-- (cron /api/cron/prune-logs) apaga linhas antigas pelo created_at.
+-- TABELA NOVA - precisa de ser criada manualmente no editor SQL da Supabase
+-- de producao; ate la, o rate limit cai para memoria em cada instancia
+-- (com aviso nos logs), sem bloquear pedidos.
+create table if not exists public.rate_limits (
+  key text primary key,
+  count integer not null default 0,
+  reset_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
 -- Linhas de servico (compras/vendas) de uma reserva - separador "Servicos"
 -- da Ficha de Reserva. A soma destas linhas da os valores reais da
 -- reserva (custo/venda/margem), em contraste com a proposta original

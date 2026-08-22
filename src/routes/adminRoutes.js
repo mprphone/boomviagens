@@ -1408,30 +1408,13 @@ module.exports = function registerAdminRoutes(router, ctx) {
     return json(res, 200, { ok: true, customer: sanitizeCustomer(saved) });
   }, { admin: true });
 
-  router.get('/api/admin/leads', async (req, res) => {
-    const db = ensureCollections(await readDb());
-    const leads = db.leads.map(l => ({ ...l, stage: leadStage(l) }));
-    return json(res, 200, { ok: true, leads, leadStages: LEAD_STAGES.map(value => ({ value, label: leadStageLabel(value) })) });
-  }, { admin: true });
-
-  router.post('/api/admin/leads/update', async (req, res) => {
-    const body = await parseBody(req);
-    const leadId = cleanText(body.leadId, 120);
-    const stage = cleanText(body.status, 40);
-    if (!LEAD_STAGES.includes(stage)) return json(res, 400, { ok: false, error: 'Estagio invalido' });
-    const saved = await updateDb(d => {
-      ensureCollections(d);
-      const lead = d.leads.find(l => l.id === leadId);
-      if (!lead) return null;
-      const previousStatus = lead.status;
-      lead.status = stage;
-      lead.updatedAt = now();
-      audit(d, sessionUser(req), 'LEAD_STAGE_UPDATED', { leadId: lead.id, from: previousStatus, to: stage });
-      return lead;
-    });
-    if (!saved) return json(res, 404, { ok: false, error: 'Lead nao encontrado' });
-    return json(res, 200, { ok: true, lead: saved });
-  }, { admin: true });
+  // As rotas legacy /api/admin/leads e /api/admin/leads/update foram
+  // removidas: o pipeline comercial passou a ser gerido em oportunidades
+  // (src/routes/opportunitiesRoutes.js) e nenhum frontend chamava estes
+  // endpoints. A colecao "leads" mantem-se (dados antigos + pedidos
+  // assistidos do site/area de cliente, ver publicRoutes/customerRoutes) e
+  // continua a alimentar o funil de /api/admin/crm/overview - so deixou de
+  // ter CRUD proprio.
 
   router.get('/api/admin/operators', async (req, res) => {
     const db = ensureCollections(await readDb());

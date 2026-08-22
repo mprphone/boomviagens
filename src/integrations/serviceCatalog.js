@@ -7,7 +7,7 @@ const SERVICE_DEFINITIONS = [
   { id: 'HOTEL', slug: 'hoteis', label: 'Hotéis', description: 'Alojamentos e tarifas comparadas', priority: 20 },
   { id: 'FLIGHT', slug: 'voos', label: 'Voos', description: 'Ida e volta, só ida e multi-cidade', priority: 30 },
   { id: 'CRUISE', slug: 'cruzeiros', label: 'Cruzeiros', description: 'Cruzeiros por destino e companhia', priority: 40 },
-  { id: 'EXPERIENCE', slug: 'experiencias', label: 'Experiências', description: 'Atividades, visitas e eventos', priority: 50 },
+  { id: 'EXPERIENCE', slug: 'experiencias', label: 'Experiências', description: 'Atividades, visitas e bilhetes de eventos', priority: 50 },
   { id: 'TRANSFER', slug: 'transfers', label: 'Transfers', description: 'Aeroporto, hotel e transporte privado', priority: 60 },
   { id: 'CAR', slug: 'rent-a-car', label: 'Rent-a-car', description: 'Viaturas em todo o mundo', priority: 70 },
   { id: 'TRAIN', slug: 'comboios', label: 'Comboios', description: 'Ligações ferroviárias nacionais e internacionais', priority: 80 },

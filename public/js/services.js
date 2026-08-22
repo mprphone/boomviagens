@@ -20,7 +20,7 @@ const SERVICE_REQUEST_COPY = {
 const FALLBACK_SERVICES = [
   ['PACKAGE', 'Pacotes', 'Voo e hotel numa só viagem.'], ['HOTEL', 'Hotéis', 'Estadias em Portugal e no mundo.'],
   ['FLIGHT', 'Voos', 'Pesquisa aérea mundial.'], ['CRUISE', 'Cruzeiros', 'Propostas ajustadas ao itinerário.'],
-  ['EXPERIENCE', 'Experiências', 'Tours, atividades e eventos.'], ['TRANSFER', 'Transfers', 'Ligações entre aeroporto, hotel e porto.'],
+  ['EXPERIENCE', 'Experiências', 'Tours, atividades e bilhetes de eventos.'], ['TRANSFER', 'Transfers', 'Ligações entre aeroporto, hotel e porto.'],
   ['CAR', 'Rent-a-car', 'Viaturas para cada tipo de viagem.'], ['TRAIN', 'Comboios', 'Ligações ferroviárias nacionais e internacionais.'],
   ['FERRY', 'Ferries', 'Travessias para passageiros e viaturas.'], ['CIRCUIT', 'Circuitos', 'Programas acompanhados e à medida.'],
   ['INSURANCE', 'Seguros', 'Proteção adequada à sua viagem.'], ['GIFT', 'Cheque-viagem', 'Uma viagem para oferecer.']

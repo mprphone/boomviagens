@@ -149,4 +149,12 @@
 
 @media (max-width: 900px) {
   .pipeline-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* Filtros empilhados a toda a largura; o quadro em si ja tinha scroll
+     horizontal proprio (.pipeline-board), que no telemovel passa a ser o
+     padrao com deslize por inercia. */
+  .pipeline-filters { flex-direction: column; }
+  .pipeline-filters select,
+  .pipeline-filters input { width: 100%; }
+  .pipeline-board { -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity; }
+  .pipeline-col { scroll-snap-align: start; }
 }

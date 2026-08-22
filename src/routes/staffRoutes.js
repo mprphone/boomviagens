@@ -25,7 +25,7 @@ module.exports = function registerStaffRoutes(router, ctx) {
     // desenvolvimento local, testes automaticos e o login real do
     // utilizador vem todos do mesmo localhost e esgotavam a quota um do
     // outro.
-    const limited = rateLimit(req, res, 'admin-login', 30, 15 * 60 * 1000);
+    const limited = await rateLimit(req, res, 'admin-login', 30, 15 * 60 * 1000);
     if (limited) return limited;
     const body = await parseBody(req);
     const username = cleanText(body.username, 60);
