@@ -31,10 +31,17 @@ const TABS = [
 ];
 
 export async function openTripDetail(reservationId, backView = 'viagens') {
-  document.querySelectorAll('.nav-item[data-view]').forEach(btn => btn.classList.toggle('is-active', btn.dataset.view === backView));
-  document.querySelectorAll('.tab-item[data-view]').forEach(btn => btn.classList.toggle('is-active', btn.dataset.view === backView));
+  const tripViews = new Set(['viagens', 'guardadas', 'anteriores']);
+  document.querySelectorAll('.nav-item[data-view], .sheet-link[data-view], .trip-hub-tab[data-view]').forEach(btn => {
+    btn.classList.toggle('is-active', btn.dataset.view === backView);
+  });
+  document.querySelectorAll('.tab-item[data-view]').forEach(btn => {
+    btn.classList.toggle('is-active', btn.dataset.view === backView || (btn.dataset.view === 'viagens' && tripViews.has(backView)));
+  });
   const moreBtn = document.getElementById('moreMenuBtn');
-  if (moreBtn) moreBtn.classList.toggle('is-active', !['dashboard', 'viagens', 'documentos', 'pagamentos'].includes(backView));
+  if (moreBtn) moreBtn.classList.toggle('is-active', false);
+  const hub = document.getElementById('tripHub');
+  if (hub) hub.hidden = true;
   document.querySelectorAll('.view').forEach(sec => { sec.hidden = sec.id !== 'view-viagem'; });
   const pageTitle = $('#pageTitle');
 

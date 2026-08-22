@@ -185,6 +185,46 @@
   <div class="pax-panel" id="paxPanel" hidden><div class="pax-panel-head"><b>Viajantes</b><button type="button" id="paxPanelClose" aria-label="Fechar">×</button></div><div class="pax-row"><div><b>Adultos</b><small>12 anos ou mais</small></div><div class="counter"><button type="button" data-pax="adults" data-delta="-1">−</button><strong id="adultsCount">2</strong><button type="button" data-pax="adults" data-delta="1">+</button></div></div><div class="pax-row"><div><b>Crianças</b><small>2–11 anos</small></div><div class="counter"><button type="button" data-pax="children" data-delta="-1">−</button><strong id="childrenCount">0</strong><button type="button" data-pax="children" data-delta="1">+</button></div></div><div id="childAgesBox" class="pax-age-box" hidden></div><div class="pax-row"><div><b>Bebés</b><small>0–1 ano</small></div><div class="counter"><button type="button" data-pax="infants" data-delta="-1">−</button><strong id="infantsCount">0</strong><button type="button" data-pax="infants" data-delta="1">+</button></div></div><div id="infantAgesBox" class="pax-age-box" hidden></div><button type="button" class="btn wide" id="paxApplyBtn">Aplicar</button></div>
   <div class="calendar-panel" id="calendarPanel" hidden></div>
 
+  <nav class="site-tabbar" aria-label="Navegação móvel">
+    <a class="site-tab" href="#pesquisa" data-site-tab="search">
+      <svg class="site-tab-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 5 5"/></svg>
+      Pesquisar
+    </a>
+    <a class="site-tab" href="#destinos" data-site-tab="destinos">
+      <svg class="site-tab-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-6.2 7-11.2A7 7 0 0 0 5 9.8C5 14.8 12 21 12 21z"/><circle cx="12" cy="10" r="2.4"/></svg>
+      Destinos
+    </a>
+    <button type="button" class="site-tab" id="siteServicesBtn" aria-controls="siteSheet" aria-expanded="false">
+      <svg class="site-tab-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg>
+      Serviços
+    </button>
+    <a class="site-tab" href="/conta/">
+      <svg class="site-tab-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.2"/><path d="M5 19c1.4-3.2 3.8-4.6 7-4.6S17.6 15.8 19 19"/></svg>
+      Conta
+    </a>
+  </nav>
+  <div class="site-sheet" id="siteSheet" hidden>
+    <button type="button" class="site-sheet-backdrop" id="siteSheetBackdrop" aria-label="Fechar serviços"></button>
+    <div class="site-sheet-panel" role="dialog" aria-label="Serviços">
+      <div class="site-sheet-handle" aria-hidden="true"></div>
+      <h2>Reservar</h2>
+      <div class="site-sheet-grid">
+        <a href="#pesquisa" data-service="PACKAGE">Pacotes</a>
+        <a href="#pesquisa" data-service="HOTEL">Hotéis</a>
+        <a href="#pesquisa" data-service="FLIGHT">Voos</a>
+        <a href="#pesquisa" data-service="CRUISE">Cruzeiros</a>
+        <a href="#pesquisa" data-service="EXPERIENCE">Experiências</a>
+        <button type="button" data-catalog-service="TRANSFER">Transfers</button>
+        <button type="button" data-catalog-service="CAR">Rent-a-car</button>
+        <button type="button" data-catalog-service="TRAIN">Comboios</button>
+        <button type="button" data-catalog-service="FERRY">Ferries</button>
+        <button type="button" data-catalog-service="CIRCUIT">Circuitos</button>
+        <button type="button" data-catalog-service="INSURANCE">Seguros</button>
+        <button type="button" data-catalog-service="GIFT">Cheque presente</button>
+      </div>
+    </div>
+  </div>
+
   <div class="chat-widget"><div class="assistant-panel" id="chatPanel" hidden><div class="assistant-head"><div><b>Assistente Boom</b><span>Ajuda para planear a sua viagem</span></div><button type="button" class="chat-close" id="chatCloseBtn" aria-label="Fechar">×</button></div><div id="chatMessages" class="assistant-messages"><p><b>Boom:</b> Olá! Diga-me o destino, datas e orçamento.</p></div><form id="chatForm"><input name="message" placeholder="Ex: Caraíbas em agosto" /><button>Enviar</button></form></div><button type="button" class="chat-trigger" id="chatTriggerBtn" aria-label="Abrir assistente"><span class="chat-dot"></span><span>Podemos ajudar?</span></button></div>
 
   <footer><div class="footer-grid"><div class="footer-brand"><img src="/logo.svg" alt="Boomviagens" /><p>Viagens pensadas consigo, do primeiro plano ao regresso a casa.</p></div><div><b>Reservar</b><a href="#pesquisa" data-service="PACKAGE">Pacotes</a><a href="#pesquisa" data-service="HOTEL">Hotéis</a><a href="#pesquisa" data-service="FLIGHT">Voos</a><a href="#pesquisa" data-service="EXPERIENCE">Experiências</a></div><div><b>Apoio</b><a href="/conta/">Área de cliente</a><a href="#agenciasSection">Agências</a><a href="#ajuda">Contactos</a></div><div><b>Informação legal</b><p>About Destiny, Unipessoal Lda<br />NIF 509080308<br />RNAVT: <span id="rnavt">INSERIR_RNAVT</span></p></div></div><div class="footer-bottom"><span>© 2026 Boomviagens</span><span>Preços e disponibilidade sujeitos a confirmação.</span></div></footer>

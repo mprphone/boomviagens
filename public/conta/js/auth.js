@@ -45,12 +45,14 @@ export function wireLogin(onSuccess) {
     $('#loginEmailMessage').textContent = '';
   };
 
-  $('#logoutBtn').onclick = async () => {
+  const logout = async () => {
     await api('/api/customer/logout', { method: 'POST', body: '{}' });
     clearCustomerScopedBrowserState();
     announceCustomerSessionChange();
     location.reload();
   };
+  $('#logoutBtn').onclick = logout;
+  $('#sheetLogoutBtn') && ($('#sheetLogoutBtn').onclick = logout);
 
   async function loginWithPassword(email, password) {
     const btn = $('#loginSubmitBtn');

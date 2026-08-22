@@ -123,8 +123,10 @@
 }
 
 @media (max-width: 700px) {
+  .document-intro { padding: 14px; margin-bottom: 12px; }
   .document-intro, .doc-reservation-head { align-items: flex-start; flex-direction: column; }
-  .document-security-note { width: 100%; }
+  .document-security-note { width: 100%; font-size: 10px; }
+  .doc-reservation { padding: 14px; }
   .doc-item { grid-template-columns: 38px minmax(0,1fr); }
   .doc-item-actions { grid-column: 1 / -1; flex-wrap: wrap; }
   .doc-metadata-form, .doc-upload-grid { grid-template-columns: 1fr; }

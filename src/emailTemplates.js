@@ -21,4 +21,20 @@ function loginCodeEmail({ email, code }) {
   };
 }
 
-module.exports = { proposalEmail, reservationEmail, loginCodeEmail };
+// Pedido de documentacao em falta (reserva em AWAITING_DOCUMENTS) e o
+// lembrete automatico do cron /api/cron/document-reminders - o mesmo
+// conteudo, so muda o assunto e a primeira frase.
+function documentRequestEmail({ reservation, missingDocuments = [], reminder = false }) {
+  const list = missingDocuments.length
+    ? missingDocuments.map(doc => `- ${doc}`).join('\n')
+    : '- A nossa equipa confirmará consigo quais os documentos necessários.';
+  const intro = reminder
+    ? 'Ainda não recebemos toda a documentação necessária para a sua viagem. Este é um lembrete amigável:'
+    : 'Para avançarmos com a preparação da sua viagem, precisamos que nos envie a seguinte documentação:';
+  return {
+    subject: `${reminder ? 'Lembrete: d' : 'D'}ocumentos em falta - Reserva ${reservation.id}`,
+    body: `Olá ${reservation.customer?.name || ''},\n\n${intro}\n\n${list}\n\nPode enviar os documentos comodamente na sua Área de Cliente (separador Documentos) ou responder a este email.\n\nObrigado,\nBoomviagens`
+  };
+}
+
+module.exports = { proposalEmail, reservationEmail, loginCodeEmail, documentRequestEmail };

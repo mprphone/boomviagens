@@ -145,9 +145,22 @@
 .payment-row-side strong { display: block; font-family: var(--font-display); font-size: 17px; }
 
 @media (max-width: 760px) {
-  .next-trip { padding: 20px; }
-  .next-trip h2 { font-size: 22px; }
+  .next-trip { min-height: 0; padding: 16px; margin-bottom: 12px; }
+  .next-trip-badge { margin-bottom: 8px; }
+  .next-trip h2 { font-size: 20px; }
+  .next-trip-countdown { margin-bottom: 12px; }
   .next-trip-actions { width: 100%; }
   .next-trip-actions .btn,
   .next-trip-actions .ghost { flex: 1 1 140px; min-height: 44px; }
+  .empty-trip { padding: 20px 16px; margin-bottom: 12px; }
+  .status-chip-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .status-chip { flex-direction: column; align-items: flex-start; gap: 8px; padding: 10px; }
+  .status-chip-icon { width: 28px; height: 28px; font-size: 11px; }
+  .status-chip-title { font-size: 12px; }
+  .status-chip-sub { font-size: 10.5px; }
+  .itinerary-item { padding: 10px 0; }
 }

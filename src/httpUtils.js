@@ -8,7 +8,14 @@ function isProduction() {
 // publicas e de backoffice (sem infraestrutura de nonce) e carrega tipos de
 // letra do Google Fonts - uma politica mais estrita partia o site em vez de
 // o proteger.
-const CONTENT_SECURITY_POLICY = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://images.unsplash.com; connect-src 'self'";
+// Origens externas em uso (confirmadas no codigo antes de as abrir):
+// - cdn.easypay.pt: SDK oficial de checkout da Easypay, carregado em
+//   public/js/checkout/paymentStep.js (script + iframe inline + fetch do
+//   proprio SDK). Sem script/frame/connect-src o pagamento MB WAY/
+//   Multibanco real nao abre. Stripe nao aparece aqui de proposito: o
+//   Checkout deles e redirect (window.location.assign), nao script embutido.
+// - photos.hotelbeds.com: imagens dos hoteis HBX (src/integrations/hbxClient.js).
+const CONTENT_SECURITY_POLICY = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.easypay.pt; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://images.unsplash.com https://photos.hotelbeds.com; connect-src 'self' https://cdn.easypay.pt; frame-src https://cdn.easypay.pt";
 
 function securityHeaders() {
   const headers = {

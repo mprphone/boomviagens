@@ -37,3 +37,36 @@ document.querySelectorAll('.main-nav a[href="#pesquisa"]:not([data-destino]):not
 });
 
 const mobileMenuBtn=document.getElementById('mobileMenuBtn'); if(mobileMenuBtn) mobileMenuBtn.addEventListener('click',()=>document.querySelector('.main-nav')?.classList.toggle('is-open'));
+
+function closeSiteSheet() {
+  const sheet = document.getElementById('siteSheet');
+  const btn = document.getElementById('siteServicesBtn');
+  if (sheet) sheet.hidden = true;
+  if (btn) btn.setAttribute('aria-expanded', 'false');
+}
+
+function toggleSiteSheet() {
+  const sheet = document.getElementById('siteSheet');
+  if (!sheet) return;
+  if (sheet.hidden) {
+    sheet.hidden = false;
+    document.getElementById('siteServicesBtn')?.setAttribute('aria-expanded', 'true');
+  } else closeSiteSheet();
+}
+
+document.getElementById('siteServicesBtn')?.addEventListener('click', toggleSiteSheet);
+document.getElementById('siteSheetBackdrop')?.addEventListener('click', closeSiteSheet);
+document.getElementById('siteSheet')?.addEventListener('click', event => {
+  if (event.target.closest('[data-service], [data-catalog-service]')) closeSiteSheet();
+});
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') closeSiteSheet();
+});
+document.querySelectorAll('.site-tab[href="#pesquisa"]').forEach(link => {
+  link.addEventListener('click', event => {
+    event.preventDefault();
+    closeSiteSheet();
+    setSearchType('PACKAGE');
+    focusSearch();
+  });
+});

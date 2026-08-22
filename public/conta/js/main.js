@@ -15,10 +15,10 @@ import { renderMensagens } from './support.js';
 import { renderEmergencia } from './emergencyContacts.js';
 
 const VIEWS = {
-  dashboard: { title: 'Dashboard', render: renderDashboard },
-  guardadas: { title: 'Viagens guardadas', render: renderGuardadas },
-  viagens: { title: 'As minhas viagens', render: renderViagens },
-  anteriores: { title: 'Reservas anteriores', render: renderAnteriores },
+  dashboard: { title: 'Início', render: renderDashboard },
+  guardadas: { title: 'Viagens', render: renderGuardadas },
+  viagens: { title: 'Viagens', render: renderViagens },
+  anteriores: { title: 'Viagens', render: renderAnteriores },
   documentos: { title: 'Documentos', render: renderDocumentos },
   pagamentos: { title: 'Pagamentos', render: renderPagamentos },
   dados: { title: 'Os meus dados', render: renderDados },
@@ -28,6 +28,9 @@ const VIEWS = {
   emergencia: { title: 'Contactos de emergência', render: renderEmergencia }
 };
 
+const TRIP_VIEWS = new Set(['viagens', 'guardadas', 'anteriores']);
+const PRIMARY_TABS = new Set(['dashboard', 'viagens', 'documentos', 'pagamentos']);
+
 let activeSessionEmail = '';
 let sessionCheckRunning = false;
 let paymentReturnHandled = false;
@@ -35,40 +38,61 @@ let sessionRevision = 0;
 
 function closeMobileNav() {
   $('#appShell')?.classList.remove('is-nav-open');
-  const toggle = $('#menuToggle');
-  if (toggle) toggle.setAttribute('aria-expanded', 'false');
+  const sheet = $('#accountSheet');
+  if (sheet) sheet.hidden = true;
+  ['#menuToggle', '#moreMenuBtn'].forEach(sel => {
+    const btn = $(sel);
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+  });
   const backdrop = $('#sidebarBackdrop');
   if (backdrop) backdrop.hidden = true;
 }
 
 function openMobileNav() {
   $('#appShell')?.classList.add('is-nav-open');
-  const toggle = $('#menuToggle');
-  if (toggle) toggle.setAttribute('aria-expanded', 'true');
+  const sheet = $('#accountSheet');
+  if (sheet) sheet.hidden = false;
+  ['#menuToggle', '#moreMenuBtn'].forEach(sel => {
+    const btn = $(sel);
+    if (btn) btn.setAttribute('aria-expanded', 'true');
+  });
   const backdrop = $('#sidebarBackdrop');
   if (backdrop) backdrop.hidden = false;
 }
 
 function toggleMobileNav() {
-  if ($('#appShell')?.classList.contains('is-nav-open')) closeMobileNav();
+  if ($('#accountSheet') && !$('#accountSheet').hidden) closeMobileNav();
   else openMobileNav();
 }
 
-const TAB_VIEWS = new Set(['dashboard', 'viagens', 'documentos', 'pagamentos']);
+function highlightNav(name) {
+  document.querySelectorAll('.nav-item[data-view], .sheet-link[data-view], .trip-hub-tab[data-view]').forEach(btn => {
+    btn.classList.toggle('is-active', btn.dataset.view === name);
+  });
+  document.querySelectorAll('.tab-item[data-view]').forEach(btn => {
+    const tripActive = btn.dataset.view === 'viagens' && TRIP_VIEWS.has(name);
+    btn.classList.toggle('is-active', btn.dataset.view === name || tripActive);
+  });
+  const moreBtn = $('#moreMenuBtn');
+  if (moreBtn) moreBtn.classList.toggle('is-active', !PRIMARY_TABS.has(name) && !TRIP_VIEWS.has(name));
+  const hub = $('#tripHub');
+  if (hub) hub.hidden = !TRIP_VIEWS.has(name);
+}
+
+const DESKTOP_TITLES = {
+  dashboard: 'Dashboard',
+  guardadas: 'Viagens guardadas',
+  viagens: 'As minhas viagens',
+  anteriores: 'Reservas anteriores'
+};
 
 function switchView(name) {
   const view = VIEWS[name];
   if (!view) return;
-  document.querySelectorAll('.nav-item[data-view]').forEach(btn => {
-    btn.classList.toggle('is-active', btn.dataset.view === name);
-  });
-  document.querySelectorAll('.tab-item[data-view]').forEach(btn => {
-    btn.classList.toggle('is-active', btn.dataset.view === name);
-  });
-  const moreBtn = $('#moreMenuBtn');
-  if (moreBtn) moreBtn.classList.toggle('is-active', !TAB_VIEWS.has(name));
+  highlightNav(name);
   document.querySelectorAll('.view').forEach(sec => { sec.hidden = sec.id !== `view-${name}`; });
-  $('#pageTitle').textContent = view.title;
+  const desktop = window.matchMedia('(min-width: 901px)').matches;
+  $('#pageTitle').textContent = (desktop && DESKTOP_TITLES[name]) || view.title;
   closeMobileNav();
   window.scrollTo({ top: 0, behavior: 'smooth' });
   view.render();
@@ -78,11 +102,15 @@ async function fillSidebarProfile() {
   try {
     const data = await api('/api/customer/profile');
     const name = data.customer.name || data.customer.email;
-    $('#profileName').textContent = `Olá, ${name.split(' ')[0]}!`;
-    $('#avatarInitial').textContent = name.charAt(0).toUpperCase();
-    if (data.customer.createdAt) {
-      $('#profileSub').textContent = `Cliente desde ${new Date(data.customer.createdAt).getFullYear()}`;
-    }
+    const hello = `Olá, ${name.split(' ')[0]}!`;
+    const initial = name.charAt(0).toUpperCase();
+    const since = data.customer.createdAt ? `Cliente desde ${new Date(data.customer.createdAt).getFullYear()}` : '';
+    $('#profileName').textContent = hello;
+    $('#avatarInitial').textContent = initial;
+    if (since) $('#profileSub').textContent = since;
+    if ($('#sheetName')) $('#sheetName').textContent = hello;
+    if ($('#sheetAvatar')) $('#sheetAvatar').textContent = initial;
+    if (since && $('#sheetSub')) $('#sheetSub').textContent = since;
   } catch {
     // Sessao valida mas ainda sem registo de cliente (ex.: nunca fez
     // checkout) - mantem os valores por omissao do HTML.
@@ -93,8 +121,22 @@ async function fillHelpBox() {
   try {
     const data = await api('/api/config');
     const company = data.company || {};
-    if (company.phone) { $('#helpPhone').textContent = company.phone; $('#helpPhone').href = `tel:${company.phone}`; }
-    if (company.email) { $('#helpEmail').textContent = company.email; $('#helpEmail').href = `mailto:${company.email}`; }
+    if (company.phone) {
+      ['#helpPhone', '#sheetHelpPhone'].forEach(sel => {
+        const el = $(sel);
+        if (!el) return;
+        el.textContent = company.phone;
+        el.href = `tel:${company.phone}`;
+      });
+    }
+    if (company.email) {
+      ['#helpEmail', '#sheetHelpEmail'].forEach(sel => {
+        const el = $(sel);
+        if (!el) return;
+        el.textContent = company.email;
+        el.href = `mailto:${company.email}`;
+      });
+    }
   } catch {
     // Painel de ajuda so nao aparece com dados - nao e critico para a conta funcionar.
   }
@@ -113,13 +155,14 @@ function showLogin() {
   $('#appShell').hidden = true;
 }
 
-document.querySelectorAll('.nav-item[data-view], .tab-item[data-view]').forEach(btn => {
+document.querySelectorAll('.nav-item[data-view], .tab-item[data-view], .sheet-link[data-view], .trip-hub-tab[data-view]').forEach(btn => {
   btn.addEventListener('click', () => switchView(btn.dataset.view));
 });
 
 $('#menuToggle')?.addEventListener('click', toggleMobileNav);
-$('#moreMenuBtn')?.addEventListener('click', openMobileNav);
+$('#moreMenuBtn')?.addEventListener('click', toggleMobileNav);
 $('#sidebarBackdrop')?.addEventListener('click', closeMobileNav);
+$('#accountSheetBackdrop')?.addEventListener('click', closeMobileNav);
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape') closeMobileNav();
 });

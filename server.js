@@ -10,7 +10,7 @@ const domain = require('./src/domain');
 const storage = require('./src/storage');
 const { readDb, updateDb } = storage;
 const { baseOffers, searchOffers, getOfferById } = require('./src/mockOperators');
-const { proposalEmail, reservationEmail, loginCodeEmail } = require('./src/emailTemplates');
+const { proposalEmail, reservationEmail, loginCodeEmail, documentRequestEmail } = require('./src/emailTemplates');
 const { OperatorRegistry, TourDiezAdapter } = require('./src/operatorAdapters');
 const { HotelbedsAdapter } = require('./src/hotelbedsAdapter');
 const { cleanText, searchPayload, customerPayload, passengerPayload, validatePassengerForTrip, paymentMethod, numberInRange, email: validateEmail, password: validatePassword } = require('./src/validation');
@@ -29,6 +29,7 @@ const { TicketmasterClient } = require('./src/integrations/ticketmasterClient');
 const { GooglePlacesClient } = require('./src/integrations/googlePlacesClient');
 const { TravelIntelligenceService } = require('./src/integrations/travelIntelligence');
 const { ServiceCatalog } = require('./src/integrations/serviceCatalog');
+const { providerRegistry } = require('./src/integrations/registry');
 const createOfferTokenService = require('./src/offerTokenService');
 const createOfferRevalidation = require('./src/offerRevalidation');
 
@@ -84,6 +85,7 @@ const ctx = {
   proposalEmail,
   reservationEmail,
   loginCodeEmail,
+  documentRequestEmail,
   cleanText,
   searchPayload,
   customerPayload,
@@ -105,6 +107,7 @@ const ctx = {
   googlePlaces,
   travelIntelligence,
   serviceCatalog,
+  providerRegistry,
   offerTokens,
   offerRevalidation
 };

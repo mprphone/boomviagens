@@ -25,7 +25,7 @@ export function renderCheckoutSummary(offer) {
       <span class="pill ${offer.live ? 'live' : ''}">${offer.live ? 'Preço do operador' : 'Estimativa'}</span>
     </div>
     <div class="summary-total"><span>Total da viagem</span><strong id="summaryTotalValue">${money(offer.finalPrice)}</strong></div>
-    <details class="checkout-summary-more" open>
+    <details class="checkout-summary-more"${window.matchMedia('(max-width: 900px)').matches ? '' : ' open'}>
       <summary>Detalhes da viagem</summary>
       ${trip ? `<div class="summary-dates">${trip}</div>` : ''}
       <ul class="summary-facts">

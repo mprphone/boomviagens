@@ -1,5 +1,6 @@
 const { fetchJson } = require('./httpClient');
 const { TtlCache } = require('./cache');
+const { defineProvider } = require('./providerKit');
 
 function bestImage(images = []) {
   return [...images].filter(i => i?.url).sort((a, b) => (b.width || 0) - (a.width || 0))[0]?.url || '';
@@ -33,9 +34,12 @@ function ticketmasterDate(value, endOfDay = false) {
 }
 
 class TicketmasterClient {
-  constructor(env = process.env) {
+  constructor(env = process.env, options = {}) {
     this.apiKey = String(env.TICKETMASTER_API_KEY || '').trim();
-    this.cache = new TtlCache();
+    this.http = options.http || { fetchJson };
+    this.timeoutMs = Number(options.timeoutMs || 9000);
+    this.cacheTtlMs = Number(options.cacheTtlMs || 30 * 60 * 1000);
+    this.cache = options.cache || new TtlCache();
   }
   isConfigured() { return Boolean(this.apiKey); }
 
@@ -56,10 +60,10 @@ class TicketmasterClient {
     const cacheKey = url.toString().replace(this.apiKey, '[key]');
     const cached = this.cache.get(cacheKey);
     if (cached) return { ...cached, cached: true };
-    const { data } = await fetchJson(url, { timeoutMs: 9000 });
+    const { data } = await this.http.fetchJson(url, { timeoutMs: this.timeoutMs });
     const events = (data?._embedded?.events || []).map(normalizeEvent).filter(e => e.id);
     const result = { events, total: Number(data?.page?.totalElements || events.length), cached: false };
-    this.cache.set(cacheKey, result, 30 * 60 * 1000);
+    this.cache.set(cacheKey, result, this.cacheTtlMs);
     return result;
   }
 
@@ -71,4 +75,20 @@ class TicketmasterClient {
   }
 }
 
-module.exports = { TicketmasterClient, normalizeEvent, ticketmasterDate };
+// Contrato do fornecedor no provider kit (ver docs/INTEGRACOES.md).
+const ticketmasterProvider = defineProvider({
+  id: 'ticketmaster',
+  label: 'Ticketmaster Discovery',
+  kind: 'enrichment',
+  envPrefix: 'TICKETMASTER',
+  requiredEnv: ['TICKETMASTER_API_KEY'],
+  timeoutMs: 9000,
+  cacheTtlMs: 30 * 60 * 1000,
+  create: (config, http) => new TicketmasterClient(
+    { TICKETMASTER_API_KEY: config.TICKETMASTER_API_KEY },
+    { http, timeoutMs: config.timeoutMs, cacheTtlMs: config.cacheTtlMs }
+  ),
+  healthCheck: client => client.testConnection()
+});
+
+module.exports = { TicketmasterClient, normalizeEvent, ticketmasterDate, ticketmasterProvider };

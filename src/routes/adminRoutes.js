@@ -7,7 +7,7 @@ const { safeError } = require('../httpUtils');
 const { sniffAndValidate } = require('../fileValidation');
 
 module.exports = function registerAdminRoutes(router, ctx) {
-  const { json, parseBody, readDb, updateDb, operators, cleanText, numberInRange, domain, fileStorage, reservationEmail, invoicing, mailer } = ctx;
+  const { json, parseBody, readDb, updateDb, operators, cleanText, numberInRange, domain, fileStorage, reservationEmail, documentRequestEmail, invoicing, mailer } = ctx;
 
   // sendMail() e' assincrono - nunca pode correr dentro de um mutator
   // sincrono do updateDb (ver storage.js/paymentConfirmation.js). Mesmo
@@ -324,6 +324,7 @@ module.exports = function registerAdminRoutes(router, ctx) {
     }
     let resultPayload = null;
     let pendingEmail = null;
+    let pendingDocEmail = null;
 
     await updateDb(d => {
       ensureCollections(d);
@@ -349,10 +350,23 @@ module.exports = function registerAdminRoutes(router, ctx) {
       if (previousStatus !== status) {
         d.reservationEvents.unshift({ id: id('evt'), createdAt: now(), reservationId: r.id, actor: sessionUser(req), type: 'STATUS_CHANGE', description: `De "${statusLabel(previousStatus)}" para "${statusLabel(status)}"` });
       }
+      // Entrada em AWAITING_DOCUMENTS: alem do email generico de estado,
+      // o cliente recebe logo a lista concreta do que falta - e so nesta
+      // transicao (nunca em updates repetidos ao mesmo estado, para nao
+      // fazer spam). awaitingDocumentsSince e a referencia do cron de
+      // lembretes (src/routes/cronRoutes.js). O envio fica fora do mutator
+      // (sendMail e assincrono - ver a nota em sendReservationEmail).
+      if (status === 'AWAITING_DOCUMENTS' && previousStatus !== 'AWAITING_DOCUMENTS') {
+        r.awaitingDocumentsSince = now();
+        const docEmail = documentRequestEmail({ reservation: r, missingDocuments: missingDocumentsFor(r, d.documents) });
+        d.emails.unshift({ id: id('email'), createdAt: now(), to, status: mailer.isConfigured() ? 'ENVIADO' : 'GERADO_DEMO', ...docEmail });
+        pendingDocEmail = { to, subject: docEmail.subject, body: docEmail.body, reservationId: r.id };
+      }
       audit(d, sessionUser(req), 'RESERVATION_STATUS_UPDATED', { reservationId: r.id, from: previousStatus, to: status });
       resultPayload = { reservation: r };
     });
     await sendReservationEmail(pendingEmail);
+    await sendReservationEmail(pendingDocEmail);
     return json(res, 200, { ok: true, reservation: reservationViewFor(req, resultPayload.reservation) });
   }, { admin: true, roles: ['OPERACIONAL', 'SUPERVISOR', 'ADMIN'] });
 
@@ -1429,8 +1443,15 @@ module.exports = function registerAdminRoutes(router, ctx) {
     });
   }, { admin: true, roles: ['SUPERVISOR', 'ADMIN'] });
 
+  // `integrations` mantem o formato de sempre (Travel Intelligence);
+  // `providers` e a vista unificada do providerRegistry (todos os
+  // fornecedores: configurado/em falta/modo) - ver docs/INTEGRACOES.md.
   router.get('/api/admin/integrations', async (req, res) => {
-    return json(res, 200, { ok: true, integrations: ctx.travelIntelligence.status() });
+    return json(res, 200, {
+      ok: true,
+      integrations: ctx.travelIntelligence.status(),
+      providers: ctx.providerRegistry ? ctx.providerRegistry.list() : []
+    });
   }, { admin: true, roles: ['SUPERVISOR', 'ADMIN'] });
 
   // Testes manuais apenas: nenhuma destas chamadas corre ao abrir o

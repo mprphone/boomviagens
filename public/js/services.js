@@ -83,6 +83,9 @@ document.addEventListener('click', event => {
   if (catalogButton) {
     event.preventDefault();
     $('#servicesMenu').hidden = true;
+    const siteSheet = $('#siteSheet');
+    if (siteSheet) siteSheet.hidden = true;
+    document.getElementById('siteServicesBtn')?.setAttribute('aria-expanded', 'false');
     activateService(catalogButton.dataset.catalogService);
   }
 

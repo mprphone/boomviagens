@@ -1,10 +1,14 @@
 const { fetchJson } = require('./httpClient');
 const { TtlCache } = require('./cache');
+const { defineProvider } = require('./providerKit');
 
 class OpenWeatherClient {
-  constructor(env = process.env) {
+  constructor(env = process.env, options = {}) {
     this.apiKey = String(env.OPENWEATHER_API_KEY || '').trim();
-    this.cache = new TtlCache();
+    this.http = options.http || { fetchJson };
+    this.timeoutMs = Number(options.timeoutMs || 8000);
+    this.cacheTtlMs = Number(options.cacheTtlMs || 30 * 60 * 1000);
+    this.cache = options.cache || new TtlCache();
   }
   isConfigured() { return Boolean(this.apiKey); }
 
@@ -17,7 +21,7 @@ class OpenWeatherClient {
     url.searchParams.set('q', String(query));
     url.searchParams.set('limit', '1');
     url.searchParams.set('appid', this.apiKey);
-    const { data } = await fetchJson(url, { timeoutMs: 8000 });
+    const { data } = await this.http.fetchJson(url, { timeoutMs: this.timeoutMs });
     const place = Array.isArray(data) ? data[0] : null;
     if (!place) throw new Error('Destino não encontrado no serviço meteorológico.');
     const normalized = { name: place.local_names?.pt || place.name || query, country: place.country || '', lat: Number(place.lat), lon: Number(place.lon) };
@@ -35,7 +39,7 @@ class OpenWeatherClient {
     url.searchParams.set('appid', this.apiKey);
     url.searchParams.set('units', 'metric');
     url.searchParams.set('lang', 'pt');
-    const { data } = await fetchJson(url, { timeoutMs: 8000 });
+    const { data } = await this.http.fetchJson(url, { timeoutMs: this.timeoutMs });
     const result = {
       place: data?.name || '',
       country: data?.sys?.country || '',
@@ -48,7 +52,7 @@ class OpenWeatherClient {
       observedAt: data?.dt ? new Date(Number(data.dt) * 1000).toISOString() : new Date().toISOString(),
       cached: false
     };
-    this.cache.set(key, result, 30 * 60 * 1000);
+    this.cache.set(key, result, this.cacheTtlMs);
     return result;
   }
 
@@ -67,4 +71,21 @@ class OpenWeatherClient {
   }
 }
 
-module.exports = { OpenWeatherClient };
+// Contrato do fornecedor no provider kit (ver docs/INTEGRACOES.md) - o
+// registo central em registry.js usa estes metadados para o backoffice.
+const openWeatherProvider = defineProvider({
+  id: 'openweather',
+  label: 'OpenWeather',
+  kind: 'enrichment',
+  envPrefix: 'OPENWEATHER',
+  requiredEnv: ['OPENWEATHER_API_KEY'],
+  timeoutMs: 8000,
+  cacheTtlMs: 30 * 60 * 1000,
+  create: (config, http) => new OpenWeatherClient(
+    { OPENWEATHER_API_KEY: config.OPENWEATHER_API_KEY },
+    { http, timeoutMs: config.timeoutMs, cacheTtlMs: config.cacheTtlMs }
+  ),
+  healthCheck: client => client.testConnection()
+});
+
+module.exports = { OpenWeatherClient, openWeatherProvider };

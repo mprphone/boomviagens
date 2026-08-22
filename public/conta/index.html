@@ -116,13 +116,18 @@
 
     <div class="main">
       <header class="topbar">
-        <button type="button" class="menu-toggle" id="menuToggle" aria-label="Abrir menu" aria-controls="accountSidebar" aria-expanded="false">
+        <button type="button" class="menu-toggle" id="menuToggle" aria-label="Abrir menu" aria-controls="accountSheet" aria-expanded="false">
           <span></span><span></span><span></span>
         </button>
-        <h1 id="pageTitle">Dashboard</h1>
+        <h1 id="pageTitle">Início</h1>
       </header>
 
       <main class="content">
+        <nav class="trip-hub" id="tripHub" hidden aria-label="Tipo de viagem">
+          <button type="button" class="trip-hub-tab is-active" data-view="viagens">Ativas</button>
+          <button type="button" class="trip-hub-tab" data-view="guardadas">Guardadas</button>
+          <button type="button" class="trip-hub-tab" data-view="anteriores">Anteriores</button>
+        </nav>
         <section id="view-dashboard" class="view"></section>
         <section id="view-guardadas" class="view" hidden></section>
         <section id="view-viagens" class="view" hidden></section>
@@ -140,21 +145,55 @@
 
     <nav class="mobile-tabbar" aria-label="Navegação principal">
       <button type="button" class="tab-item is-active" data-view="dashboard">
-        <span class="tab-icon" aria-hidden="true"></span>Início
+        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5V20h-6v-6H10v6H4z"/></svg>
+        Início
       </button>
       <button type="button" class="tab-item" data-view="viagens">
-        <span class="tab-icon" aria-hidden="true"></span>Viagens
+        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="8" width="18" height="12" rx="2"/><path d="M7 8V7a5 5 0 0 1 10 0v1"/></svg>
+        Viagens
       </button>
       <button type="button" class="tab-item" data-view="documentos">
-        <span class="tab-icon" aria-hidden="true"></span>Docs
+        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/></svg>
+        Docs
       </button>
       <button type="button" class="tab-item" data-view="pagamentos">
-        <span class="tab-icon" aria-hidden="true"></span>Pagamentos
+        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/><path d="M7 15h4"/></svg>
+        Pagamentos
       </button>
-      <button type="button" class="tab-item" id="moreMenuBtn">
-        <span class="tab-icon tab-icon-more" aria-hidden="true"></span>Menu
+      <button type="button" class="tab-item" id="moreMenuBtn" aria-controls="accountSheet" aria-expanded="false">
+        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.2"/><path d="M5 19c1.4-3.2 3.8-4.6 7-4.6S17.6 15.8 19 19"/></svg>
+        Conta
       </button>
     </nav>
+
+    <div class="account-sheet" id="accountSheet" hidden>
+      <button type="button" class="account-sheet-backdrop" id="accountSheetBackdrop" aria-label="Fechar menu"></button>
+      <div class="account-sheet-panel" role="dialog" aria-label="Conta e mais opções">
+        <div class="account-sheet-handle" aria-hidden="true"></div>
+        <div class="account-sheet-profile">
+          <div class="sidebar-avatar" id="sheetAvatar">?</div>
+          <div>
+            <div class="sidebar-profile-name" id="sheetName">Olá!</div>
+            <div class="sidebar-profile-sub" id="sheetSub">A sua área reservada</div>
+          </div>
+        </div>
+        <div class="account-sheet-group">
+          <h3>Conta</h3>
+          <button type="button" class="sheet-link" data-view="dados">Os meus dados</button>
+          <button type="button" class="sheet-link" data-view="passageiros">Passageiros</button>
+          <button type="button" class="sheet-link" data-view="preferencias">Preferências</button>
+          <button type="button" class="sheet-link" data-view="emergencia">Contactos de emergência</button>
+        </div>
+        <div class="account-sheet-group">
+          <h3>Ajuda</h3>
+          <button type="button" class="sheet-link" data-view="mensagens">Pedidos e mensagens</button>
+          <a class="sheet-link" id="sheetHelpPhone" href="#"></a>
+          <a class="sheet-link" id="sheetHelpEmail" href="#"></a>
+          <a class="sheet-link" href="/">Voltar ao site</a>
+          <button type="button" id="sheetLogoutBtn" class="sheet-link is-danger">Terminar sessão</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script type="module" src="/conta/js/main.js"></script>
